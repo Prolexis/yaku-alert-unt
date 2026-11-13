@@ -1,0 +1,81 @@
+{
+  "metadata": {
+    "framework": "Ley N.° 29664 (SINAGERD), D.S. N.° 048-2011-PCM, PLANAGERD 2022-2030, Ley N.° 29733",
+    "disclaimer": "Orientaciones preventivas de apoyo informativo. No sustituyen disposiciones oficiales de Defensa Civil UNT, COEN, INDECI ni SENAMHI."
+  },
+  "preventive_levels": [
+    {
+      "level": "INFORMATIVO",
+      "label": "Estado Informativo — Condiciones Normales",
+      "color": "#10b981",
+      "guidance": [
+        "Mantener seguimiento regular del pronóstico horario y comunicados oficiales de SENAMHI.",
+        "Verificar drenajes, canaletas y puntos de encuentro referenciales en su facultad.",
+        "Recordar que las alertas operativas oficiales solo son emitidas por autoridades competentes (SINAGERD / UNT)."
+      ],
+      "continuity": [
+        "Actividades académicas y administrativas presenciales en régimen regular.",
+        "Disponibilidad de aulas virtuales como respaldo preventivo."
+      ]
+    },
+    {
+      "level": "VIGILANCIA_PREVENTIVA",
+      "label": "Vigilancia Preventiva Experimental — Lluvia Moderada",
+      "color": "#f59e0b",
+      "guidance": [
+        "Evitar transitar por zonas bajas o con acumulación superficial de agua en el campus.",
+        "Proteger equipos electrónicos y documentación en laboratorios de primer piso.",
+        "Consultar rutas referenciales y ubicaciones de puntos de encuentro antes de desplazarse."
+      ],
+      "continuity": [
+        "Mantener clases presenciales con flexibilidad de asistencia para estudiantes de zonas periféricas.",
+        "Habilitar grabación o transmisión sincrónica de sesiones teóricas."
+      ]
+    },
+    {
+      "level": "ATENCION_PREVENTIVA",
+      "label": "Atención Preventiva Experimental — Lluvia Intensa / Alta Exposición",
+      "color": "#f97316",
+      "guidance": [
+        "Restringir preventivamente el tránsito por accesos y pabellones expuestos en el escenario analizado.",
+        "Permanecer en pisos superiores seguros si se encuentra dentro de un pabellón con anegamiento exterior.",
+        "No cruzar corrientes de agua ni utilizar instalaciones eléctricas húmedas."
+      ],
+      "continuity": [
+        "Activar transición temporal a modalidad virtual (aula virtual UNT) para cursos teóricos.",
+        "Reprogramar prácticas de laboratorio y evaluaciones presenciales sin penalización."
+      ]
+    },
+    {
+      "level": "PREPARACION_CRITICA",
+      "label": "Preparación Crítica Experimental — Escenario Extremo",
+      "color": "#ef4444",
+      "guidance": [
+        "Seguir estrictamente las indicaciones de la Oficina de Seguridad/Defensa Civil UNT y COER La Libertad.",
+        "Evitar desplazamientos innecesarios hacia o desde el campus mientras persista el evento.",
+        "En contexto urbano de Trujillo, mantenerse informado sobre avisos oficiales respecto a quebradas San Ildefonso, San Carlos y El León."
+      ],
+      "continuity": [
+        "Suspensión preventiva de actividades presenciales y migración integral a continuidad académica remota.",
+        "Activación de protocolos de resguardo de infraestructura crítica, servidores y laboratorios."
+      ]
+    }
+  ],
+  "trujillo_basins_context": [
+    {
+      "name": "Quebrada San Ildefonso",
+      "role": "Contexto externo al campus (cuenca de aporte hacia El Porvenir / Trujillo)",
+      "note": "Cuenta con obras de prevención (túnel de trasvase y diques bajo gestión de ANIN). El MVP no cuenta con sensores en tiempo real en esta quebrada; solo se muestra contexto informativo."
+    },
+    {
+      "name": "Quebrada San Carlos",
+      "role": "Contexto externo al campus (cuenca receptora y conducción hacia río Moche)",
+      "note": "Referencia informativa regional. No se infiere activación de quebrada a partir de probabilidad de lluvia local."
+    },
+    {
+      "name": "Quebrada El León",
+      "role": "Contexto externo al campus (sector norte de Trujillo / Huanchaco)",
+      "note": "Referencia informativa regional para desplazamientos de estudiantes desde zonas norte."
+    }
+  ]
+}

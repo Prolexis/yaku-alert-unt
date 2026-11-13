@@ -1,0 +1,246 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "campus": "Ciudad Universitaria — Universidad Nacional de Trujillo (UNT)",
+    "center": [-79.038595, -8.114656],
+    "data_nature": "referencial_academico",
+    "disclaimer": "Geometrías referenciales de demostración para prototipo TRL 3-4. No reemplazan planos catastrales ni mapas oficiales de Defensa Civil UNT."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "bld_rectorado",
+        "name": "Rectorado y Pabellón Administrativo",
+        "category": "edificio",
+        "floors": 3,
+        "criticality": "alta",
+        "has_ground_level_services": true,
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0394, -8.1140],
+          [-79.0384, -8.1140],
+          [-79.0384, -8.1145],
+          [-79.0394, -8.1145],
+          [-79.0394, -8.1140]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "bld_derecho",
+        "name": "Facultad de Derecho y Ciencias Políticas",
+        "category": "edificio",
+        "floors": 3,
+        "criticality": "media",
+        "has_ground_level_services": true,
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0380, -8.1141],
+          [-79.0371, -8.1141],
+          [-79.0371, -8.1147],
+          [-79.0380, -8.1147],
+          [-79.0380, -8.1141]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "bld_ingenieria",
+        "name": "Pabellón de Ingeniería e Informática",
+        "category": "edificio",
+        "floors": 4,
+        "criticality": "alta",
+        "has_ground_level_services": true,
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0405, -8.1148],
+          [-79.0396, -8.1148],
+          [-79.0396, -8.1154],
+          [-79.0405, -8.1154],
+          [-79.0405, -8.1148]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "bld_biblioteca",
+        "name": "Biblioteca Central UNT",
+        "category": "edificio",
+        "floors": 3,
+        "criticality": "alta",
+        "has_ground_level_services": true,
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0392, -8.1149],
+          [-79.0383, -8.1149],
+          [-79.0383, -8.1155],
+          [-79.0392, -8.1155],
+          [-79.0392, -8.1149]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "bld_comedor",
+        "name": "Comedor Universitario y Bienestar",
+        "category": "edificio",
+        "floors": 2,
+        "criticality": "alta",
+        "has_ground_level_services": true,
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0408, -8.1157],
+          [-79.0398, -8.1157],
+          [-79.0398, -8.1163],
+          [-79.0408, -8.1163],
+          [-79.0408, -8.1157]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "bld_estadio",
+        "name": "Área Deportiva y Explanada Central",
+        "category": "edificio",
+        "floors": 1,
+        "criticality": "baja",
+        "has_ground_level_services": true,
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0378, -8.1151],
+          [-79.0367, -8.1151],
+          [-79.0367, -8.1160],
+          [-79.0378, -8.1160],
+          [-79.0378, -8.1151]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "acc_juan_pablo",
+        "name": "Puerta Principal — Av. Juan Pablo II",
+        "category": "acceso",
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.0389, -8.1135]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "acc_america_oeste",
+        "name": "Acceso Puerta Av. América Oeste",
+        "category": "acceso",
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.0411, -8.1155]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "acc_nazareth",
+        "name": "Acceso Av. Jesús de Nazareth",
+        "category": "acceso",
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.0366, -8.1144]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "pe_explanada_norte",
+        "name": "Punto de Encuentro Referencial A (Explanada Norte)",
+        "category": "punto_encuentro",
+        "note": "Referencial de demostración. Verificar señalización oficial de Defensa Civil UNT.",
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.0385, -8.1138]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "pe_plaza_central",
+        "name": "Punto de Encuentro Referencial B (Plaza Central)",
+        "category": "punto_encuentro",
+        "note": "Referencial de demostración. Verificar señalización oficial de Defensa Civil UNT.",
+        "data_nature": "referencial_academico"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.0381, -8.1150]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ruta_ref_1",
+        "name": "Ruta Referencial 1 (Ingeniería → Plaza Central)",
+        "category": "ruta_referencial",
+        "disclaimer": "Ruta únicamente referencial de simulación; no garantiza transitabilidad ni seguridad operativa.",
+        "data_nature": "sintetico_simulado"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.0400, -8.1151],
+          [-79.0393, -8.1150],
+          [-79.0381, -8.1150]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ruta_ref_2",
+        "name": "Ruta Referencial 2 (Derecho → Explanada Norte)",
+        "category": "ruta_referencial",
+        "disclaimer": "Ruta únicamente referencial de simulación; no garantiza transitabilidad ni seguridad operativa.",
+        "data_nature": "sintetico_simulado"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.0376, -8.1144],
+          [-79.0380, -8.1140],
+          [-79.0385, -8.1138]
+        ]
+      }
+    }
+  ]
+}

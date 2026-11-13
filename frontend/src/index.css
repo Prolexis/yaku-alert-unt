@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+  }
+
+  :focus-visible {
+    outline: 2px solid #2563EB;
+    outline-offset: 2px;
+  }
+}
+
+.leaflet-container {
+  font-family: inherit;
+  z-index: 1;
+}
+
+/* Custom Leaflet popup styling */
+.yaku-popup .leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  padding: 2px;
+  box-shadow: 0 10px 25px -5px rgba(11, 31, 51, 0.18);
+  border: 1px solid #E2E8F0;
+}
+
+.yaku-popup .leaflet-popup-content {
+  margin: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #0F172A;
+}
+
+/* Subtle pulse for simulated hazard overlay */
+@keyframes sim-pulse {
+  0%, 100% {
+    fill-opacity: 0.22;
+  }
+  50% {
+    fill-opacity: 0.36;
+  }
+}
+
+.sim-hazard-polygon {
+  animation: sim-pulse 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

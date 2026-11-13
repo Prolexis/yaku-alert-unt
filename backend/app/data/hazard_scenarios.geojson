@@ -1,0 +1,72 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "data_nature": "sintetico_simulado",
+    "disclaimer": "Zonas de peligro SINTÉTICAS para simulación académica y demostración. No representan un estudio hidrológico oficial ni reemplazan mapas de CENEPRED/SIGRID/INDECI."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "scenario_id": "lluvia_moderada",
+        "zone_name": "Zona Simulada A — Anegamiento Menor Sector Oeste",
+        "hazard_type": "anegamiento_pluvial_simulado",
+        "severity": "moderado",
+        "description": "Simulación de acumulación superficial de agua en zona baja occidental ante lluvias moderadas sostenidas.",
+        "data_nature": "sintetico_simulado"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0414, -8.1153],
+          [-79.0402, -8.1153],
+          [-79.0402, -8.1165],
+          [-79.0414, -8.1165],
+          [-79.0414, -8.1153]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "scenario_id": "lluvia_intensa_fen",
+        "zone_name": "Zona Simulada B — Corredor de Escorrentía Oeste-Centro",
+        "hazard_type": "escorrentia_pluvial_simulada",
+        "severity": "alto",
+        "description": "Simulación de escorrentía pluvial intensa afectando accesos occidentales y plantas bajas del sector oeste-centro.",
+        "data_nature": "sintetico_simulado"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0415, -8.1146],
+          [-79.0390, -8.1146],
+          [-79.0390, -8.1166],
+          [-79.0415, -8.1166],
+          [-79.0415, -8.1146]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "scenario_id": "escenario_extremo_fen",
+        "zone_name": "Zona Simulada C — Escenario Extremo FEN (Anegamiento Amplio)",
+        "hazard_type": "inundacion_pluvial_simulada",
+        "severity": "muy_alto",
+        "description": "Escenario sintético extremo de lluvia intensa prolongada con afectación amplia en vías internas, accesos y plantas bajas.",
+        "data_nature": "sintetico_simulado"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-79.0416, -8.1137],
+          [-79.0376, -8.1137],
+          [-79.0376, -8.1166],
+          [-79.0416, -8.1166],
+          [-79.0416, -8.1137]
+        ]]
+      }
+    }
+  ]
+}

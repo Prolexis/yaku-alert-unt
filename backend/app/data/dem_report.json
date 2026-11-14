@@ -1,0 +1,28 @@
+{
+  "dem": "S09_W080.tif",
+  "crs": "EPSG:4326 (WGS84)",
+  "resolucion_m": [
+    30.6,
+    30.7
+  ],
+  "pixeles_nativos_en_campus": 520,
+  "elevacion_m": {
+    "min": 15.5,
+    "p5": 18.03,
+    "mediana": 21.9,
+    "p95": 27.38,
+    "max": 30.08
+  },
+  "relieve_p95_p5_m": 9.36,
+  "relieve_dsm_con_edificios_m": 9.59,
+  "pixeles_edificados_enmascarados": 74,
+  "pixeles_abiertos": 348,
+  "diferencia_media_edificado_vs_abierto_m": 2.15,
+  "pendiente_media_pct_campus": 3.06,
+  "pendiente_media_pct_contexto": 3.42,
+  "azimut_descenso_deg": 203.0,
+  "error_vertical_declarado_m": 4.0,
+  "relieve_supera_error_vertical": true,
+  "advertencia": "El relieve supera el error vertical, pero con píxeles de ~30 m solo permite hablar de tendencias (sectores relativamente bajos), no de charcos puntuales.",
+  "nota_dsm": "Copernicus GLO-30 es un modelo de superficie (DSM): incluye copas de árboles y edificios. Los píxeles con >=40% de edificios se enmascaran y rellenan por vecindad; los árboles no se pueden separar."
+}

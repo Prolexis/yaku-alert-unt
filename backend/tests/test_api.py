@@ -43,15 +43,39 @@ def test_invalid_weather_payload_raises():
 
 
 def test_spatial_analysis_inside_and_outside_zones():
-    # Zona moderada solo debe afectar sector oeste (Comedor, acceso América Oeste) y NO Derecho
-    spatial_mod, _ = analyze_spatial_exposure("lluvia_moderada")
-    bld_map = {b.id: b for b in spatial_mod.exposed_buildings}
-    assert bld_map["bld_comedor"].inside_hazard_zone is True
-    assert bld_map["bld_derecho"].inside_hazard_zone is False
+    """Verifica el resultado contra un cálculo independiente con Shapely (sin depender de IDs fijos)."""
+    from shapely.geometry import shape
 
-    # Escenario extremo debe ampliar la exposición
-    spatial_ext, _ = analyze_spatial_exposure("escenario_extremo_fen")
-    assert spatial_ext.total_exposed_buildings > spatial_mod.total_exposed_buildings
+    from app.services.spatial import load_campus_geojson, load_hazards_geojson
+
+    campus = load_campus_geojson()["features"]
+    hazards = {f["properties"]["scenario_id"]: shape(f["geometry"]) for f in load_hazards_geojson()["features"]}
+    geoms = {f["properties"]["id"]: shape(f["geometry"]) for f in campus if f["properties"]["category"] == "edificio"}
+    assert len(geoms) > 0
+
+    results = {}
+    for scenario, hazard in hazards.items():
+        spatial, _ = analyze_spatial_exposure(scenario)
+        results[scenario] = spatial
+        for b in spatial.exposed_buildings:
+            assert b.inside_hazard_zone == hazard.intersects(geoms[b.id])
+        assert spatial.total_exposed_buildings == sum(1 for g in geoms.values() if hazard.intersects(g))
+
+    # Escenario extremo debe cubrir al menos lo del moderado
+    assert results["escenario_extremo_fen"].total_exposed_buildings >= results["lluvia_moderada"].total_exposed_buildings
+
+
+def test_campus_geojson_quality():
+    from app.services.spatial import load_campus_geojson
+
+    feats = load_campus_geojson()["features"]
+    ids = [f["properties"]["id"] for f in feats]
+    assert len(ids) == len(set(ids)), "IDs duplicados"
+    cats = {f["properties"]["category"] for f in feats}
+    assert "edificio" in cats and "perimetro_campus" in cats
+    for f in feats:
+        assert f["properties"].get("source"), f["properties"]["id"]
+        assert f["properties"].get("verified") in (True, False)
 
 
 def test_simulation_reproducibility_and_synthetic_labeling():

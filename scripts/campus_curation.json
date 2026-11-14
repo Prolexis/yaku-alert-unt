@@ -1,0 +1,35 @@
+{
+  "_ayuda": "overrides: renombra/reclasifica elementos OSM por su osm_id. manual_features: elementos que NO están en OSM (puntos de encuentro, accesos) tomados en visita de campo o de planos oficiales. Marca verified=true solo si hay evidencia (foto, plano).",
+  "overrides": {
+    "way/0000000": {
+      "name": "Escuela de Informática",
+      "criticality": "alta"
+    }
+  },
+  "manual_features": [
+    {
+      "verified": false,
+      "source": "EJEMPLO - reemplazar tras visita de campo",
+      "properties": {
+        "id": "pe_ejemplo",
+        "category": "punto_encuentro",
+        "name": "Punto de encuentro (EJEMPLO, borrar)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -79.0385,
+          -8.115
+        ]
+      }
+    }
+  ],
+  "include_names": [
+    "CEPUNT",
+    "CIDUNT",
+    "Centro de Idiomas",
+    "\\bRNC\\b",
+    "Narv[aá]ez"
+  ],
+  "_ayuda_include_names": "Expresiones (regex, sin distinguir mayúsculas) de nombres OSM de anexos que SÍ son parte de la UNT aunque queden fuera del perímetro principal. Agrega aquí los que falten."
+}

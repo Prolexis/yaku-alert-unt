@@ -1,8 +1,33 @@
 import React, { useEffect, useRef, useState } from "react";
 import L from "leaflet";
-import { Layers, MapPin, ShieldAlert, Building2, Navigation, ArrowRight } from "lucide-react";
+import { Layers, MapPin, ShieldAlert, Building2, Navigation, ArrowRight, WifiOff } from "lucide-react";
 
-const UNT_CENTER = [-8.114656, -79.038595];
+const UNT_CENTER = [-8.11473, -79.03923];
+
+const BASEMAPS = {
+  calles: {
+    label: "Calles",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; colaboradores de OpenStreetMap",
+  },
+  satelite: {
+    label: "Satélite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Imagery &copy; Esri",
+  },
+  vectorial: { label: "Solo vectorial (sin internet)" },
+};
+
+// Los nombres vienen de OpenStreetMap (editable por terceros): se escapan antes de ir a un popup HTML.
+const esc = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const isUnnamed = (name) => /^Edificio sin nombre/.test(name || "");
+
+const sourceLine = (props) =>
+  `<div class="mt-1 text-[10px] text-slate-500">Fuente: ${esc(props.source || "referencial")} · ${
+    props.verified ? "verificado" : "no verificado"
+  }${props.osm_id ? " · " + esc(props.osm_id) : ""}</div>`;
 
 export default function CampusMapView({
   campusLayers,
@@ -14,43 +39,123 @@ export default function CampusMapView({
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const baseGroupRef = useRef(null);
   const overlayGroupRef = useRef(null);
+  const tileLayerRef = useRef(null);
+  const tileErrorsRef = useRef(0);
+  const fittedRef = useRef(false);
 
+  const [basemap, setBasemap] = useState(
+    typeof navigator !== "undefined" && navigator.onLine === false ? "vectorial" : "calles"
+  );
+  const [tilesFailed, setTilesFailed] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState({
     edificios: true,
     accesos: true,
     puntos: true,
     rutas: true,
     peligro: true,
+    senderos: true,
+    deportes: true,
   });
 
+  // Inicializa el mapa (sin mapa base: se maneja aparte para poder cambiarlo y degradar sin internet)
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
       center: UNT_CENTER,
-      zoom: 16,
+      zoom: 17,
+      maxZoom: 20,
       zoomControl: false,
     });
-
     L.control.zoom({ position: "bottomright" }).addTo(map);
+    map.attributionControl.addAttribution("Datos del campus &copy; colaboradores de OpenStreetMap (ODbL)");
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-      attribution: "&copy; OpenStreetMap &copy; CARTO | Capas UNT referenciales",
-      maxZoom: 19,
-    }).addTo(map);
-
-    const group = L.layerGroup().addTo(map);
+    baseGroupRef.current = L.layerGroup().addTo(map);
+    overlayGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
-    overlayGroupRef.current = group;
 
     return () => {
       map.remove();
       mapInstanceRef.current = null;
+      baseGroupRef.current = null;
       overlayGroupRef.current = null;
+      tileLayerRef.current = null;
     };
   }, []);
 
+  // Mapa base seleccionable; si los mosaicos fallan (sin internet) se informa y quedan las capas vectoriales
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+    tileErrorsRef.current = 0;
+    setTilesFailed(false);
+    const cfg = BASEMAPS[basemap];
+    if (!cfg?.url) return;
+    const layer = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: 20, maxNativeZoom: 19 });
+    layer.on("tileerror", () => {
+      tileErrorsRef.current += 1;
+      if (tileErrorsRef.current >= 4) setTilesFailed(true);
+    });
+    layer.on("tileload", () => {
+      tileErrorsRef.current = 0;
+      setTilesFailed(false);
+    });
+    layer.addTo(map);
+    layer.bringToBack();
+    tileLayerRef.current = layer;
+  }, [basemap]);
+
+  // Capas base reales del campus: perímetro, senderos y áreas deportivas (siempre vectoriales y locales)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const base = baseGroupRef.current;
+    if (!map || !base || !campusLayers) return;
+    base.clearLayers();
+    const feats = campusLayers.campus?.features || [];
+    const perimeters = feats.filter((f) => f.properties.category === "perimetro_campus");
+
+    perimeters.forEach((f) =>
+      L.geoJSON(f, {
+        interactive: false,
+        style: { color: "#0B1F33", weight: 2.5, dashArray: "2 6", fill: true, fillColor: "#F1F5F9", fillOpacity: 0.55 },
+      }).addTo(base)
+    );
+
+    if (visibleLayers.senderos) {
+      feats
+        .filter((f) => f.properties.category === "via")
+        .forEach((f) =>
+          L.geoJSON(f, { interactive: false, style: { color: "#94A3B8", weight: 1.4, opacity: 0.9 } }).addTo(base)
+        );
+    }
+    if (visibleLayers.deportes) {
+      feats
+        .filter((f) => f.properties.category === "area_deportiva")
+        .forEach((f) => {
+          const nm = f.properties.name && f.properties.name !== "area_deportiva" ? f.properties.name : "Área deportiva";
+          L.geoJSON(f, { style: { color: "#16A34A", weight: 1, fillColor: "#86EFAC", fillOpacity: 0.45 } })
+            .bindPopup(`<div><strong>${esc(nm)}</strong>${sourceLine(f.properties)}</div>`, { className: "yaku-popup" })
+            .addTo(base);
+        });
+    }
+
+    if (!fittedRef.current && perimeters.length) {
+      const bounds = L.featureGroup(perimeters.map((f) => L.geoJSON(f))).getBounds();
+      if (bounds.isValid()) {
+        map.invalidateSize();
+        map.fitBounds(bounds, { padding: [24, 24] });
+        fittedRef.current = true;
+      }
+    }
+  }, [campusLayers, visibleLayers.senderos, visibleLayers.deportes]);
+
+  // Capas dinámicas: edificios, accesos, puntos y escenario simulado
   useEffect(() => {
     const group = overlayGroupRef.current;
     if (!group || !campusLayers) return;
@@ -74,6 +179,7 @@ export default function CampusMapView({
 
     // Polígono de peligro simulado
     if (visibleLayers.peligro && simResult?.hazard_geojson) {
+      const hp = simResult.hazard_geojson.properties || {};
       L.geoJSON(simResult.hazard_geojson, {
         style: {
           color: "#E11D48",
@@ -86,9 +192,9 @@ export default function CampusMapView({
       })
         .bindPopup(
           `<div class="space-y-1">
-            <div class="font-bold text-rose-700">${simResult.hazard_geojson.properties.zone_name}</div>
-            <div class="text-[11px] font-semibold uppercase text-amber-700">Escenario sintético (${simResult.hazard_geojson.properties.severity})</div>
-            <div>${simResult.hazard_geojson.properties.description}</div>
+            <div class="font-bold text-rose-700">${esc(hp.zone_name)}</div>
+            <div class="text-[11px] font-semibold uppercase text-amber-700">Escenario sintético (${esc(hp.severity)})</div>
+            <div>${esc(hp.description)}</div>
           </div>`,
           { className: "yaku-popup" }
         )
@@ -101,34 +207,29 @@ export default function CampusMapView({
 
       if (category === "edificio" && visibleLayers.edificios) {
         const isExposed = exposedIds.has(id);
-        L.geoJSON(feat, {
-          style: {
-            color: isExposed ? "#EA580C" : "#2563EB",
-            weight: isExposed ? 2.5 : 1.5,
-            fillColor: isExposed ? "#F97316" : "#3B82F6",
-            fillOpacity: isExposed ? 0.55 : 0.25,
-          },
-        })
+        const unnamed = isUnnamed(name);
+        const style = isExposed
+          ? { color: "#EA580C", weight: 2.5, fillColor: "#F97316", fillOpacity: 0.55 }
+          : unnamed
+          ? { color: "#64748B", weight: 1, fillColor: "#94A3B8", fillOpacity: 0.4 }
+          : { color: "#2563EB", weight: 1.5, fillColor: "#3B82F6", fillOpacity: 0.3 };
+        const layer = L.geoJSON(feat, { style })
           .bindPopup(
             `<div>
-              <strong>${name}</strong><br/>
+              <strong>${esc(name)}</strong><br/>
               <span class="text-[11px]">${
                 isExposed ? "⚠️ Expuesto en simulación (revisar 1.er nivel)" : "Fuera de zona simulada"
               }</span>
+              ${sourceLine(feat.properties)}
             </div>`,
             { className: "yaku-popup" }
-          )
-          .addTo(group);
+          );
+        if (!unnamed) layer.bindTooltip(esc(name), { sticky: true, direction: "top" });
+        layer.addTo(group);
       } else if (category === "ruta_referencial" && visibleLayers.rutas) {
-        L.geoJSON(feat, {
-          style: {
-            color: "#7C3AED",
-            weight: 3,
-            dashArray: "5 6",
-          },
-        })
+        L.geoJSON(feat, { style: { color: "#7C3AED", weight: 3, dashArray: "5 6" } })
           .bindPopup(
-            `<div><strong>${name}</strong><br/><span class="text-[11px]">${feat.properties.disclaimer}</span></div>`,
+            `<div><strong>${esc(name)}</strong><br/><span class="text-[11px]">${esc(feat.properties.disclaimer)}</span></div>`,
             { className: "yaku-popup" }
           )
           .addTo(group);
@@ -143,9 +244,9 @@ export default function CampusMapView({
           fillOpacity: 0.95,
         })
           .bindPopup(
-            `<div><strong>${name}</strong><br/><span class="text-[11px]">${
+            `<div><strong>${esc(name)}</strong><br/><span class="text-[11px]">${
               isRestricted ? "Acceso restringido en simulación" : "Acceso transitable en simulación"
-            }</span></div>`,
+            }</span>${sourceLine(feat.properties)}</div>`,
             { className: "yaku-popup" }
           )
           .addTo(group);
@@ -160,9 +261,9 @@ export default function CampusMapView({
           fillOpacity: 0.95,
         })
           .bindPopup(
-            `<div><strong>${name}</strong><br/><span class="text-[11px]">${
+            `<div><strong>${esc(name)}</strong><br/><span class="text-[11px]">${
               isCompromised ? "Comprometido en simulación" : "Disponible como referencia"
-            }</span><br/><small>${feat.properties.note}</small></div>`,
+            }</span><br/><small>${esc(feat.properties.note || "")}</small>${sourceLine(feat.properties)}</div>`,
             { className: "yaku-popup" }
           )
           .addTo(group);
@@ -242,16 +343,46 @@ export default function CampusMapView({
         <div className="relative">
           <div ref={mapContainerRef} className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 sm:h-[540px]" />
 
+          {(basemap === "vectorial" || tilesFailed) && (
+            <div
+              role="status"
+              className="absolute left-3 top-3 z-[400] flex max-w-[15rem] items-start gap-2 rounded-xl border border-amber-300 bg-amber-50/95 px-3 py-2 text-[11px] font-medium text-amber-900 shadow-lg"
+            >
+              <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>Sin mapa base. Se muestran solo las capas vectoriales locales del campus UNT.</span>
+            </div>
+          )}
+
           {/* Control flotante de capas */}
           <div className="absolute right-3 top-3 z-[400] w-52 rounded-xl border border-[#E2E8F0] bg-white/95 p-3 text-xs shadow-lg backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
             <div className="mb-2 flex items-center gap-1.5 font-bold text-[#0F172A] dark:text-white">
               <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
               Capas del mapa
             </div>
+            <div className="mb-2 flex gap-1" role="group" aria-label="Mapa base">
+              {Object.entries(BASEMAPS).map(([key, cfg]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setBasemap(key)}
+                  aria-pressed={basemap === key}
+                  title={cfg.label}
+                  className={`flex-1 rounded-md px-1.5 py-1 text-[10px] font-semibold ${
+                    basemap === key
+                      ? "bg-[#2563EB] text-white"
+                      : "border border-[#E2E8F0] text-[#64748B] dark:border-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  {key === "vectorial" ? "Offline" : cfg.label}
+                </button>
+              ))}
+            </div>
             <div className="space-y-1.5 text-[#64748B] dark:text-slate-300">
               {[
                 { key: "peligro", label: "Polígono simulado" },
                 { key: "edificios", label: "Edificios UNT" },
+                { key: "senderos", label: "Vías y senderos" },
+                { key: "deportes", label: "Áreas deportivas" },
                 { key: "accesos", label: "Accesos campus" },
                 { key: "puntos", label: "Puntos encuentro ref." },
                 { key: "rutas", label: "Rutas referenciales" },
@@ -273,12 +404,21 @@ export default function CampusMapView({
 
           {/* Leyenda flotante inferior izquierda */}
           <div className="absolute bottom-3 left-3 z-[400] max-w-xs rounded-xl border border-[#E2E8F0] bg-white/95 px-3 py-2.5 text-[11px] shadow-lg backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+            <div className="mb-1.5 font-semibold text-[#0F172A] dark:text-slate-100">
+              Campus: OpenStreetMap (no verificado) · Zona de peligro: SINTÉTICA
+            </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[#0F172A] dark:text-slate-200">
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-orange-500" /> Edificio expuesto
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Fuera de zona
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Edificio (fuera de zona)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" /> Edificio sin nombre (OSM)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[#0B1F33]" /> Perímetro UNT
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Acceso restringido
@@ -330,7 +470,10 @@ export default function CampusMapView({
                   Detalle por edificación
                 </h4>
                 <div className="mt-2 max-h-56 space-y-2 overflow-y-auto pr-1">
-                  {simResult.spatial_analysis.exposed_buildings.map((b) => (
+                  {[...simResult.spatial_analysis.exposed_buildings]
+                    .filter((b) => b.inside_hazard_zone || !isUnnamed(b.name))
+                    .sort((a, b) => Number(b.inside_hazard_zone) - Number(a.inside_hazard_zone))
+                    .map((b) => (
                     <div
                       key={b.id}
                       className={`rounded-xl border p-2.5 text-xs ${

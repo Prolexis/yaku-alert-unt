@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -37,6 +38,7 @@ def parse_open_meteo_payload(
     raw: dict[str, Any],
     data_status: str,
     fetched_at_utc: str,
+    fallback_reason: str | None = None,
 ) -> WeatherResponse:
     hourly_raw = raw.get("hourly")
     if not isinstance(hourly_raw, dict) or not hourly_raw.get("time"):
@@ -126,12 +128,30 @@ def parse_open_meteo_payload(
             avg_humidity_pct=avg_hum,
         ),
         hourly=points,
+        fallback_reason=fallback_reason,
+        cache_period=(
+            f"{points[0].time[:10]} a {points[-1].time[:10]}"
+            if data_status != "LIVE_API" and points
+            else None
+        ),
         limitations=[
             "Resolución espacial aproximada de modelo global (~0.1°–0.25°); no captura microdrenajes internos del campus.",
             "Los valores son pronósticos horarios, no observaciones en tiempo real de estación meteorológica.",
             "La probabilidad de precipitación no equivale a probabilidad de inundación ni de activación de quebradas.",
         ],
     )
+
+
+# Caché en memoria para no repetir la llamada a Open-Meteo en cada recarga.
+LIVE_CACHE_SECONDS = 300  # un pronóstico reciente sirve 5 min
+FAIL_BACKOFF_SECONDS = 60  # tras un fallo, no reintentar durante 1 min (evita esperas repetidas sin red)
+_live_cache: dict[str, Any] = {"ts": 0.0, "raw": None}
+_fail_state: dict[str, Any] = {"until": 0.0, "reason": ""}
+
+
+def reset_weather_cache() -> None:
+    _live_cache.update(ts=0.0, raw=None)
+    _fail_state.update(until=0.0, reason="")
 
 
 async def fetch_weather_for_unt(force_offline: bool = False) -> WeatherResponse:
@@ -143,18 +163,29 @@ async def fetch_weather_for_unt(force_offline: bool = False) -> WeatherResponse:
         "timezone": UNT_TIMEZONE,
         "forecast_days": 2,
     }
+    reason = "Modo sin conexión forzado por el usuario."
 
     if not force_offline:
-        try:
-            # Force IPv4 local_address to avoid IPv6 TLS handshake timeouts on Windows networks
-            transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0")
-            async with httpx.AsyncClient(transport=transport, timeout=8.0) as client:
-                resp = await client.get(OPEN_METEO_URL, params=params)
-                resp.raise_for_status()
-                raw = resp.json()
-                return parse_open_meteo_payload(raw, data_status="LIVE_API", fetched_at_utc=now_utc)
-        except Exception:
-            pass
+        now = time.monotonic()
+        if _live_cache["raw"] is not None and now - _live_cache["ts"] < LIVE_CACHE_SECONDS:
+            return parse_open_meteo_payload(_live_cache["raw"], data_status="LIVE_API", fetched_at_utc=now_utc)
+        if now < _fail_state["until"]:
+            reason = _fail_state["reason"]
+        else:
+            try:
+                # Force IPv4 local_address to avoid IPv6 TLS handshake timeouts on Windows networks
+                transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0")
+                timeout = httpx.Timeout(5.0, connect=3.0)
+                async with httpx.AsyncClient(transport=transport, timeout=timeout) as client:
+                    resp = await client.get(OPEN_METEO_URL, params=params)
+                    resp.raise_for_status()
+                    raw = resp.json()
+                parsed = parse_open_meteo_payload(raw, data_status="LIVE_API", fetched_at_utc=now_utc)
+                _live_cache.update(ts=now, raw=raw)
+                return parsed
+            except Exception as exc:
+                reason = f"No se pudo consultar Open-Meteo ({type(exc).__name__}); se usa el respaldo local."
+                _fail_state.update(until=now + FAIL_BACKOFF_SECONDS, reason=reason)
 
     if not WEATHER_FALLBACK_PATH.exists():
         raise FileNotFoundError("No se encontró el archivo local de respaldo meteorológico.")
@@ -165,5 +196,6 @@ async def fetch_weather_for_unt(force_offline: bool = False) -> WeatherResponse:
     return parse_open_meteo_payload(
         fallback_raw,
         data_status="OFFLINE_FALLBACK",
-        fetched_at_utc=f"{now_utc} (usando caché local verificada)",
+        fetched_at_utc=f"{now_utc} (respaldo local; sus datos son de otra fecha)",
+        fallback_reason=reason,
     )

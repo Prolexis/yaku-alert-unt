@@ -1,29 +1,5 @@
 {
-  "_ayuda": "overrides: renombra/reclasifica elementos OSM por su osm_id. manual_features: elementos que NO están en OSM (puntos de encuentro, accesos) tomados en visita de campo o de planos oficiales. Marca verified=true solo si hay evidencia (foto, plano).",
-  "overrides": {
-    "way/0000000": {
-      "name": "Escuela de Informática",
-      "criticality": "alta"
-    }
-  },
-  "manual_features": [
-    {
-      "verified": false,
-      "source": "EJEMPLO - reemplazar tras visita de campo",
-      "properties": {
-        "id": "pe_ejemplo",
-        "category": "punto_encuentro",
-        "name": "Punto de encuentro (EJEMPLO, borrar)"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          -79.0385,
-          -8.115
-        ]
-      }
-    }
-  ],
+  "_ayuda": "overrides: renombra/reclasifica elementos OSM por su osm_id. manual_features: elementos que NO están en OSM (puntos de encuentro, etc.) tomados en visita de campo o de planos oficiales; verified=true solo con evidencia (foto, plano). reports: zonas reportadas por la comunidad (testimonio), ancladas a geometrías OSM; nunca se presentan como peligro validado. include_names: anexos de la UNT que se conservan aunque queden fuera del perímetro.",
   "include_names": [
     "CEPUNT",
     "CIDUNT",
@@ -31,5 +7,182 @@
     "\\bRNC\\b",
     "Narv[aá]ez"
   ],
-  "_ayuda_include_names": "Expresiones (regex, sin distinguir mayúsculas) de nombres OSM de anexos que SÍ son parte de la UNT aunque queden fuera del perímetro principal. Agrega aquí los que falten."
+  "overrides": {
+    "node/3802902558": {
+      "name": "Puerta 1 (Av. Juan Pablo II)",
+      "verified": true,
+      "source": "Nombre confirmado por el equipo (enlace de Google Maps); geometría OSM"
+    },
+    "node/11037474034": {
+      "name": "Puerta 2 (Av. Juan Pablo II)",
+      "verified": true,
+      "source": "Nombre confirmado por el equipo (enlace de Google Maps); geometría OSM"
+    },
+    "node/11090514813": {
+      "name": "Puerta 2 (ingreso adyacente)",
+      "verified": false,
+      "source": "Nombre confirmado por el equipo (enlace de Google Maps); geometría OSM; ingreso contiguo a la puerta, no confirmado individualmente"
+    },
+    "node/11037474035": {
+      "name": "Puerta 2 (ingreso adyacente)",
+      "verified": false,
+      "source": "Nombre confirmado por el equipo (enlace de Google Maps); geometría OSM; ingreso contiguo a la puerta, no confirmado individualmente"
+    },
+    "node/4454081424": {
+      "name": "Puerta 3 (Av. Juan Pablo II)",
+      "verified": true,
+      "source": "Nombre confirmado por el equipo (enlace de Google Maps); geometría OSM"
+    },
+    "node/11037474038": {
+      "name": "Puerta 3 (ingreso adyacente)",
+      "verified": false,
+      "source": "Nombre confirmado por el equipo (enlace de Google Maps); geometría OSM; ingreso contiguo a la puerta, no confirmado individualmente"
+    },
+    "node/5052281066": {
+      "name": "Puerta 4 (Av. Jesús de Nazareth)",
+      "verified": true,
+      "source": "Nombre confirmado por el equipo (enlace de Google Maps); geometría OSM"
+    },
+    "node/11090514811": {
+      "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+      "verified": false
+    },
+    "node/3802902370": {
+      "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+      "verified": false
+    },
+    "way/376912938": {
+      "name": "Coliseo del C.E.E. Rafael Narváez Cadenillas",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/376912900": {
+      "name": "Pool de aulas de Ciencias Económicas",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/376912922": {
+      "name": "Facultad de Farmacia y Bioquímica",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/1195896216": {
+      "name": "Facultad de Ingeniería",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/376779195": {
+      "name": "Biblioteca de la Escuela Ingeniería Química",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/376912913": {
+      "name": "Facultad de Educación y Ciencias de la Comunicación",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/425242290": {
+      "name": "Facultad de Ingeniería Química",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/376912906": {
+      "name": "Escuela de Ingeniería Metalúrgica",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/376912912": {
+      "name": "Biblioteca de Idiomas y Lingüística",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/376912904": {
+      "name": "Sala Especializada de Lectura y Escritura \"Antonio González Villaverde\"",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    },
+    "way/1195903810": {
+      "name": "Cafetin CECIMOST",
+      "verified": false,
+      "source": "Nombre indicado por el equipo (sin verificación en campo); geometría OSM"
+    }
+  },
+  "manual_features": [],
+  "reports": [
+    {
+      "id": "rep_puerta4",
+      "name": "Ingreso de agua reportado — Puerta 4 (Av. Jesús de Nazareth)",
+      "description": "El equipo reporta que en episodios de huaico el agua ingresa principalmente por la Puerta 4 y se empoza dentro. Antecedente en prensa: en marzo de 2025 el agua de la Av. Jesús de Nazareth se filtró al campus (Trome, El Búho).",
+      "source": "Testimonio del equipo (no verificado); prensa marzo 2025",
+      "evidence": [
+        "https://trome.com/actualidad/trujillo-azotada-por-fuertes-lluvias-calles-inundadas-y-viviendas-afectadas-tras-activacion-de-quebradas-emergencia-noticia/",
+        "https://elbuho.pe/?p=379990",
+        "https://www.infobae.com/peru/2025/03/29/trujillo-en-emergencia-por-lluvias-impactantes-imagenes-y-videos-de-las-inundaciones-que-deja-la-activacion-de-quebradas-en-la-libertad/",
+        "https://www.unitru.edu.pe/noticia_item.aspx?IDNoticia=1774"
+      ],
+      "anchor": {
+        "type": "circle",
+        "point": [
+          -79.0359932,
+          -8.1116541
+        ],
+        "radius_m": 30
+      }
+    },
+    {
+      "id": "rep_estac_cidunt",
+      "name": "Empozamiento reportado — estacionamiento junto a CIDUNT",
+      "description": "El equipo reporta que la zona de CIDUNT y su estacionamiento se encharcan.",
+      "source": "Testimonio del equipo (no verificado)",
+      "anchor": {
+        "type": "parking_near_building",
+        "building_regex": "CIDUNT|Idiomas",
+        "within_m": 90,
+        "fallback_radius_m": 35
+      }
+    },
+    {
+      "id": "rep_estac_derecho",
+      "name": "Empozamiento reportado — estacionamiento junto a Derecho",
+      "description": "El equipo reporta anegamiento en el estacionamiento cercano a la Facultad de Derecho (Av. Juan Pablo II).",
+      "source": "Testimonio del equipo (no verificado)",
+      "anchor": {
+        "type": "parking_near_building",
+        "building_regex": "Derecho",
+        "within_m": 120,
+        "fallback_radius_m": 35
+      }
+    },
+    {
+      "id": "rep_av_jesus_nazareth",
+      "name": "Anegamiento reportado — Av. Jesús de Nazareth",
+      "description": "Prensa: avenida 'enlagunada' frente a la UNT (Andina, 10-ene-2026); inundación de hasta 40 cm (Correo, 20-abr-2017).",
+      "source": "Prensa (Andina 2026, Correo 2017) y testimonio del equipo",
+      "evidence": [
+        "https://andina.pe/agencia/noticia-trujillo-soporto-lluvia-intensa-inundo-calles-y-avenidas-1058795.aspx",
+        "https://diariocorreo.pe/edicion/la-libertad/trujillo-asi-luce-mural-de-la-unt-fotos-y-video-744816/",
+        "https://www.infobae.com/peru/2025/03/29/trujillo-en-emergencia-por-lluvias-impactantes-imagenes-y-videos-de-las-inundaciones-que-deja-la-activacion-de-quebradas-en-la-libertad/",
+        "https://www.unitru.edu.pe/noticia_item.aspx?IDNoticia=1774"
+      ],
+      "anchor": {
+        "type": "road",
+        "name": "Avenida Jesús de Nazareth",
+        "buffer_m": 8
+      }
+    },
+    {
+      "id": "rep_av_juan_pablo",
+      "name": "Anegamiento reportado — Av. Juan Pablo II",
+      "description": "El equipo reporta inundación de la avenida. Antecedente: en el huaico del 15-mar-2017 el agua recorrió la Av. Juan Pablo II (La República, 2020).",
+      "source": "Testimonio del equipo (no verificado); prensa 2017",
+      "evidence": [
+        "https://larepublica.pe/sociedad/2020/03/15/trujillo-se-recuerda-huaico-que-afecto-la-ciudad-lrnd"
+      ],
+      "anchor": {
+        "type": "road",
+        "name": "Avenida Juan Pablo II",
+        "buffer_m": 8
+      }
+    }
+  ]
 }

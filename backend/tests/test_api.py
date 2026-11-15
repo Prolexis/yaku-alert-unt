@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.spatial import analyze_spatial_exposure
+from app.services import weather as weather_mod
 from app.services.weather import parse_open_meteo_payload
 
 client = TestClient(app)
@@ -59,10 +60,38 @@ def test_spatial_analysis_inside_and_outside_zones():
         results[scenario] = spatial
         for b in spatial.exposed_buildings:
             assert b.inside_hazard_zone == hazard.intersects(geoms[b.id])
-        assert spatial.total_exposed_buildings == sum(1 for g in geoms.values() if hazard.intersects(g))
+        # Cálculo independiente del traslape: expuesto = >= 5 % de la huella dentro de la zona
+        expected = sum(1 for g in geoms.values()
+                       if g.area > 0 and hazard.intersection(g).area / g.area * 100 >= 5.0)
+        assert spatial.total_exposed_buildings == expected
 
     # Escenario extremo debe cubrir al menos lo del moderado
     assert results["escenario_extremo_fen"].total_exposed_buildings >= results["lluvia_moderada"].total_exposed_buildings
+
+
+def test_exposure_level_thresholds():
+    from app.services.spatial import classify_exposure
+
+    assert classify_exposure(0) == "ninguna"
+    assert classify_exposure(0.1) == "marginal"
+    assert classify_exposure(4.9) == "marginal"
+    assert classify_exposure(5.0) == "parcial"
+    assert classify_exposure(25.0) == "parcial"
+    assert classify_exposure(25.1) == "alta"
+    assert classify_exposure(75.0) == "alta"
+    assert classify_exposure(75.1) == "total"
+    assert classify_exposure(100.0) == "total"
+
+
+def test_exposure_levels_consistent_in_scenarios():
+    for scenario in ("lluvia_moderada", "lluvia_intensa_fen", "escenario_extremo_fen"):
+        spatial, _ = analyze_spatial_exposure(scenario)
+        c = spatial.exposure_counts
+        assert spatial.total_exposed_buildings == c["parcial"] + c["alta"] + c["total"]
+        for b in spatial.exposed_buildings:
+            assert (b.exposure_level == "ninguna") == (b.overlap_pct == 0)
+            if b.exposure_level == "total":
+                assert b.overlap_pct > 75
 
 
 def test_campus_geojson_quality():
@@ -126,3 +155,44 @@ def test_protocols_endpoint():
     data = resp.json()
     assert len(data["preventive_levels"]) == 4
     assert len(data["trujillo_basins_context"]) == 3
+
+
+def test_offline_fallback_declares_reason_and_cache_period():
+    weather_mod.reset_weather_cache()
+    data = client.get("/api/weather?offline=true").json()
+    assert data["data_status"] == "OFFLINE_FALLBACK"
+    assert "forzado" in data["fallback_reason"]
+    # el respaldo declara de qué fechas son sus datos: no se presenta como pronóstico actual
+    assert " a " in data["cache_period"] and data["cache_period"][:2] == "20"
+
+
+def test_live_failure_falls_back_and_backs_off(monkeypatch):
+    """Sin red: se usa el respaldo, se explica el motivo y no se reintenta en cada recarga."""
+    weather_mod.reset_weather_cache()
+    calls = {"n": 0}
+
+    class Boom:
+        def __init__(self, *a, **k):
+            calls["n"] += 1
+            raise OSError("sin red simulada")
+
+    monkeypatch.setattr(weather_mod.httpx, "AsyncClient", Boom)
+    first = client.get("/api/weather?offline=false").json()
+    second = client.get("/api/weather?offline=false").json()
+    assert first["data_status"] == second["data_status"] == "OFFLINE_FALLBACK"
+    assert "OSError" in first["fallback_reason"]
+    assert calls["n"] == 1  # el segundo pedido no vuelve a esperar a la red
+    weather_mod.reset_weather_cache()
+
+
+def test_live_evaluation_works_without_network(monkeypatch):
+    weather_mod.reset_weather_cache()
+
+    class Boom:
+        def __init__(self, *a, **k):
+            raise OSError("sin red simulada")
+
+    monkeypatch.setattr(weather_mod.httpx, "AsyncClient", Boom)
+    resp = client.get("/api/preventive/evaluate?offline=false")
+    assert resp.status_code == 200
+    weather_mod.reset_weather_cache()

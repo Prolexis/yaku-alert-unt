@@ -1,7 +1,13 @@
 import React from "react";
 import { FlaskConical, Radio, Database } from "lucide-react";
 
-export default function DataStatusBanner({ isSimulationContext, weatherStatus }) {
+export default function DataStatusBanner({
+  isSimulationContext,
+  weatherStatus,
+  fallbackReason,
+  cachePeriod,
+  browserOffline,
+}) {
   if (isSimulationContext) {
     return (
       <div
@@ -18,6 +24,17 @@ export default function DataStatusBanner({ isSimulationContext, weatherStatus })
         <span className="rounded-md bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:bg-amber-900 dark:text-amber-100">
           Datos Sintéticos
         </span>
+      </div>
+    );
+  }
+
+  if (!weatherStatus) {
+    return (
+      <div
+        role="status"
+        className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-700 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300 sm:px-6 lg:px-8"
+      >
+        Consultando datos meteorológicos…
       </div>
     );
   }
@@ -41,7 +58,11 @@ export default function DataStatusBanner({ isSimulationContext, weatherStatus })
         <span>
           {isLive
             ? "DATOS REALES DE PRONÓSTICO (Open-Meteo API): Serie horaria numérica, no observación de estación in situ."
-            : "RESPALDO LOCAL SIN CONEXIÓN: Usando caché verificada de Open-Meteo para operación offline."}
+            : `RESPALDO LOCAL SIN CONEXIÓN: se muestran datos guardados de Open-Meteo${
+                cachePeriod ? ` del periodo ${cachePeriod}` : ""
+              }. NO es el pronóstico actual.${fallbackReason ? ` ${fallbackReason}` : ""}${
+                browserOffline ? " El navegador no tiene red." : ""
+              }`}
         </span>
       </span>
       <span className="rounded-md bg-white/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0F172A] shadow-sm dark:bg-slate-800 dark:text-slate-200">

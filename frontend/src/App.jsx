@@ -39,6 +39,11 @@ export default function App() {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState("");
 
+  const [browserOffline, setBrowserOffline] = useState(
+    typeof navigator !== "undefined" && navigator.onLine === false
+  );
+  const [backendError, setBackendError] = useState("");
+
   const [campusLayers, setCampusLayers] = useState(null);
   const [protocols, setProtocols] = useState(null);
   const [liveEvaluation, setLiveEvaluation] = useState(null);
@@ -85,10 +90,31 @@ export default function App() {
     loadWeatherAndLiveEval(forceOffline);
   }, [forceOffline]);
 
+  // Si vuelve la red y no se forzó el modo sin conexión, se reintenta el pronóstico real.
   useEffect(() => {
-    fetchCampusLayers().then(setCampusLayers).catch(console.error);
-    fetchProtocols().then(setProtocols).catch(console.error);
-    runSimulation(DEFAULT_SIM_PARAMS).then(setSimResult).catch(console.error);
+    const goOnline = () => {
+      setBrowserOffline(false);
+      if (!forceOffline) loadWeatherAndLiveEval(false);
+    };
+    const goOffline = () => setBrowserOffline(true);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, [forceOffline]);
+
+  useEffect(() => {
+    const onFail = (err) => {
+      console.error(err);
+      setBackendError(
+        "No se pudo contactar el servidor local (backend). El mapa y la simulación necesitan que Docker esté en marcha."
+      );
+    };
+    fetchCampusLayers().then(setCampusLayers).catch(onFail);
+    fetchProtocols().then(setProtocols).catch(onFail);
+    runSimulation(DEFAULT_SIM_PARAMS).then(setSimResult).catch(onFail);
   }, []);
 
   const currentEvaluation =
@@ -128,7 +154,19 @@ export default function App() {
         <DataStatusBanner
           isSimulationContext={isSimulationContext}
           weatherStatus={weather?.data_status}
+          fallbackReason={weather?.fallback_reason}
+          cachePeriod={weather?.cache_period}
+          browserOffline={browserOffline}
         />
+
+        {backendError && !campusLayers && (
+          <div
+            role="alert"
+            className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-900 dark:border-red-900/70 dark:bg-red-950/50 dark:text-red-200 sm:px-6 lg:px-8"
+          >
+            {backendError}
+          </div>
+        )}
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
           {activeView === "dashboard" && (

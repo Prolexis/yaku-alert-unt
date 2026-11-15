@@ -36,6 +36,8 @@ class WeatherResponse(BaseModel):
     summary: WeatherSummary
     hourly: list[HourlyForecastPoint]
     limitations: list[str]
+    fallback_reason: Optional[str] = None  # solo si data_status == OFFLINE_FALLBACK
+    cache_period: Optional[str] = None  # rango de fechas de los datos en caché
 
 
 class SimulationRequest(BaseModel):
@@ -61,8 +63,9 @@ class ExposedElement(BaseModel):
     name: str
     category: str
     criticality: Optional[str] = None
-    inside_hazard_zone: bool
-    overlap_pct: float = 0.0
+    inside_hazard_zone: bool  # True si la geometría toca la zona (cualquier traslape)
+    overlap_pct: float = 0.0  # % de la huella (edificios) que cae dentro de la zona
+    exposure_level: Optional[str] = None  # ninguna | marginal | parcial | alta | total (solo edificios)
     status_in_scenario: str
 
 
@@ -73,8 +76,9 @@ class SpatialAnalysisResult(BaseModel):
     exposed_buildings: list[ExposedElement]
     restricted_accesses: list[ExposedElement]
     meeting_points_status: list[ExposedElement]
-    total_exposed_buildings: int
+    total_exposed_buildings: int  # edificios con exposición parcial, alta o total (>= 5 % de la huella)
     total_restricted_accesses: int
+    exposure_counts: dict[str, int] = {}  # {"marginal": n, "parcial": n, "alta": n, "total": n}
     spatial_engine: str
 
 

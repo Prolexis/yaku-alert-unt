@@ -12,7 +12,7 @@ Los puntos de encuentro y accesos NO se inventan: se leen de
 scripts/campus_curation.json (llenado tras visita de campo / planos oficiales).
 Datos © colaboradores de OpenStreetMap, licencia ODbL.
 """
-import argparse, json, sys
+import argparse, json, math, sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -28,8 +28,8 @@ OVERPASS = ["https://overpass-api.de/api/interpreter",
 QUERY = """[out:json][timeout:60];
 (
   way["building"]({s},{w},{n},{e});
-  way["amenity"~"university|college"]({s},{w},{n},{e});
-  way["leisure"~"pitch|stadium|sports_centre"]({s},{w},{n},{e});
+  way["amenity"~"university|college|parking"]({s},{w},{n},{e});
+  way["leisure"~"pitch|stadium|sports_centre|park|garden"]({s},{w},{n},{e});
   way["highway"~"footway|path|pedestrian|service|residential|tertiary|secondary"]({s},{w},{n},{e});
   node["barrier"~"gate|entrance"]({s},{w},{n},{e});
   node["entrance"]({s},{w},{n},{e});
@@ -56,6 +56,76 @@ def ring(geom):
     return [[p["lon"], p["lat"]] for p in geom]
 
 
+# ---------------------------------------------------------------------------
+# Zonas reportadas por la comunidad (testimonio). NO son un cálculo ni un peligro validado.
+# Se definen en campus_curation.json > "reports" y se anclan a geometrías reales de OSM.
+# ---------------------------------------------------------------------------
+LAT0 = -8.114
+KX, KY = 111320 * math.cos(math.radians(LAT0)), 110574
+
+
+def _to_m(g):
+    import numpy as np
+    import shapely
+    return shapely.transform(g, lambda c: np.column_stack(((c[:, 0] + 79.0) * KX, (c[:, 1] - LAT0) * KY)))
+
+
+def _from_m(g):
+    import numpy as np
+    import shapely
+    return shapely.transform(g, lambda c: np.column_stack((c[:, 0] / KX - 79.0, c[:, 1] / KY + LAT0)))
+
+
+def build_reports(feats, reports):
+    from shapely.geometry import shape, Point, mapping
+    from shapely.ops import unary_union
+    import re
+    out = []
+    parkings = [(f, shape(f["geometry"])) for f in feats if f["properties"]["category"] == "estacionamiento"]
+    for r in reports:
+        a = r["anchor"]
+        t = a["type"]
+        note = ""
+        geom = None
+        if t == "circle":
+            geom = _from_m(_to_m(Point(*a["point"])).buffer(a["radius_m"]))
+        elif t in ("parking_near", "parking_near_building"):
+            if t == "parking_near":
+                c = Point(*a["point"])
+            else:
+                rx = re.compile(a["building_regex"], re.I)
+                bl = [shape(f["geometry"]) for f in feats
+                      if f["properties"]["category"] == "edificio" and rx.search(f["properties"].get("name") or "")]
+                if not bl:
+                    print(f"[aviso] {r['id']}: no hay edificio que coincida con {a['building_regex']!r}", file=sys.stderr)
+                    continue
+                c = unary_union(bl).centroid
+            cm = _to_m(c)
+            near = [g for _, g in parkings if _to_m(g).distance(cm) <= a["within_m"]]
+            if near:
+                geom = unary_union(near)
+                note = f" Geometría: {len(near)} estacionamiento(s) de OSM."
+            else:
+                geom = _from_m(cm.buffer(a.get("fallback_radius_m", 35)))
+                note = " Geometría APROXIMADA (círculo): no se encontró estacionamiento en OSM; ajustar."
+                print(f"[aviso] {r['id']}: sin estacionamiento OSM cerca; se usó círculo aproximado", file=sys.stderr)
+        elif t == "road":
+            lines = [shape(f["geometry"]) for f in feats
+                     if f["properties"]["category"] == "via" and f["properties"].get("name") == a["name"]]
+            if not lines:
+                print(f"[aviso] {r['id']}: no hay vía {a['name']!r}", file=sys.stderr)
+                continue
+            geom = _from_m(unary_union([_to_m(g) for g in lines]).buffer(a.get("buffer_m", 8)))
+        else:
+            sys.exit(f"anchor.type desconocido: {t}")
+        out.append({"type": "Feature", "geometry": mapping(geom), "properties": {
+            "id": r["id"], "category": "zona_reportada", "name": r["name"],
+            "description": r["description"] + note, "source": r["source"],
+            "evidence": r.get("evidence", []), "verified": False,
+            "data_nature": "testimonio_local", "osm_id": "manual"}})
+    return out
+
+
 def build(data, curation):
     cur = curation.get("overrides", {})
     feats = []
@@ -75,9 +145,17 @@ def build(data, curation):
                 feats.append({"type": "Feature", "properties": p,
                               "geometry": {"type": "Polygon", "coordinates": [pts]}})
             elif ("amenity" in t or "leisure" in t) and closed:
-                kind = "perimetro_campus" if t.get("amenity") in ("university", "college") else "area_deportiva"
+                if t.get("amenity") in ("university", "college"):
+                    kind = "perimetro_campus"
+                elif t.get("amenity") == "parking":
+                    kind = "estacionamiento"
+                elif t.get("leisure") in ("park", "garden"):
+                    kind = "area_verde"
+                else:
+                    kind = "area_deportiva"
                 p = {"id": f'{kind}_{el["id"]}', "category": kind,
-                     "name": t.get("name") or kind, **base}
+                     "name": t.get("name") or {"estacionamiento": "Estacionamiento",
+                                               "area_verde": "Área verde"}.get(kind, kind), **base}
                 feats.append({"type": "Feature", "properties": p,
                               "geometry": {"type": "Polygon", "coordinates": [pts]}})
             elif "highway" in t:
@@ -103,6 +181,7 @@ def build(data, curation):
             "verified": item.get("verified", False), "source": item.get("source", "visita de campo"),
             "data_nature": "campo_referencial", **item["properties"]},
             "geometry": item["geometry"]})
+    feats.extend(build_reports(feats, curation.get("reports", [])))
     return {"type": "FeatureCollection",
             "metadata": {"campus": "Ciudad Universitaria — UNT", "center": [-79.038595, -8.114656],
                          "data_nature": "osm_referencial",
@@ -143,7 +222,7 @@ def clip_to_campus(fc, perimeter_ids, include_names=(), buffer_deg=0.00012):
             pr["name"] = "CEPUNT (dentro del campus)" if pr.get("name") == "CEPUNT" \
                 else "Perímetro Ciudad Universitaria UNT"
             kept.append(f); continue
-        if pr.get("category") in ("punto_encuentro", "ruta_referencial"):
+        if pr.get("category") in ("punto_encuentro", "ruta_referencial", "zona_reportada"):
             kept.append(f); continue  # manuales: no se recortan
         g = shape(f["geometry"])
         if g.geom_type == "Polygon":

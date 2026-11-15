@@ -22,6 +22,14 @@ const BASEMAPS = {
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+// Niveles de exposición (según % de la huella dentro de la zona simulada; umbrales experimentales)
+const LEVELS = {
+  parcial: { label: "Parcial", color: "#D97706", fill: "#FBBF24", opacity: 0.55, weight: 2 },
+  alta: { label: "Alta", color: "#EA580C", fill: "#F97316", opacity: 0.6, weight: 2.5 },
+  total: { label: "Total", color: "#991B1B", fill: "#DC2626", opacity: 0.65, weight: 3 },
+};
+const isExposedLevel = (lv) => lv === "parcial" || lv === "alta" || lv === "total";
+
 const isUnnamed = (name) => /^Edificio sin nombre/.test(name || "");
 
 const sourceLine = (props) =>
@@ -49,6 +57,7 @@ export default function CampusMapView({
     typeof navigator !== "undefined" && navigator.onLine === false ? "vectorial" : "calles"
   );
   const [tilesFailed, setTilesFailed] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState({
     edificios: true,
     accesos: true,
@@ -57,6 +66,7 @@ export default function CampusMapView({
     peligro: true,
     senderos: true,
     deportes: true,
+    reportes: true,
   });
 
   // Inicializa el mapa (sin mapa base: se maneja aparte para poder cambiarlo y degradar sin internet)
@@ -134,7 +144,19 @@ export default function CampusMapView({
           L.geoJSON(f, { interactive: false, style: { color: "#94A3B8", weight: 1.4, opacity: 0.9 } }).addTo(base)
         );
     }
+    feats
+      .filter((f) => f.properties.category === "estacionamiento")
+      .forEach((f) =>
+        L.geoJSON(f, { style: { color: "#94A3B8", weight: 1, fillColor: "#CBD5E1", fillOpacity: 0.7 } })
+          .bindPopup(`<div><strong>Estacionamiento</strong>${sourceLine(f.properties)}</div>`, { className: "yaku-popup" })
+          .addTo(base)
+      );
     if (visibleLayers.deportes) {
+      feats
+        .filter((f) => f.properties.category === "area_verde")
+        .forEach((f) =>
+          L.geoJSON(f, { interactive: false, style: { color: "#86EFAC", weight: 0.8, fillColor: "#DCFCE7", fillOpacity: 0.6 } }).addTo(base)
+        );
       feats
         .filter((f) => f.properties.category === "area_deportiva")
         .forEach((f) => {
@@ -161,10 +183,8 @@ export default function CampusMapView({
     if (!group || !campusLayers) return;
     group.clearLayers();
 
-    const exposedIds = new Set(
-      (simResult?.spatial_analysis?.exposed_buildings || [])
-        .filter((b) => b.inside_hazard_zone)
-        .map((b) => b.id)
+    const exposureById = new Map(
+      (simResult?.spatial_analysis?.exposed_buildings || []).map((b) => [b.id, b])
     );
     const restrictedAccessIds = new Set(
       (simResult?.spatial_analysis?.restricted_accesses || [])
@@ -202,14 +222,54 @@ export default function CampusMapView({
     }
 
     const features = campusLayers.campus?.features || [];
+
+    // Zonas reportadas por la comunidad: testimonio, NO cálculo ni peligro validado.
+    if (visibleLayers.reportes) {
+      features
+        .filter((f) => f.properties.category === "zona_reportada")
+        .forEach((f) => {
+          const pr = f.properties;
+          const links = (pr.evidence || [])
+            .filter((u) => /^https:\/\//.test(u))
+            .map((u, i) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" class="underline">fuente ${i + 1}</a>`)
+            .join(" · ");
+          L.geoJSON(f, {
+            style: {
+              color: "#7C3AED",
+              weight: 2,
+              dashArray: "2 5",
+              fillColor: "#A78BFA",
+              fillOpacity: 0.28,
+            },
+          })
+            .bindPopup(
+              `<div class="space-y-1">
+                <div class="text-[10px] font-bold uppercase text-violet-700">Zona reportada · no verificada</div>
+                <strong>${esc(pr.name)}</strong>
+                <div class="text-[11px]">${esc(pr.description)}</div>
+                <div class="text-[10px] text-slate-500">Fuente: ${esc(pr.source)}${links ? " · " + links : ""}</div>
+              </div>`,
+              { className: "yaku-popup" }
+            )
+            .addTo(group);
+        });
+    }
+
     features.forEach((feat) => {
       const { category, id, name } = feat.properties;
 
       if (category === "edificio" && visibleLayers.edificios) {
-        const isExposed = exposedIds.has(id);
+        const exp = exposureById.get(id);
+        const lv = exp?.exposure_level;
+        const isExposed = isExposedLevel(lv);
         const unnamed = isUnnamed(name);
         const style = isExposed
-          ? { color: "#EA580C", weight: 2.5, fillColor: "#F97316", fillOpacity: 0.55 }
+          ? {
+              color: LEVELS[lv].color,
+              weight: LEVELS[lv].weight,
+              fillColor: LEVELS[lv].fill,
+              fillOpacity: LEVELS[lv].opacity,
+            }
           : unnamed
           ? { color: "#64748B", weight: 1, fillColor: "#94A3B8", fillOpacity: 0.4 }
           : { color: "#2563EB", weight: 1.5, fillColor: "#3B82F6", fillOpacity: 0.3 };
@@ -218,7 +278,11 @@ export default function CampusMapView({
             `<div>
               <strong>${esc(name)}</strong><br/>
               <span class="text-[11px]">${
-                isExposed ? "⚠️ Expuesto en simulación (revisar 1.er nivel)" : "Fuera de zona simulada"
+                isExposed
+                  ? `⚠️ Exposición ${LEVELS[lv].label.toLowerCase()} en simulación (${exp.overlap_pct}% de la huella)`
+                  : lv === "marginal"
+                  ? `Contacto marginal (${exp.overlap_pct}% de la huella)`
+                  : "Fuera de zona simulada"
               }</span>
               ${sourceLine(feat.properties)}
             </div>`,
@@ -381,8 +445,9 @@ export default function CampusMapView({
               {[
                 { key: "peligro", label: "Polígono simulado" },
                 { key: "edificios", label: "Edificios UNT" },
+                { key: "reportes", label: "Zonas reportadas (testimonio)" },
                 { key: "senderos", label: "Vías y senderos" },
-                { key: "deportes", label: "Áreas deportivas" },
+                { key: "deportes", label: "Áreas deportivas y verdes" },
                 { key: "accesos", label: "Accesos campus" },
                 { key: "puntos", label: "Puntos encuentro ref." },
                 { key: "rutas", label: "Rutas referenciales" },
@@ -403,13 +468,30 @@ export default function CampusMapView({
           </div>
 
           {/* Leyenda flotante inferior izquierda */}
-          <div className="absolute bottom-3 left-3 z-[400] max-w-xs rounded-xl border border-[#E2E8F0] bg-white/95 px-3 py-2.5 text-[11px] shadow-lg backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
-            <div className="mb-1.5 font-semibold text-[#0F172A] dark:text-slate-100">
-              Campus: OpenStreetMap (no verificado) · Zona de peligro: SINTÉTICA
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[#0F172A] dark:text-slate-200">
+          <div className="absolute bottom-3 left-3 z-[400] max-w-xs rounded-xl border border-[#E2E8F0] bg-white/95 px-3 py-2 text-[11px] shadow-lg backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+            <button
+              type="button"
+              onClick={() => setLegendOpen((v) => !v)}
+              aria-expanded={legendOpen}
+              className="flex w-full items-center justify-between gap-3 font-semibold text-[#0F172A] dark:text-slate-100"
+            >
+              <span>Leyenda</span>
+              <span className="text-[10px] font-medium text-[#64748B]">{legendOpen ? "Ocultar" : "Mostrar"}</span>
+            </button>
+            {legendOpen && (
+              <div className="mt-1.5 mb-1.5 font-semibold text-[#0F172A] dark:text-slate-100">
+                Campus: OpenStreetMap (no verificado) · Zona de peligro: SINTÉTICA
+              </div>
+            )}
+            <div className={`${legendOpen ? "grid" : "hidden"} grid-cols-2 gap-x-4 gap-y-1 text-[#0F172A] dark:text-slate-200`}>
               <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-orange-500" /> Edificio expuesto
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.parcial.fill }} /> Exposición parcial
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.alta.fill }} /> Exposición alta
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.total.fill }} /> Exposición total
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Edificio (fuera de zona)
@@ -419,6 +501,9 @@ export default function CampusMapView({
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[#0B1F33]" /> Perímetro UNT
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-violet-600 bg-violet-300/60" /> Zona reportada (no verificada)
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Acceso restringido
@@ -453,6 +538,11 @@ export default function CampusMapView({
                   <div className="mt-1 text-2xl font-bold text-orange-600 dark:text-orange-400">
                     {simResult.spatial_analysis.total_exposed_buildings}
                   </div>
+                  <div className="mt-1 text-[10px] leading-tight text-orange-800/80 dark:text-orange-300/80">
+                    {simResult.spatial_analysis.exposure_counts?.total ?? 0} total ·{" "}
+                    {simResult.spatial_analysis.exposure_counts?.alta ?? 0} alta ·{" "}
+                    {simResult.spatial_analysis.exposure_counts?.parcial ?? 0} parcial
+                  </div>
                 </div>
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/50 dark:bg-rose-950/30">
                   <div className="text-[11px] font-medium text-rose-800 dark:text-rose-300">
@@ -471,13 +561,13 @@ export default function CampusMapView({
                 </h4>
                 <div className="mt-2 max-h-56 space-y-2 overflow-y-auto pr-1">
                   {[...simResult.spatial_analysis.exposed_buildings]
-                    .filter((b) => b.inside_hazard_zone || !isUnnamed(b.name))
-                    .sort((a, b) => Number(b.inside_hazard_zone) - Number(a.inside_hazard_zone))
+                    .filter((b) => isExposedLevel(b.exposure_level) || !isUnnamed(b.name))
+                    .sort((a, b) => b.overlap_pct - a.overlap_pct)
                     .map((b) => (
                     <div
                       key={b.id}
                       className={`rounded-xl border p-2.5 text-xs ${
-                        b.inside_hazard_zone
+                        isExposedLevel(b.exposure_level)
                           ? "border-orange-200 bg-orange-50/70 dark:border-orange-900/50 dark:bg-orange-950/20"
                           : "border-[#E2E8F0] bg-[#F8FAFC] dark:border-slate-800 dark:bg-slate-900/50"
                       }`}
@@ -485,6 +575,14 @@ export default function CampusMapView({
                       <div className="flex items-center justify-between gap-2 font-semibold text-[#0F172A] dark:text-white">
                         <span className="truncate">{b.name}</span>
                         <span className="shrink-0 text-[11px] text-[#64748B] dark:text-slate-400">
+                          {isExposedLevel(b.exposure_level) && (
+                            <span
+                              className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                              style={{ background: LEVELS[b.exposure_level].color }}
+                            >
+                              {LEVELS[b.exposure_level].label}
+                            </span>
+                          )}
                           {b.overlap_pct}%
                         </span>
                       </div>

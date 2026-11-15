@@ -125,14 +125,20 @@ def evaluate_preventive_rules(
     # Regla 4: Exposición espacial calculada con Shapely
     exposed_count = spatial.total_exposed_buildings if spatial else 0
     restricted_acc = spatial.total_restricted_accesses if spatial else 0
-    if exposed_count >= 3 or restricted_acc >= 2:
+    counts = spatial.exposure_counts if spatial else {}
+    high_count = counts.get("alta", 0) + counts.get("total", 0)
+    breakdown = (
+        f"{exposed_count} edificios ({counts.get('total', 0)} total, {counts.get('alta', 0)} alta, "
+        f"{counts.get('parcial', 0)} parcial), {restricted_acc} accesos"
+    )
+    if exposed_count >= 3 or restricted_acc >= 2 or high_count >= 2:
         score += 2
         rules.append(
             RuleTrigger(
                 rule_id="R-ESP-01",
                 description="Múltiples edificaciones o accesos intersectan zona de peligro",
-                observed_value=f"{exposed_count} edificios, {restricted_acc} accesos",
-                threshold_note="Calculado geométricamente con Shapely",
+                observed_value=breakdown,
+                threshold_note="Calculado geométricamente con Shapely; niveles por % de huella dentro de la zona (umbrales experimentales)",
             )
         )
     elif exposed_count >= 1 or restricted_acc >= 1:
@@ -141,8 +147,8 @@ def evaluate_preventive_rules(
             RuleTrigger(
                 rule_id="R-ESP-02",
                 description="Exposición espacial localizada en el campus",
-                observed_value=f"{exposed_count} edificios, {restricted_acc} accesos",
-                threshold_note="Calculado geométricamente con Shapely",
+                observed_value=breakdown,
+                threshold_note="Calculado geométricamente con Shapely; niveles por % de huella dentro de la zona (umbrales experimentales)",
             )
         )
 
@@ -164,7 +170,8 @@ def evaluate_preventive_rules(
     )
     if spatial:
         exposure_text = (
-            f"Exposición espacial (Shapely): {exposed_count} edificaciones y {restricted_acc} accesos "
+            f"Exposición espacial (Shapely): {exposed_count} edificaciones con exposición parcial o mayor "
+            f"({high_count} con exposición alta o total) y {restricted_acc} accesos "
             f"intersectan '{spatial.hazard_zone_name}'."
         )
     else:

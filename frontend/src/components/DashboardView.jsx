@@ -168,6 +168,16 @@ export default function DashboardView({
               )}
             </div>
 
+            {weather && weather.data_status !== "LIVE_API" && (
+              <p
+                role="note"
+                className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
+              >
+                Esta condición se calcula con datos guardados
+                {weather.cache_period ? ` del ${weather.cache_period}` : ""}; no refleja el momento actual.
+              </p>
+            )}
+
             {liveEvaluation ? (
               <div className="mt-3 space-y-3">
                 <p className="text-sm font-semibold text-[#0F172A] dark:text-white">

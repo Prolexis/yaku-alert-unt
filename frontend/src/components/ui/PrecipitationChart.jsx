@@ -1,28 +1,27 @@
 import React, { useState } from "react";
 
-export default function PrecipitationChart({ points = [], height = 220 }) {
+export default function PrecipitationChart({ points = [], height = 250 }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
   if (!points.length) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-[#E2E8F0] text-xs text-[#64748B] dark:border-slate-800 dark:text-slate-400">
-        No hay puntos horarios disponibles.
+      <div className="flex h-52 items-center justify-center rounded-xl border border-dashed border-[#E2E8F0] text-sm text-[#64748B] dark:border-slate-800 dark:text-slate-400">
+        No hay datos horarios disponibles para graficar.
       </div>
     );
   }
 
   const maxPrecip = Math.max(5, ...points.map((p) => p.precipitation_mm));
-  const width = 760;
-  const padL = 38;
-  const padR = 16;
-  const padT = 18;
-  const padB = 28;
+  const width = 820;
+  const padL = 46;
+  const padR = 36;
+  const padT = 20;
+  const padB = 34;
   const innerW = width - padL - padR;
   const innerH = height - padT - padB;
   const barStep = innerW / points.length;
-  const barW = Math.max(6, barStep * 0.62);
+  const barW = Math.max(6, Math.min(20, barStep * 0.62));
 
-  // Línea de probabilidad (0..100%)
   const probPath = points
     .map((pt, i) => {
       const x = padL + i * barStep + barStep / 2;
@@ -33,49 +32,57 @@ export default function PrecipitationChart({ points = [], height = 220 }) {
     .join(" ");
 
   const activePoint = hoveredIdx !== null ? points[hoveredIdx] : null;
+  const labelInterval = points.length > 30 ? 6 : 3;
 
   return (
-    <div className="relative">
-      {/* Tooltip flotante */}
-      {activePoint && (
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-800/80">
-          <span className="font-semibold text-[#0F172A] dark:text-white">
-            Hora: {activePoint.time.replace("T", " ")}
+    <div className="space-y-3">
+      {/* Barra de lectura interactiva */}
+      <div className="flex min-h-[40px] flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3.5 py-2 text-xs dark:border-slate-800 dark:bg-slate-900/70">
+        {activePoint ? (
+          <>
+            <span className="font-semibold text-[#111827] dark:text-white">
+              {activePoint.time.replace("T", " · ")}
+            </span>
+            <div className="flex flex-wrap gap-5 text-[#64748B] dark:text-slate-300">
+              <span>
+                Precipitación:{" "}
+                <strong className="font-bold text-[#1D4ED8] dark:text-blue-400">
+                  {activePoint.precipitation_mm.toFixed(1)} mm/h
+                </strong>
+              </span>
+              <span>
+                Probabilidad:{" "}
+                <strong className="font-bold text-[#0F766E] dark:text-teal-400">
+                  {activePoint.precipitation_probability_pct ?? "N/D"}%
+                </strong>
+              </span>
+              <span>
+                Humedad:{" "}
+                <strong className="font-bold text-[#111827] dark:text-white">
+                  {activePoint.relative_humidity_2m_pct ?? "N/D"}%
+                </strong>
+              </span>
+            </div>
+          </>
+        ) : (
+          <span className="text-[#64748B] dark:text-slate-400">
+            Pase el cursor o navegue con teclado sobre las barras para inspeccionar cada hora.
           </span>
-          <div className="flex flex-wrap gap-4 text-[#64748B] dark:text-slate-300">
-            <span>
-              Precipitación:{" "}
-              <strong className="text-[#2563EB] dark:text-sky-400">
-                {activePoint.precipitation_mm.toFixed(1)} mm/h
-              </strong>
-            </span>
-            <span>
-              Probabilidad:{" "}
-              <strong className="text-[#14B8A6]">
-                {activePoint.precipitation_probability_pct ?? "N/D"}%
-              </strong>
-            </span>
-            <span>
-              Humedad:{" "}
-              <strong className="text-[#0F172A] dark:text-white">
-                {activePoint.relative_humidity_2m_pct ?? "N/D"}%
-              </strong>
-            </span>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="w-full overflow-x-auto">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="h-auto min-w-[560px] w-full select-none"
+          className="h-auto min-w-[580px] w-full select-none"
           role="img"
-          aria-label="Gráfica de precipitación horaria en milímetros y probabilidad porcentual"
+          aria-label="Gráfica horaria de precipitación en milímetros por hora y probabilidad de lluvia"
         >
-          {/* Cuadrícula horizontal */}
+          {/* Eje Y izquierdo (mm/h) y líneas guía */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = padT + innerH - ratio * innerH;
-            const label = (maxPrecip * ratio).toFixed(1);
+            const mmLabel = (maxPrecip * ratio).toFixed(1);
+            const pctLabel = Math.round(ratio * 100);
             return (
               <g key={ratio}>
                 <line
@@ -87,18 +94,39 @@ export default function PrecipitationChart({ points = [], height = 220 }) {
                   strokeDasharray={ratio === 0 ? undefined : "3 3"}
                 />
                 <text
-                  x={padL - 6}
-                  y={y + 3}
+                  x={padL - 8}
+                  y={y + 4}
                   textAnchor="end"
-                  className="fill-[#64748B] text-[10px] dark:fill-slate-400"
+                  className="fill-[#64748B] text-[11px] dark:fill-slate-400"
                 >
-                  {label}
+                  {mmLabel}
+                </text>
+                <text
+                  x={width - padR + 8}
+                  y={y + 4}
+                  textAnchor="start"
+                  className="fill-[#64748B] text-[11px] dark:fill-slate-400"
+                >
+                  {pctLabel}%
                 </text>
               </g>
             );
           })}
 
-          {/* Barras de precipitación */}
+          {/* Etiqueta unidad eje izquierdo */}
+          <text x={8} y={12} className="fill-[#64748B] text-[10px] font-semibold dark:fill-slate-400">
+            mm/h
+          </text>
+          <text
+            x={width - 8}
+            y={12}
+            textAnchor="end"
+            className="fill-[#64748B] text-[10px] font-semibold dark:fill-slate-400"
+          >
+            Prob.
+          </text>
+
+          {/* Barras */}
           {points.map((pt, i) => {
             const x = padL + i * barStep + (barStep - barW) / 2;
             const barH = Math.max(2, (pt.precipitation_mm / maxPrecip) * innerH);
@@ -107,12 +135,12 @@ export default function PrecipitationChart({ points = [], height = 220 }) {
 
             const fillClass =
               pt.precipitation_mm >= 10
-                ? "fill-rose-500"
+                ? "fill-rose-600"
                 : pt.precipitation_mm >= 2
                 ? "fill-amber-500"
                 : pt.precipitation_mm > 0
                 ? "fill-[#2563EB]"
-                : "fill-slate-300 dark:fill-slate-700";
+                : "fill-slate-200 dark:fill-slate-700";
 
             return (
               <g
@@ -129,17 +157,17 @@ export default function PrecipitationChart({ points = [], height = 220 }) {
                   y={y}
                   width={barW}
                   height={barH}
-                  rx={4}
+                  rx={3}
                   className={`${fillClass} transition-opacity duration-150 ${
                     isHovered ? "opacity-100" : "opacity-85"
                   }`}
                 />
-                {i % 3 === 0 && (
+                {i % labelInterval === 0 && (
                   <text
                     x={padL + i * barStep + barStep / 2}
-                    y={height - 8}
+                    y={height - 10}
                     textAnchor="middle"
-                    className="fill-[#64748B] text-[10px] dark:fill-slate-400"
+                    className="fill-[#64748B] text-[11px] dark:fill-slate-400"
                   >
                     {pt.time.slice(11, 16)}
                   </text>
@@ -148,11 +176,11 @@ export default function PrecipitationChart({ points = [], height = 220 }) {
             );
           })}
 
-          {/* Curva de probabilidad */}
+          {/* Línea de probabilidad */}
           <path
             d={probPath}
             fill="none"
-            stroke="#14B8A6"
+            stroke="#0D9488"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -162,15 +190,18 @@ export default function PrecipitationChart({ points = [], height = 220 }) {
       </div>
 
       {/* Leyenda */}
-      <div className="mt-2 flex flex-wrap items-center gap-5 text-[11px] text-[#64748B] dark:text-slate-400">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Precipitación (mm/h)
+      <div className="flex flex-wrap items-center gap-6 text-xs text-[#64748B] dark:text-slate-400">
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Precipitación ligera (mm/h)
         </span>
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" /> Moderada (≥2 mm/h)
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-0.5 w-4 bg-[#14B8A6]" /> Probabilidad de lluvia (%)
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-sm bg-rose-600" /> Intensa (≥10 mm/h)
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span className="h-0.5 w-4 bg-[#0D9488]" /> Probabilidad de lluvia (%)
         </span>
       </div>
     </div>

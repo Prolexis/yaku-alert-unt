@@ -8,24 +8,33 @@ import {
   BookOpen,
   Waves,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 export const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "monitoring", label: "Monitoreo meteorológico", icon: CloudRain },
-  { id: "map", label: "Mapa interactivo", icon: MapIcon },
-  { id: "prevention", label: "Análisis preventivo", icon: ShieldCheck },
+  { id: "monitoring", label: "Monitoreo", icon: CloudRain },
+  { id: "map", label: "Mapa UNT", icon: MapIcon },
   { id: "simulator", label: "Simulaciones", icon: Sliders, badge: "SIM" },
+  { id: "prevention", label: "Análisis preventivo", icon: ShieldCheck },
   { id: "continuity", label: "Orientaciones y continuidad", icon: BookOpen },
 ];
 
-export default function Sidebar({ activeView, onSelectView, mobileOpen, onCloseMobile, simActive }) {
+export default function Sidebar({
+  activeView,
+  onSelectView,
+  mobileOpen,
+  onCloseMobile,
+  collapsed,
+  onToggleCollapse,
+  simActive,
+}) {
   return (
     <>
-      {/* Backdrop en móvil */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-navy-950/60 backdrop-blur-sm lg:hidden"
           onClick={onCloseMobile}
           aria-hidden="true"
         />
@@ -33,20 +42,24 @@ export default function Sidebar({ activeView, onSelectView, mobileOpen, onCloseM
 
       <aside
         aria-label="Navegación principal"
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#0B1F33] text-slate-100 transition-transform duration-200 ease-out lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/10 bg-[#0B1F33] text-slate-100 transition-all duration-200 ease-out lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } ${collapsed ? "w-72 lg:w-[76px]" : "w-72 lg:w-64"}`}
       >
-        {/* Marca */}
-        <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#2563EB] to-[#14B8A6] shadow-sm">
-              <Waves className="h-5 w-5 text-white" />
+        {/* Identidad */}
+        <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1D4ED8] text-white">
+              <Waves className="h-5 w-5" />
             </div>
-            <div>
-              <div className="text-sm font-bold tracking-tight text-white">YAKU ALERT</div>
-              <div className="text-[11px] font-medium text-tealbrand-400">UNT • Geointeligencia</div>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold tracking-tight text-white">
+                  YAKU ALERT
+                </div>
+                <div className="truncate text-xs text-slate-400">UNT · Trujillo</div>
+              </div>
+            )}
           </div>
 
           <button
@@ -57,13 +70,29 @@ export default function Sidebar({ activeView, onSelectView, mobileOpen, onCloseM
           >
             <X className="h-5 w-5" />
           </button>
+
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="hidden rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white lg:inline-flex"
+            aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+            title={collapsed ? "Expandir menú" : "Contraer menú"}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+          </button>
         </div>
 
-        {/* Lista de navegación */}
-        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-5">
-          <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            Plataforma Preventiva
-          </div>
+        {/* Navegación */}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          {!collapsed && (
+            <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Módulos
+            </div>
+          )}
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
@@ -75,24 +104,27 @@ export default function Sidebar({ activeView, onSelectView, mobileOpen, onCloseM
                   onSelectView(item.id);
                   onCloseMobile();
                 }}
+                title={collapsed ? item.label : undefined}
                 aria-current={isActive ? "page" : undefined}
-                className={`group flex w-full items-center justify-between rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-150 ${
+                className={`group flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
+                  collapsed ? "justify-center" : "justify-between"
+                } ${
                   isActive
-                    ? "bg-[#2563EB] text-white shadow-sm"
+                    ? "bg-[#2563EB] text-white"
                     : "text-slate-300 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <span className="flex items-center gap-3">
+                <span className="flex min-w-0 items-center gap-3">
                   <Icon
                     className={`h-4 w-4 shrink-0 ${
-                      isActive ? "text-white" : "text-slate-400 group-hover:text-tealbrand-400"
+                      isActive ? "text-white" : "text-slate-400 group-hover:text-white"
                     }`}
                   />
-                  <span className="truncate">{item.label}</span>
+                  {!collapsed && <span className="truncate">{item.label}</span>}
                 </span>
-                {item.badge && (
+                {!collapsed && item.badge && (
                   <span
-                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${
                       simActive
                         ? "bg-amber-400 text-slate-950"
                         : "bg-white/10 text-slate-300"
@@ -107,16 +139,25 @@ export default function Sidebar({ activeView, onSelectView, mobileOpen, onCloseM
         </nav>
 
         {/* Pie institucional */}
-        <div className="border-t border-white/10 p-4">
-          <div className="rounded-xl bg-white/5 p-3 text-xs">
-            <div className="flex items-center justify-between font-semibold text-white">
-              <span>Prototipo TRL 3–4</span>
-              <span className="h-2 w-2 rounded-full bg-tealbrand-400" />
+        <div className="border-t border-white/10 p-3">
+          {collapsed ? (
+            <div
+              title="Prototipo TRL 3–4 · Innova Norte 3G 2026"
+              className="flex justify-center py-1"
+            >
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
             </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-              Innova Norte 3G 2026 · Desafío 3. Cumplimiento Ley N.° 29664 y Ley N.° 29733.
-            </p>
-          </div>
+          ) : (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs">
+              <div className="flex items-center justify-between font-semibold text-white">
+                <span>Prototipo TRL 3–4</span>
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+                Innova Norte 3G 2026 · Ley N.° 29664 y Ley N.° 29733.
+              </p>
+            </div>
+          )}
         </div>
       </aside>
     </>

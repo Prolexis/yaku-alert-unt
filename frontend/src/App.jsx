@@ -30,6 +30,7 @@ export default function App() {
   const [activeView, setActiveView] = useState("dashboard");
   const [theme, setTheme] = useState("light"); // Modo claro priorizado para jurado
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const [evalSourceMode, setEvalSourceMode] = useState("live"); // "live" | "simulated"
@@ -51,6 +52,8 @@ export default function App() {
   const [simParams, setSimParams] = useState(DEFAULT_SIM_PARAMS);
   const [simResult, setSimResult] = useState(null);
   const [simLoading, setSimLoading] = useState(false);
+  const [simError, setSimError] = useState("");
+  const [lastSimAt, setLastSimAt] = useState("");
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -75,12 +78,14 @@ export default function App() {
 
   const handleRunSimulation = async (paramsToRun) => {
     setSimLoading(true);
+    setSimError("");
     try {
       const res = await runSimulation(paramsToRun);
       setSimResult(res);
       setEvalSourceMode("simulated");
+      setLastSimAt(new Date().toLocaleTimeString("es-PE", { hour12: false }));
     } catch (err) {
-      console.error(err);
+      setSimError(err.message || "Error al ejecutar la simulación");
     } finally {
       setSimLoading(false);
     }
@@ -128,12 +133,14 @@ export default function App() {
     (activeView === "prevention" && evalSourceMode === "simulated");
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-[#0F172A] dark:bg-[#071524] dark:text-slate-100">
+    <div className="flex min-h-screen bg-[#F7F9FC] text-[#111827] dark:bg-[#071524] dark:text-slate-100">
       <Sidebar
         activeView={activeView}
         onSelectView={setActiveView}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
         simActive={isSimulationContext}
       />
 
@@ -149,6 +156,7 @@ export default function App() {
           onToggleTheme={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
           onOpenHelp={() => setHelpOpen(true)}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          isSimulationContext={isSimulationContext}
         />
 
         <DataStatusBanner
@@ -217,6 +225,8 @@ export default function App() {
               onChangeSimParams={setSimParams}
               simResult={simResult}
               simLoading={simLoading}
+              simError={simError}
+              lastSimAt={lastSimAt}
               onRunSimulation={handleRunSimulation}
               onNavigate={setActiveView}
             />

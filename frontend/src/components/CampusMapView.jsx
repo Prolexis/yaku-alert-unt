@@ -58,6 +58,7 @@ export default function CampusMapView({
   );
   const [tilesFailed, setTilesFailed] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState({
     edificios: true,
     accesos: true,
@@ -370,266 +371,288 @@ export default function CampusMapView({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-      {/* Mapa protagonista */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-card dark:border-slate-800 dark:bg-[#0B1F33] xl:col-span-8">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E8F0] px-5 py-3.5 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-[#2563EB] dark:text-tealbrand-400" />
-            <span className="text-sm font-bold text-[#0F172A] dark:text-white">
-              Ciudad Universitaria UNT — Análisis Espacial Shapely
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { id: "lluvia_moderada", label: "Escenario A" },
-              { id: "lluvia_intensa_fen", label: "Escenario B (FEN)" },
-              { id: "escenario_extremo_fen", label: "Escenario C (Extremo)" },
-            ].map((sc) => (
-              <button
-                key={sc.id}
-                type="button"
-                onClick={() => selectQuickScenario(sc.id)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                  simParams.hazard_zone_id === sc.id
-                    ? "bg-[#2563EB] text-white"
-                    : "border border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] hover:text-[#0F172A] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                }`}
-              >
-                {sc.label}
-              </button>
-            ))}
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-3 border-b border-[#E2E8F0] pb-5 dark:border-slate-800 sm:flex-row sm:items-end">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-white sm:text-3xl">
+            Mapa Interactivo — Ciudad Universitaria UNT
+          </h2>
+          <p className="mt-1 text-[15px] text-[#64748B] dark:text-slate-300">
+            Capas OpenStreetMap y análisis geométrico Shapely sobre zonas experimentales DEM.
+          </p>
         </div>
 
-        {/* Contenedor Leaflet */}
-        <div className="relative">
-          <div ref={mapContainerRef} className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 sm:h-[540px]" />
-
-          {(basemap === "vectorial" || tilesFailed) && (
-            <div
-              role="status"
-              className="absolute left-3 top-3 z-[400] flex max-w-[15rem] items-start gap-2 rounded-xl border border-amber-300 bg-amber-50/95 px-3 py-2 text-[11px] font-medium text-amber-900 shadow-lg"
-            >
-              <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>Sin mapa base. Se muestran solo las capas vectoriales locales del campus UNT.</span>
-            </div>
-          )}
-
-          {/* Control flotante de capas */}
-          <div className="absolute right-3 top-3 z-[400] w-52 rounded-xl border border-[#E2E8F0] bg-white/95 p-3 text-xs shadow-lg backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
-            <div className="mb-2 flex items-center gap-1.5 font-bold text-[#0F172A] dark:text-white">
-              <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
-              Capas del mapa
-            </div>
-            <div className="mb-2 flex gap-1" role="group" aria-label="Mapa base">
-              {Object.entries(BASEMAPS).map(([key, cfg]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setBasemap(key)}
-                  aria-pressed={basemap === key}
-                  title={cfg.label}
-                  className={`flex-1 rounded-md px-1.5 py-1 text-[10px] font-semibold ${
-                    basemap === key
-                      ? "bg-[#2563EB] text-white"
-                      : "border border-[#E2E8F0] text-[#64748B] dark:border-slate-700 dark:text-slate-300"
-                  }`}
-                >
-                  {key === "vectorial" ? "Offline" : cfg.label}
-                </button>
-              ))}
-            </div>
-            <div className="space-y-1.5 text-[#64748B] dark:text-slate-300">
-              {[
-                { key: "peligro", label: "Polígono simulado" },
-                { key: "edificios", label: "Edificios UNT" },
-                { key: "reportes", label: "Zonas reportadas (testimonio)" },
-                { key: "senderos", label: "Vías y senderos" },
-                { key: "deportes", label: "Áreas deportivas y verdes" },
-                { key: "accesos", label: "Accesos campus" },
-                { key: "puntos", label: "Puntos encuentro ref." },
-                { key: "rutas", label: "Rutas referenciales" },
-              ].map((layer) => (
-                <label key={layer.key} className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={visibleLayers[layer.key]}
-                    onChange={(e) =>
-                      setVisibleLayers({ ...visibleLayers, [layer.key]: e.target.checked })
-                    }
-                    className="rounded accent-[#2563EB]"
-                  />
-                  <span>{layer.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Leyenda flotante inferior izquierda */}
-          <div className="absolute bottom-3 left-3 z-[400] max-w-xs rounded-xl border border-[#E2E8F0] bg-white/95 px-3 py-2 text-[11px] shadow-lg backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Escenarios rápidos">
+          {[
+            { id: "lluvia_moderada", label: "Escenario A" },
+            { id: "lluvia_intensa_fen", label: "Escenario B (FEN)" },
+            { id: "escenario_extremo_fen", label: "Escenario C (Extremo)" },
+          ].map((sc) => (
             <button
+              key={sc.id}
               type="button"
-              onClick={() => setLegendOpen((v) => !v)}
-              aria-expanded={legendOpen}
-              className="flex w-full items-center justify-between gap-3 font-semibold text-[#0F172A] dark:text-slate-100"
+              onClick={() => selectQuickScenario(sc.id)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                simParams.hazard_zone_id === sc.id
+                  ? "bg-[#2563EB] text-white"
+                  : "border border-[#E2E8F0] bg-white text-[#64748B] hover:text-[#111827] dark:border-slate-700 dark:bg-[#0B1F33] dark:text-slate-300"
+              }`}
             >
-              <span>Leyenda</span>
-              <span className="text-[10px] font-medium text-[#64748B]">{legendOpen ? "Ocultar" : "Mostrar"}</span>
+              {sc.label}
             </button>
-            {legendOpen && (
-              <div className="mt-1.5 mb-1.5 font-semibold text-[#0F172A] dark:text-slate-100">
-                Campus: OpenStreetMap (no verificado) · Zona de peligro: SINTÉTICA
-              </div>
-            )}
-            <div className={`${legendOpen ? "grid" : "hidden"} grid-cols-2 gap-x-4 gap-y-1 text-[#0F172A] dark:text-slate-200`}>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.parcial.fill }} /> Exposición parcial
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.alta.fill }} /> Exposición alta
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.total.fill }} /> Exposición total
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Edificio (fuera de zona)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" /> Edificio sin nombre (OSM)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[#0B1F33]" /> Perímetro UNT
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-violet-600 bg-violet-300/60" /> Zona reportada (no verificada)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Acceso restringido
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#14B8A6]" /> Punto encuentro ref.
-              </span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Panel lateral de información espacial */}
-      <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-card dark:border-slate-800 dark:bg-[#0B1F33] xl:col-span-4">
-        <div className="space-y-4">
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#2563EB] dark:text-tealbrand-400">
-              Inspección Espacial (Shapely)
-            </span>
-            <h3 className="mt-1 text-base font-bold text-[#0F172A] dark:text-white">
-              {simResult?.spatial_analysis?.hazard_zone_name || "Seleccione un escenario"}
-            </h3>
-          </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        {/* Mapa protagonista (~67% en desktop) */}
+        <div className="relative overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B1F33] xl:col-span-8">
+          <div className="relative">
+            <div
+              ref={mapContainerRef}
+              className="h-[440px] w-full bg-slate-100 dark:bg-slate-900 sm:h-[560px] xl:h-[640px]"
+            />
 
-          {simResult && (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/50 dark:bg-orange-950/30">
-                  <div className="text-[11px] font-medium text-orange-800 dark:text-orange-300">
-                    Edificios expuestos
-                  </div>
-                  <div className="mt-1 text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {simResult.spatial_analysis.total_exposed_buildings}
-                  </div>
-                  <div className="mt-1 text-[10px] leading-tight text-orange-800/80 dark:text-orange-300/80">
-                    {simResult.spatial_analysis.exposure_counts?.total ?? 0} total ·{" "}
-                    {simResult.spatial_analysis.exposure_counts?.alta ?? 0} alta ·{" "}
-                    {simResult.spatial_analysis.exposure_counts?.parcial ?? 0} parcial
-                  </div>
-                </div>
-                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/50 dark:bg-rose-950/30">
-                  <div className="text-[11px] font-medium text-rose-800 dark:text-rose-300">
-                    Accesos restringidos
-                  </div>
-                  <div className="mt-1 text-2xl font-bold text-rose-600 dark:text-rose-400">
-                    {simResult.spatial_analysis.total_restricted_accesses}
-                  </div>
-                </div>
+            {(basemap === "vectorial" || tilesFailed) && (
+              <div
+                role="status"
+                className="absolute left-3 top-3 z-[400] flex max-w-[16rem] items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/95 px-3 py-2 text-xs font-medium text-amber-900 shadow-panel"
+              >
+                <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>Sin mapa base. Se muestran capas vectoriales locales del campus UNT.</span>
               </div>
+            )}
 
-              <div>
-                <h4 className="flex items-center gap-1.5 text-xs font-bold text-[#0F172A] dark:text-white">
-                  <Building2 className="h-3.5 w-3.5 text-[#2563EB]" />
-                  Detalle por edificación
-                </h4>
-                <div className="mt-2 max-h-56 space-y-2 overflow-y-auto pr-1">
-                  {[...simResult.spatial_analysis.exposed_buildings]
-                    .filter((b) => isExposedLevel(b.exposure_level) || !isUnnamed(b.name))
-                    .sort((a, b) => b.overlap_pct - a.overlap_pct)
-                    .map((b) => (
-                    <div
-                      key={b.id}
-                      className={`rounded-xl border p-2.5 text-xs ${
-                        isExposedLevel(b.exposure_level)
-                          ? "border-orange-200 bg-orange-50/70 dark:border-orange-900/50 dark:bg-orange-950/20"
-                          : "border-[#E2E8F0] bg-[#F8FAFC] dark:border-slate-800 dark:bg-slate-900/50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2 font-semibold text-[#0F172A] dark:text-white">
-                        <span className="truncate">{b.name}</span>
-                        <span className="shrink-0 text-[11px] text-[#64748B] dark:text-slate-400">
-                          {isExposedLevel(b.exposure_level) && (
-                            <span
-                              className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
-                              style={{ background: LEVELS[b.exposure_level].color }}
-                            >
-                              {LEVELS[b.exposure_level].label}
-                            </span>
-                          )}
-                          {b.overlap_pct}%
-                        </span>
-                      </div>
-                      <div className="mt-0.5 text-[11px] text-[#64748B] dark:text-slate-400">
-                        {b.status_in_scenario}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/* Control flotante discreto y colapsable de capas */}
+            <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
+              <button
+                type="button"
+                onClick={() => setLayersOpen((v) => !v)}
+                aria-expanded={layersOpen}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#111827] shadow-panel backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+              >
+                <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
+                <span>Capas y mapa base</span>
+              </button>
 
-              <div>
-                <h4 className="flex items-center gap-1.5 text-xs font-bold text-[#0F172A] dark:text-white">
-                  <Navigation className="h-3.5 w-3.5 text-[#14B8A6]" />
-                  Accesos y puntos de encuentro
-                </h4>
-                <div className="mt-2 space-y-1.5 text-xs">
-                  {simResult.spatial_analysis.restricted_accesses.map((a) => (
-                    <div key={a.id} className="flex items-center justify-between text-[#64748B] dark:text-slate-300">
-                      <span className="truncate">{a.name}</span>
-                      <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                          a.inside_hazard_zone
-                            ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              {layersOpen && (
+                <div className="w-56 rounded-xl border border-[#E2E8F0] bg-white/95 p-3.5 text-xs shadow-panel backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+                  <div className="mb-2.5 flex gap-1" role="group" aria-label="Mapa base">
+                    {Object.entries(BASEMAPS).map(([key, cfg]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setBasemap(key)}
+                        aria-pressed={basemap === key}
+                        title={cfg.label}
+                        className={`flex-1 rounded-md px-1.5 py-1 text-[11px] font-semibold transition ${
+                          basemap === key
+                            ? "bg-[#2563EB] text-white"
+                            : "border border-[#E2E8F0] text-[#64748B] hover:text-[#111827] dark:border-slate-700 dark:text-slate-300"
                         }`}
                       >
-                        {a.inside_hazard_zone ? "Restringido" : "Transitable"}
-                      </span>
-                    </div>
-                  ))}
+                        {key === "vectorial" ? "Offline" : cfg.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-1.5 text-[#111827] dark:text-slate-200">
+                    {[
+                      { key: "peligro", label: "Polígono simulado" },
+                      { key: "edificios", label: "Edificios UNT" },
+                      { key: "reportes", label: "Zonas reportadas" },
+                      { key: "senderos", label: "Vías y senderos" },
+                      { key: "deportes", label: "Áreas verdes/deportivas" },
+                      { key: "accesos", label: "Accesos campus" },
+                      { key: "puntos", label: "Puntos encuentro ref." },
+                      { key: "rutas", label: "Rutas referenciales" },
+                    ].map((layer) => (
+                      <label key={layer.key} className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={visibleLayers[layer.key]}
+                          onChange={(e) =>
+                            setVisibleLayers({ ...visibleLayers, [layer.key]: e.target.checked })
+                          }
+                          className="rounded accent-[#2563EB]"
+                        />
+                        <span>{layer.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Leyenda flotante compacta */}
+            <div className="absolute bottom-3 left-3 z-[400] max-w-xs rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs shadow-panel backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+              <button
+                type="button"
+                onClick={() => setLegendOpen((v) => !v)}
+                aria-expanded={legendOpen}
+                className="flex w-full items-center justify-between gap-4 font-semibold text-[#111827] dark:text-slate-100"
+              >
+                <span>Leyenda</span>
+                <span className="text-[11px] font-medium text-[#64748B]">
+                  {legendOpen ? "Ocultar" : "Mostrar"}
+                </span>
+              </button>
+              {legendOpen && (
+                <div className="mb-1.5 mt-1.5 text-[11px] font-semibold text-[#64748B] dark:text-slate-300">
+                  Campus: OSM · Zona de peligro: SINTÉTICA
+                </div>
+              )}
+              <div
+                className={`${
+                  legendOpen ? "grid" : "hidden"
+                } grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[#111827] dark:text-slate-200`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.parcial.fill }} /> Parcial
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.alta.fill }} /> Alta
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.total.fill }} /> Total
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Fuera de zona
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" /> Sin nombre (OSM)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[#0B1F33]" /> Perímetro UNT
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Acceso restringido
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#14B8A6]" /> Punto encuentro
+                </span>
               </div>
-            </>
-          )}
+            </div>
+          </div>
         </div>
 
-        <div className="border-t border-[#E2E8F0] pt-4 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={() => onNavigate("simulator")}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0B1F33] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#122C46] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8]"
-          >
-            <ShieldAlert className="h-4 w-4" />
-            Ajustar parámetros en Simulador
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+        {/* Panel contextual lateral */}
+        <div className="flex flex-col justify-between space-y-5 rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B1F33] xl:col-span-4">
+          <div className="space-y-4">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-[#1D4ED8] dark:text-blue-400">
+                Inspección Espacial (Shapely)
+              </div>
+              <h3 className="mt-1 text-base font-bold text-[#111827] dark:text-white">
+                {simResult?.spatial_analysis?.hazard_zone_name || "Seleccione un escenario"}
+              </h3>
+            </div>
+
+            {simResult && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-3 dark:border-orange-900/50 dark:bg-orange-950/30">
+                    <div className="text-xs font-medium text-orange-900 dark:text-orange-300">
+                      Edificios expuestos
+                    </div>
+                    <div className="mt-1 text-3xl font-bold text-orange-600 tabular-nums dark:text-orange-400">
+                      {simResult.spatial_analysis.total_exposed_buildings}
+                    </div>
+                    <div className="mt-1 text-[11px] text-orange-800/80 dark:text-orange-300/80">
+                      {simResult.spatial_analysis.exposure_counts?.total ?? 0} total ·{" "}
+                      {simResult.spatial_analysis.exposure_counts?.alta ?? 0} alta ·{" "}
+                      {simResult.spatial_analysis.exposure_counts?.parcial ?? 0} parcial
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-3 dark:border-rose-900/50 dark:bg-rose-950/30">
+                    <div className="text-xs font-medium text-rose-900 dark:text-rose-300">
+                      Accesos restringidos
+                    </div>
+                    <div className="mt-1 text-3xl font-bold text-rose-600 tabular-nums dark:text-rose-400">
+                      {simResult.spatial_analysis.total_restricted_accesses}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#64748B] dark:text-slate-400">
+                    <Building2 className="h-3.5 w-3.5 text-[#1D4ED8]" />
+                    Detalle por edificación
+                  </h4>
+                  <div className="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
+                    {[...simResult.spatial_analysis.exposed_buildings]
+                      .filter((b) => isExposedLevel(b.exposure_level) || !isUnnamed(b.name))
+                      .sort((a, b) => b.overlap_pct - a.overlap_pct)
+                      .map((b) => (
+                        <div
+                          key={b.id}
+                          className={`rounded-lg border p-3 text-xs ${
+                            isExposedLevel(b.exposure_level)
+                              ? "border-orange-200 bg-orange-50/50 dark:border-orange-900/50 dark:bg-orange-950/20"
+                              : "border-[#E2E8F0] bg-[#F7F9FC] dark:border-slate-800 dark:bg-slate-900/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 font-semibold text-[#111827] dark:text-white">
+                            <span className="truncate">{b.name}</span>
+                            <span className="shrink-0 tabular-nums text-[#64748B] dark:text-slate-400">
+                              {isExposedLevel(b.exposure_level) && (
+                                <span
+                                  className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                  style={{ background: LEVELS[b.exposure_level].color }}
+                                >
+                                  {LEVELS[b.exposure_level].label}
+                                </span>
+                              )}
+                              {b.overlap_pct}%
+                            </span>
+                          </div>
+                          <div className="mt-1 text-[11px] text-[#64748B] dark:text-slate-400">
+                            {b.status_in_scenario}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#64748B] dark:text-slate-400">
+                    <Navigation className="h-3.5 w-3.5 text-[#1D4ED8]" />
+                    Accesos del campus
+                  </h4>
+                  <div className="mt-2 space-y-1.5 text-xs">
+                    {simResult.spatial_analysis.restricted_accesses.map((a) => (
+                      <div
+                        key={a.id}
+                        className="flex items-center justify-between gap-2 text-[#111827] dark:text-slate-200"
+                      >
+                        <span className="truncate">{a.name}</span>
+                        <span
+                          className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold ${
+                            a.inside_hazard_zone
+                              ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          }`}
+                        >
+                          {a.inside_hazard_zone ? "Restringido" : "Transitable"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="border-t border-[#E2E8F0] pt-4 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => onNavigate("simulator")}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0B1F33] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#122C46] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8]"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              Ajustar parámetros en Simulador
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

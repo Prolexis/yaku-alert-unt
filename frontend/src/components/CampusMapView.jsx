@@ -60,6 +60,8 @@ export default function CampusMapView({
   const [legendOpen, setLegendOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [buildingFilter, setBuildingFilter] = useState("");
+  const [onlyExposedFilter, setOnlyExposedFilter] = useState(false);
+  const [techInfoOpen, setTechInfoOpen] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState({
     edificios: true,
     accesos: true,
@@ -372,31 +374,31 @@ export default function CampusMapView({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-3 border-b border-[#E2E8F0] pb-5 dark:border-slate-800 sm:flex-row sm:items-end">
+    <div className="space-y-4">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-[#111827] dark:text-white sm:text-3xl">
-            Mapa Interactivo — Ciudad Universitaria UNT
+          <h2 className="text-3xl font-bold tracking-tight text-[#101828] dark:text-white">
+            Mapa del Campus UNT
           </h2>
-          <p className="mt-1 text-[15px] text-[#64748B] dark:text-slate-300">
-            Capas OpenStreetMap y análisis geométrico Shapely sobre zonas experimentales DEM.
+          <p className="text-sm text-[#475467] dark:text-slate-400">
+            Ubica edificios, accesos y puntos referenciales frente al escenario simulado.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Escenarios rápidos">
           {[
             { id: "lluvia_moderada", label: "Escenario A" },
-            { id: "lluvia_intensa_fen", label: "Escenario B (FEN)" },
-            { id: "escenario_extremo_fen", label: "Escenario C (Extremo)" },
+            { id: "lluvia_intensa_fen", label: "Escenario B" },
+            { id: "escenario_extremo_fen", label: "Escenario C" },
           ].map((sc) => (
             <button
               key={sc.id}
               type="button"
               onClick={() => selectQuickScenario(sc.id)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+              className={`h-9 rounded-lg px-3 text-xs font-semibold transition ${
                 simParams.hazard_zone_id === sc.id
                   ? "bg-[#2563EB] text-white"
-                  : "border border-[#E2E8F0] bg-white text-[#64748B] hover:text-[#111827] dark:border-slate-700 dark:bg-[#0B1F33] dark:text-slate-300"
+                  : "border border-[#E2E8F0] bg-white text-[#475467] hover:text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33] dark:text-slate-300"
               }`}
             >
               {sc.label}
@@ -405,39 +407,39 @@ export default function CampusMapView({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-        {/* Mapa protagonista (~67% en desktop) */}
-        <div className="relative overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B1F33] xl:col-span-8">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+        {/* Mapa protagonista (~67-70% en escritorio) */}
+        <div className="relative overflow-hidden rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-8">
           <div className="relative">
             <div
               ref={mapContainerRef}
-              className="h-[440px] w-full bg-slate-100 dark:bg-slate-900 sm:h-[560px] xl:h-[640px]"
+              className="h-[440px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[calc(100vh-215px)] lg:min-h-[520px]"
             />
 
             {(basemap === "vectorial" || tilesFailed) && (
               <div
                 role="status"
-                className="absolute left-3 top-3 z-[400] flex max-w-[16rem] items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/95 px-3 py-2 text-xs font-medium text-amber-900 shadow-panel"
+                className="absolute left-3 top-3 z-[400] flex max-w-[15rem] items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/95 px-3 py-2 text-xs font-medium text-amber-900"
               >
-                <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>Sin mapa base. Se muestran capas vectoriales locales del campus UNT.</span>
+                <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>Sin mapa base. Capas vectoriales locales activas.</span>
               </div>
             )}
 
-            {/* Control flotante discreto y colapsable de capas */}
+            {/* Control flotante discreto de capas */}
             <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
               <button
                 type="button"
                 onClick={() => setLayersOpen((v) => !v)}
                 aria-expanded={layersOpen}
-                className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#111827] shadow-panel backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#101828] backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
               >
                 <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
-                <span>Capas y mapa base</span>
+                <span>Capas</span>
               </button>
 
               {layersOpen && (
-                <div className="w-56 rounded-xl border border-[#E2E8F0] bg-white/95 p-3.5 text-xs shadow-panel backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+                <div className="w-52 rounded-xl border border-[#E2E8F0] bg-white/95 p-3 text-xs backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
                   <div className="mb-2.5 flex gap-1" role="group" aria-label="Mapa base">
                     {Object.entries(BASEMAPS).map(([key, cfg]) => (
                       <button
@@ -445,27 +447,26 @@ export default function CampusMapView({
                         type="button"
                         onClick={() => setBasemap(key)}
                         aria-pressed={basemap === key}
-                        title={cfg.label}
                         className={`flex-1 rounded-md px-1.5 py-1 text-[11px] font-semibold transition ${
                           basemap === key
                             ? "bg-[#2563EB] text-white"
-                            : "border border-[#E2E8F0] text-[#64748B] hover:text-[#111827] dark:border-slate-700 dark:text-slate-300"
+                            : "border border-[#E2E8F0] text-[#475467] dark:border-slate-700 dark:text-slate-300"
                         }`}
                       >
                         {key === "vectorial" ? "Offline" : cfg.label}
                       </button>
                     ))}
                   </div>
-                  <div className="space-y-1.5 text-[#111827] dark:text-slate-200">
+                  <div className="space-y-1.5 text-[#101828] dark:text-slate-200">
                     {[
-                      { key: "peligro", label: "Polígono simulado" },
+                      { key: "peligro", label: "Zona simulada" },
                       { key: "edificios", label: "Edificios UNT" },
                       { key: "reportes", label: "Zonas reportadas" },
                       { key: "senderos", label: "Vías y senderos" },
-                      { key: "deportes", label: "Áreas verdes/deportivas" },
-                      { key: "accesos", label: "Accesos campus" },
+                      { key: "deportes", label: "Áreas verdes" },
+                      { key: "accesos", label: "Accesos" },
                       { key: "puntos", label: "Puntos encuentro ref." },
-                      { key: "rutas", label: "Rutas referenciales" },
+                      { key: "rutas", label: "Rutas ref." },
                     ].map((layer) => (
                       <label key={layer.key} className="flex cursor-pointer items-center gap-2">
                         <input
@@ -484,28 +485,23 @@ export default function CampusMapView({
               )}
             </div>
 
-            {/* Leyenda flotante compacta */}
-            <div className="absolute bottom-3 left-3 z-[400] max-w-xs rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs shadow-panel backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+            {/* Leyenda minimalista */}
+            <div className="absolute bottom-3 left-3 z-[400] max-w-xs rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
               <button
                 type="button"
                 onClick={() => setLegendOpen((v) => !v)}
                 aria-expanded={legendOpen}
-                className="flex w-full items-center justify-between gap-4 font-semibold text-[#111827] dark:text-slate-100"
+                className="flex w-full items-center justify-between gap-4 font-semibold text-[#101828] dark:text-slate-100"
               >
                 <span>Leyenda</span>
-                <span className="text-[11px] font-medium text-[#64748B]">
-                  {legendOpen ? "Ocultar" : "Mostrar"}
+                <span className="text-[11px] font-medium text-[#475467]">
+                  {legendOpen ? "Ocultar" : "Ver"}
                 </span>
               </button>
-              {legendOpen && (
-                <div className="mb-1.5 mt-1.5 text-[11px] font-semibold text-[#64748B] dark:text-slate-300">
-                  Campus: OSM · Zona de peligro: SINTÉTICA
-                </div>
-              )}
               <div
                 className={`${
-                  legendOpen ? "grid" : "hidden"
-                } grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[#111827] dark:text-slate-200`}
+                  legendOpen ? "mt-2 grid" : "hidden"
+                } grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[#101828] dark:text-slate-200`}
               >
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVELS.parcial.fill }} /> Parcial
@@ -520,10 +516,7 @@ export default function CampusMapView({
                   <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Fuera de zona
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" /> Sin nombre (OSM)
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[#0B1F33]" /> Perímetro UNT
+                  <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" /> Sin identificar
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Acceso restringido
@@ -536,14 +529,14 @@ export default function CampusMapView({
           </div>
         </div>
 
-        {/* Panel contextual lateral */}
-        <div className="flex flex-col justify-between space-y-5 rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B1F33] xl:col-span-4">
+        {/* Panel lateral compacto (~30%) */}
+        <div className="flex flex-col justify-between space-y-4 rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-4">
           <div className="space-y-4">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#1D4ED8] dark:text-blue-400">
-                Inspección Espacial (Shapely)
+              <div className="text-xs font-medium text-[#2563EB] dark:text-blue-400">
+                Escenario seleccionado
               </div>
-              <h3 className="mt-1 text-base font-bold text-[#111827] dark:text-white">
+              <h3 className="mt-0.5 text-base font-bold text-[#101828] dark:text-white">
                 {simResult?.spatial_analysis?.hazard_zone_name || "Seleccione un escenario"}
               </h3>
             </div>
@@ -551,46 +544,50 @@ export default function CampusMapView({
             {simResult && (
               <>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-3 dark:border-orange-900/50 dark:bg-orange-950/30">
-                    <div className="text-xs font-medium text-orange-900 dark:text-orange-300">
-                      Edificios expuestos
-                    </div>
-                    <div className="mt-1 text-3xl font-bold text-orange-600 tabular-nums dark:text-orange-400">
+                  <div className="rounded-lg bg-[#F7F9FC] p-3 dark:bg-slate-900/70">
+                    <div className="text-xs text-[#475467] dark:text-slate-400">Expuestos</div>
+                    <div className="mt-0.5 text-2xl font-bold text-[#101828] tabular-nums dark:text-white">
                       {simResult.spatial_analysis.total_exposed_buildings}
                     </div>
-                    <div className="mt-1 text-[11px] text-orange-800/80 dark:text-orange-300/80">
-                      {simResult.spatial_analysis.exposure_counts?.total ?? 0} total ·{" "}
-                      {simResult.spatial_analysis.exposure_counts?.alta ?? 0} alta ·{" "}
-                      {simResult.spatial_analysis.exposure_counts?.parcial ?? 0} parcial
-                    </div>
                   </div>
-                  <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-3 dark:border-rose-900/50 dark:bg-rose-950/30">
-                    <div className="text-xs font-medium text-rose-900 dark:text-rose-300">
+                  <div className="rounded-lg bg-[#F7F9FC] p-3 dark:bg-slate-900/70">
+                    <div className="text-xs text-[#475467] dark:text-slate-400">
                       Accesos restringidos
                     </div>
-                    <div className="mt-1 text-3xl font-bold text-rose-600 tabular-nums dark:text-rose-400">
+                    <div className="mt-0.5 text-2xl font-bold text-[#101828] tabular-nums dark:text-white">
                       {simResult.spatial_analysis.total_restricted_accesses}
                     </div>
                   </div>
                 </div>
 
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#64748B] dark:text-slate-400">
-                      <Building2 className="h-3.5 w-3.5 text-[#1D4ED8]" />
-                      Buscar facultad o edificio
-                    </h4>
+                {/* Búsqueda y filtro */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-[#101828] dark:text-white">
+                      Instalaciones
+                    </span>
+                    <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[#475467] dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={onlyExposedFilter}
+                        onChange={(e) => setOnlyExposedFilter(e.target.checked)}
+                        className="rounded accent-[#2563EB]"
+                      />
+                      Solo expuestos
+                    </label>
                   </div>
                   <input
                     type="search"
                     value={buildingFilter}
                     onChange={(e) => setBuildingFilter(e.target.value)}
-                    placeholder="Ej. Derecho, Ingeniería, Biblioteca..."
-                    aria-label="Buscar facultad o edificio en el mapa"
-                    className="mt-2 w-full rounded-lg border border-[#E2E8F0] bg-[#F6F8FC] px-3 py-1.5 text-xs text-[#111827] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                    placeholder="Buscar facultad o edificio..."
+                    aria-label="Buscar facultad o edificio"
+                    className="w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 py-2 text-xs text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                   />
-                  <div className="mt-2 max-h-60 space-y-2 overflow-y-auto pr-1">
+
+                  <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
                     {[...simResult.spatial_analysis.exposed_buildings]
+                      .filter((b) => (onlyExposedFilter ? isExposedLevel(b.exposure_level) : true))
                       .filter((b) => isExposedLevel(b.exposure_level) || !isUnnamed(b.name))
                       .filter((b) =>
                         buildingFilter.trim()
@@ -601,78 +598,79 @@ export default function CampusMapView({
                       .map((b) => (
                         <div
                           key={b.id}
-                          className={`rounded-lg border p-3 text-xs ${
-                            isExposedLevel(b.exposure_level)
-                              ? "border-orange-200 bg-orange-50/50 dark:border-orange-900/50 dark:bg-orange-950/20"
-                              : "border-[#E2E8F0] bg-[#F7F9FC] dark:border-slate-800 dark:bg-slate-900/50"
-                          }`}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2 text-xs dark:border-slate-800"
                         >
-                          <div className="flex items-center justify-between gap-2 font-semibold text-[#111827] dark:text-white">
-                            <span className="truncate">{b.name}</span>
-                            <span className="shrink-0 tabular-nums text-[#64748B] dark:text-slate-400">
-                              {isExposedLevel(b.exposure_level) && (
-                                <span
-                                  className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
-                                  style={{ background: LEVELS[b.exposure_level].color }}
-                                >
-                                  {LEVELS[b.exposure_level].label}
-                                </span>
-                              )}
-                              {b.overlap_pct}%
-                            </span>
-                          </div>
-                          <div className="mt-1 text-[11px] text-[#64748B] dark:text-slate-400">
-                            {b.status_in_scenario}
-                          </div>
+                          <span className="truncate font-medium text-[#101828] dark:text-slate-200">
+                            {isUnnamed(b.name) ? "Edificio sin identificar" : b.name}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-[#475467] dark:text-slate-400">
+                            {isExposedLevel(b.exposure_level) ? (
+                              <span
+                                className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                style={{ background: LEVELS[b.exposure_level].color }}
+                              >
+                                {LEVELS[b.exposure_level].label}
+                              </span>
+                            ) : (
+                              "Fuera"
+                            )}
+                          </span>
                         </div>
                       ))}
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#64748B] dark:text-slate-400">
-                    <Navigation className="h-3.5 w-3.5 text-[#1D4ED8]" />
-                    Accesos del campus
-                  </h4>
-                  <div className="mt-2 space-y-1.5 text-xs">
-                    {simResult.spatial_analysis.restricted_accesses.map((a) => (
-                      <div
-                        key={a.id}
-                        className="flex items-center justify-between gap-2 text-[#111827] dark:text-slate-200"
+                {/* Accesos */}
+                <div className="space-y-1.5">
+                  <div className="text-xs font-semibold text-[#101828] dark:text-white">Accesos</div>
+                  {simResult.spatial_analysis.restricted_accesses.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex items-center justify-between gap-2 text-xs text-[#475467] dark:text-slate-300"
+                    >
+                      <span className="truncate">{a.name}</span>
+                      <span
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                          a.inside_hazard_zone
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                        }`}
                       >
-                        <span className="truncate">{a.name}</span>
-                        <span
-                          className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-semibold ${
-                            a.inside_hazard_zone
-                              ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
-                              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          }`}
-                        >
-                          {a.inside_hazard_zone ? "Restringido" : "Transitable"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                        {a.inside_hazard_zone ? "Restringido" : "Transitable"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </>
             )}
+
+            {/* Explicación técnica expandible */}
+            <div className="border-t border-[#E2E8F0] pt-3 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setTechInfoOpen((v) => !v)}
+                className="text-xs font-medium text-[#2563EB] hover:underline dark:text-blue-400"
+              >
+                {techInfoOpen ? "Ocultar nota técnica" : "Ver nota técnica y validación"}
+              </button>
+              {techInfoOpen && (
+                <p className="mt-2 text-[11px] leading-relaxed text-[#475467] dark:text-slate-400">
+                  Cálculo espacial real con Shapely sobre huellas OSM y polígonos sintéticos DEM.
+                  Las rutas y puntos de encuentro son referenciales hasta validación oficial UNT.
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-2.5 border-t border-[#E2E8F0] pt-4 dark:border-slate-800">
-            <p className="text-[11px] leading-relaxed text-[#64748B] dark:text-slate-400">
-              Nota: La afectación mostrada corresponde al escenario simulado. Los puntos de encuentro
-              y rutas son referenciales hasta su validación oficial por la UNT.
-            </p>
-            <button
-              type="button"
-              onClick={() => onNavigate("simulator")}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0B1F33] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#122C46] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8]"
-            >
-              <ShieldAlert className="h-4 w-4" />
-              Ajustar parámetros en Simulador
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate("simulator")}
+            className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#0B1F33] px-4 text-xs font-semibold text-white transition hover:bg-[#122C46] dark:bg-[#2563EB]"
+          >
+            <ShieldAlert className="h-4 w-4" />
+            Ajustar escenario en Simulador
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </div>

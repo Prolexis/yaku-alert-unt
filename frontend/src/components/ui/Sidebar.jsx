@@ -13,12 +13,12 @@ import {
 } from "lucide-react";
 
 export const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "monitoring", label: "Monitoreo", icon: CloudRain },
-  { id: "map", label: "Mapa UNT", icon: MapIcon },
-  { id: "simulator", label: "Simulaciones", icon: Sliders, badge: "SIM" },
-  { id: "prevention", label: "Análisis preventivo", icon: ShieldCheck },
-  { id: "continuity", label: "Orientaciones y continuidad", icon: BookOpen },
+  { id: "dashboard", label: "Dashboard", fullTitle: "Dashboard principal", icon: LayoutDashboard },
+  { id: "monitoring", label: "Monitoreo", fullTitle: "Monitoreo meteorológico", icon: CloudRain },
+  { id: "map", label: "Mapa UNT", fullTitle: "Mapa interactivo del campus UNT", icon: MapIcon },
+  { id: "simulator", label: "Simulaciones", fullTitle: "Simulador de escenarios", icon: Sliders, badge: "SIM" },
+  { id: "prevention", label: "Prevención", fullTitle: "Análisis preventivo explicable", icon: ShieldCheck },
+  { id: "continuity", label: "Continuidad", fullTitle: "Orientaciones y continuidad académica", icon: BookOpen },
 ];
 
 export default function Sidebar({
@@ -44,20 +44,18 @@ export default function Sidebar({
         aria-label="Navegación principal"
         className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/10 bg-[#0B1F33] text-slate-100 transition-all duration-200 ease-out lg:static lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
-        } ${collapsed ? "w-72 lg:w-[76px]" : "w-72 lg:w-64"}`}
+        } ${collapsed ? "w-64 lg:w-[72px]" : "w-64"}`}
       >
-        {/* Identidad */}
-        <div className="flex h-16 items-center justify-between border-b border-white/10 px-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1D4ED8] text-white">
-              <Waves className="h-5 w-5" />
+        {/* Marca */}
+        <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#2563EB] text-white">
+              <Waves className="h-4 w-4" />
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <div className="truncate text-sm font-bold tracking-tight text-white">
-                  YAKU ALERT
-                </div>
-                <div className="truncate text-xs text-slate-400">UNT · Trujillo</div>
+                <div className="text-sm font-bold tracking-tight text-white">YAKU ALERT</div>
+                <div className="text-[11px] text-slate-400">UNT · Trujillo</div>
               </div>
             )}
           </div>
@@ -75,7 +73,7 @@ export default function Sidebar({
             type="button"
             onClick={onToggleCollapse}
             className="hidden rounded-lg p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white lg:inline-flex"
-            aria-label={collapsed ? "Expandir barra lateral" : "Contraer barra lateral"}
+            aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
             title={collapsed ? "Expandir menú" : "Contraer menú"}
           >
             {collapsed ? (
@@ -86,13 +84,8 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Navegación */}
+        {/* Navegación sin truncamientos */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {!collapsed && (
-            <div className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Módulos
-            </div>
-          )}
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
@@ -104,9 +97,9 @@ export default function Sidebar({
                   onSelectView(item.id);
                   onCloseMobile();
                 }}
-                title={collapsed ? item.label : undefined}
+                title={item.fullTitle}
                 aria-current={isActive ? "page" : undefined}
-                className={`group flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 ${
+                className={`group flex h-10 w-full items-center rounded-lg px-3 text-left text-sm font-medium transition-colors duration-150 ${
                   collapsed ? "justify-center" : "justify-between"
                 } ${
                   isActive
@@ -114,13 +107,13 @@ export default function Sidebar({
                     : "text-slate-300 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <span className="flex min-w-0 items-center gap-3">
+                <span className="flex items-center gap-3">
                   <Icon
                     className={`h-4 w-4 shrink-0 ${
                       isActive ? "text-white" : "text-slate-400 group-hover:text-white"
                     }`}
                   />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
+                  {!collapsed && <span>{item.label}</span>}
                 </span>
                 {!collapsed && item.badge && (
                   <span
@@ -138,24 +131,16 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Pie institucional */}
-        <div className="border-t border-white/10 p-3">
+        {/* Pie institucional compacto */}
+        <div className="border-t border-white/10 px-4 py-3 text-[11px] text-slate-400">
           {collapsed ? (
-            <div
-              title="Prototipo TRL 3–4 · Innova Norte 3G 2026"
-              className="flex justify-center py-1"
-            >
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+            <div className="flex justify-center" title="Prototipo TRL 3–4 · SINAGERD">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
             </div>
           ) : (
-            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs">
-              <div className="flex items-center justify-between font-semibold text-white">
-                <span>Prototipo TRL 3–4</span>
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                Innova Norte 3G 2026 · Ley N.° 29664 y Ley N.° 29733.
-              </p>
+            <div className="flex items-center justify-between">
+              <span>TRL 3–4 · Ley N.° 29664</span>
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
             </div>
           )}
         </div>

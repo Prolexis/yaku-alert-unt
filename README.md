@@ -70,4 +70,4 @@ python -m pytest -v
 ## Cumplimiento Normativo y Científico
 - **Ley N.° 29664 (SINAGERD) y D.S. N.° 048-2011-PCM:** Herramienta preventiva e informativa; no reemplaza alertas oficiales de SENAMHI, COEN, INDECI ni Defensa Civil UNT.
 - **Ley N.° 29733 (Protección de Datos Personales):** No recopila datos personales ni geolocalización GPS del usuario.
-- **Transparencia:** Distinción permanente en interfaz y API entre **datos reales de pronóstico** y **escenarios simulados sintéticos**.
+- **Transparencia:** Distinción permanente en interfaz y API entre **datos reales de pronóstico** y **escenarios experimentales** (A: relieve DEM de 30 m; B: zonas reportadas por testimonio/prensa; C: combinación). La lluvia no modifica los polígonos.

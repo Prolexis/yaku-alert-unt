@@ -69,6 +69,52 @@ def test_spatial_analysis_inside_and_outside_zones():
     assert results["escenario_extremo_fen"].total_exposed_buildings >= results["lluvia_moderada"].total_exposed_buildings
 
 
+def test_scenarios_distinguish_mechanisms_and_report_zones():
+    """Los escenarios se distinguen por mecanismo, no por tamaño ni por lluvia.
+
+    A = relieve (DEM p15); B = zonas reportadas (testimonio/prensa); C = p30 + reportes.
+    """
+    from shapely.geometry import shape
+
+    from app.services.spatial import load_campus_geojson, load_hazards_geojson
+
+    features = {f["properties"]["scenario_id"]: f for f in load_hazards_geojson()["features"]}
+    assert set(features) == {"lluvia_moderada", "lluvia_intensa_fen", "escenario_extremo_fen"}
+    A = shape(features["lluvia_moderada"]["geometry"])
+    B = shape(features["lluvia_intensa_fen"]["geometry"])
+    C = shape(features["escenario_extremo_fen"]["geometry"])
+
+    natures = {sid: f["properties"]["data_nature"] for sid, f in features.items()}
+    assert natures == {
+        "lluvia_moderada": "sintetico_experimental_dem",
+        "lluvia_intensa_fen": "testimonio_no_verificado",
+        "escenario_extremo_fen": "mixto_dem_testimonio",
+    }
+
+    # B no es un recorte ni un subconjunto de A: aporta zonas fuera del polígono de relieve.
+    assert not A.covers(B)
+
+    # C contiene el polígono de relieve de A (p30 incluye p15) además de las zonas reportadas.
+    assert C.buffer(1e-9).covers(A)
+
+    # El reporte del CIDUNT está dentro de B y el edificio aparece en el análisis de exposición.
+    campus = load_campus_geojson()["features"]
+    cidunt = [f for f in campus if f["properties"].get("name") == "Centro de Idiomas - CIDUNT"]
+    assert cidunt, "campus_unt.geojson debe conservar el edificio CIDUNT de OSM"
+    assert shape(cidunt[0]["geometry"]).intersects(B)
+
+    spatial, _ = analyze_spatial_exposure("lluvia_intensa_fen")
+    inside = {b.name for b in spatial.exposed_buildings if b.inside_hazard_zone}
+    assert "Centro de Idiomas - CIDUNT" in inside
+
+    # Control de honestidad: ningún nombre de edificio puede ser inventado por el escenario;
+    # todos deben existir en la capa del campus derivada de OSM.
+    campus_buildings = {
+        f["properties"].get("name") for f in campus if f["properties"].get("category") == "edificio"
+    }
+    assert inside <= campus_buildings
+
+
 def test_exposure_level_thresholds():
     from app.services.spatial import classify_exposure
 

@@ -29,11 +29,11 @@ def classify_exposure(overlap_pct: float) -> str:
 
 
 _LEVEL_STATUS = {
-    "ninguna": "Fuera del polígono de peligro simulado",
-    "marginal": "Contacto marginal ({pct}% de la huella) con la zona simulada; sin afectación esperada del edificio",
-    "parcial": "Exposición parcial ({pct}% de la huella) en escenario simulado: revisar el sector y los accesos al primer nivel",
-    "alta": "Exposición alta ({pct}% de la huella) en escenario simulado: es probable que el primer nivel y sus accesos queden afectados",
-    "total": "Exposición total ({pct}% de la huella) en escenario simulado: la huella queda casi por completo dentro de la zona",
+    "ninguna": "Fuera de la zona experimental analizada",
+    "marginal": "Contacto marginal ({pct}% de la huella) con la zona analizada; sin afectación esperada del edificio",
+    "parcial": "Exposición parcial ({pct}% de la huella) en escenario experimental: revisar el sector y los accesos al primer nivel",
+    "alta": "Exposición alta ({pct}% de la huella) en escenario experimental: es probable que el primer nivel y sus accesos queden afectados",
+    "total": "Exposición total ({pct}% de la huella) en escenario experimental: la huella queda casi por completo dentro de la zona",
 }
 
 
@@ -97,9 +97,9 @@ def analyze_spatial_exposure(hazard_zone_id: str) -> tuple[SpatialAnalysisResult
             )
         elif category == "acceso":
             status = (
-                "Acceso restringido en simulación (posible anegamiento)"
+                "Acceso dentro de la zona experimental analizada (relieve o reporte)"
                 if intersects
-                else "Acceso transitable en simulación (sujeto a verificación)"
+                else "Sin intersección con la zona analizada (sujeto a verificación en campo)"
             )
             restricted_accesses.append(
                 ExposedElement(
@@ -115,7 +115,7 @@ def analyze_spatial_exposure(hazard_zone_id: str) -> tuple[SpatialAnalysisResult
             status = (
                 "Comprometido en simulación — usar punto alterno"
                 if intersects
-                else "Disponible como referencia en simulación"
+                else "Fuera de la zona analizada (referencial)"
             )
             meeting_points_status.append(
                 ExposedElement(

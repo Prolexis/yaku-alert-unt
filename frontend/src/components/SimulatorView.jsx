@@ -101,7 +101,8 @@ export default function SimulatorView({
             Centro Interactivo de Simulación
           </h2>
           <p className="mt-1 text-sm text-[#475467] dark:text-slate-400">
-            Ensaya cómo cambian las zonas expuestas según lluvia y drenaje (datos sintéticos offline).
+            Ensaya niveles preventivos según lluvia y drenaje. El polígono de cada zona representa un
+            mecanismo distinto y no cambia con la lluvia (datos experimentales offline).
           </p>
         </div>
         {lastSimAt && (
@@ -131,11 +132,15 @@ export default function SimulatorView({
               onChange={(e) => applyPreset(e.target.value)}
               className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 text-sm font-medium text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
-              <option value="lluvia_moderada">Escenario A — Lluvia moderada</option>
-              <option value="lluvia_intensa_fen">Escenario B — Lluvia intensa FEN</option>
-              <option value="escenario_extremo_fen">Escenario C — Escenario extremo FEN</option>
+              <option value="lluvia_moderada">Escenario A — Relieve · lluvia de referencia 12 mm/h</option>
+              <option value="lluvia_intensa_fen">B — Ingreso reportado · lluvia de referencia 28 mm/h</option>
+              <option value="escenario_extremo_fen">C — Combinado · lluvia de referencia 45 mm/h</option>
               <option value="personalizado">Personalizado</option>
             </select>
+            <p className="text-[11px] leading-relaxed text-[#475467] dark:text-slate-400">
+              La lluvia y la duración alimentan las reglas preventivas, pero NO cambian el polígono.
+              Cada zona representa un mecanismo distinto; no se modelan canaletas ni drenaje.
+            </p>
           </div>
 
           {/* 2. Intensidad y duración */}
@@ -196,7 +201,7 @@ export default function SimulatorView({
           <div className="space-y-3 border-t border-[#E2E8F0] pt-4 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <label htmlFor="sim-zone" className="text-xs font-semibold text-[#475467] dark:text-slate-400">
-                3. Condiciones del terreno
+                3. Zona de análisis (Shapely)
               </label>
               <button
                 type="button"
@@ -215,15 +220,18 @@ export default function SimulatorView({
               }
               className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 text-sm font-medium text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
-              <option value="lluvia_moderada">Zona de cota más baja del campus</option>
-              <option value="lluvia_intensa_fen">Zona de cota relativamente baja</option>
-              <option value="escenario_extremo_fen">Zona ampliada de terreno bajo</option>
+              <option value="lluvia_moderada">Zona A — Acumulación por relieve (DEM)</option>
+              <option value="lluvia_intensa_fen">Zona B — Ingreso por avenidas y puertas (reportado)</option>
+              <option value="escenario_extremo_fen">Zona C — Combinado (relieve + reportado)</option>
             </select>
 
             {demInfoOpen && (
               <p className="rounded-lg bg-[#F7F9FC] p-3 text-xs leading-relaxed text-[#475467] dark:bg-slate-900/70 dark:text-slate-400">
-                Estas áreas se estiman con elevación satelital (DEM Copernicus GLO-30: percentiles p15,
-                p30 y p50). Son zonas experimentales para ensayo y no representan una predicción validada.
+                A usa sectores con cota bajo el percentil 15 del DEM Copernicus de 30 m dentro del
+                campus. B usa las zonas reportadas por testimonio y prensa (Puerta 4, CIDUNT,
+                estacionamientos y avenidas), sin recortar al perímetro. C es la unión de la cota
+                p30 con las zonas reportadas. La lluvia no modifica estas geometrías; son
+                estimaciones experimentales y no reemplazan estudios de CENEPRED/SIGRID/INDECI.
               </p>
             )}
 
@@ -306,7 +314,7 @@ export default function SimulatorView({
                   <ResultKpi label="Intensidad" value={`${simParams.intensity_mm_h} mm/h`} />
                   <ResultKpi label="Acumulado" value={`${simResult.simulated_accumulated_mm} mm`} />
                   <ResultKpi
-                    label="Edificios expuestos"
+                    label="Edificios con exposición ≥5%"
                     value={simResult.spatial_analysis.total_exposed_buildings}
                   />
                   <ResultKpi
@@ -370,7 +378,7 @@ export default function SimulatorView({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-[#101828] dark:text-white">
                 <Building2 className="h-4 w-4 text-[#2563EB]" />
-                Edificaciones en zona simulada ({exposedOnly.length})
+                Edificaciones en zona analizada ({exposedOnly.length})
               </h3>
               <input
                 type="search"

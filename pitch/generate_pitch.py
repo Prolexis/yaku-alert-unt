@@ -132,7 +132,7 @@ def main():
         "4. Demostración en Vivo y Verificación Técnica",
         "Software funcional ejecutable y probado con suite automatizada",
         [
-            "Demo en vivo (90 s): Monitoreo real -> Simulación Lluvia Intensa FEN (28 mm/h, drenaje obstruido) -> Ficha Preventiva y Continuidad.",
+            "Demo en vivo (90 s): Monitoreo real -> Simulación Escenario B — Ingreso reportado (28 mm/h de referencia, drenaje obstruido) -> Ficha Preventiva y Continuidad.",
             "9 pruebas automatizadas (pytest) aprobadas: API en vivo, fallback offline, rechazo de datos inválidos, intersección Shapely y seguridad HTTP.",
             "Plan de validación en campo listo (14–24 nov 2026): protocolo de 4 tareas con 12–20 usuarios UNT para medir comprensión y usabilidad real.",
         ],

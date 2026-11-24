@@ -186,7 +186,7 @@ export default function DashboardView({
         <ActionLink
           icon={<Sliders className="h-4 w-4 text-[#2563EB]" />}
           title="Explorar simulaciones"
-          desc="Ensaya escenarios sintéticos sin conexión."
+          desc="Ensaya escenarios experimentales sin conexión."
           onClick={() => onNavigate("simulator")}
         />
       </section>

@@ -217,7 +217,7 @@ export default function CampusMapView({
         .bindPopup(
           `<div class="space-y-1">
             <div class="font-bold text-rose-700">${esc(hp.zone_name)}</div>
-            <div class="text-[11px] font-semibold uppercase text-amber-700">Escenario sintético (${esc(hp.severity)})</div>
+            <div class="text-[11px] font-semibold uppercase text-amber-700">Escenario experimental — ${esc(hp.data_nature || "mixto")}</div>
             <div>${esc(hp.description)}</div>
           </div>`,
           { className: "yaku-popup" }
@@ -283,10 +283,10 @@ export default function CampusMapView({
               <strong>${esc(name)}</strong><br/>
               <span class="text-[11px]">${
                 isExposed
-                  ? `⚠️ Exposición ${LEVELS[lv].label.toLowerCase()} en simulación (${exp.overlap_pct}% de la huella)`
+                  ? `⚠️ Exposición ${LEVELS[lv].label.toLowerCase()} en escenario experimental (${exp.overlap_pct}% de la huella)`
                   : lv === "marginal"
                   ? `Contacto marginal (${exp.overlap_pct}% de la huella)`
-                  : "Fuera de zona simulada"
+                  : "Fuera de la zona analizada"
               }</span>
               ${sourceLine(feat.properties)}
             </div>`,
@@ -313,7 +313,7 @@ export default function CampusMapView({
         })
           .bindPopup(
             `<div><strong>${esc(name)}</strong><br/><span class="text-[11px]">${
-              isRestricted ? "Acceso restringido en simulación" : "Acceso transitable en simulación"
+              isRestricted ? "Dentro de la zona analizada (relieve o reporte)" : "Sin intersección con la zona analizada"
             }</span>${sourceLine(feat.properties)}</div>`,
             { className: "yaku-popup" }
           )
@@ -381,29 +381,37 @@ export default function CampusMapView({
             Mapa del Campus UNT
           </h2>
           <p className="text-sm text-[#475467] dark:text-slate-400">
-            Ubica edificios, accesos y puntos referenciales frente al escenario simulado.
+            Ubica edificios, accesos y puntos referenciales frente a cada escenario experimental.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Escenarios rápidos">
-          {[
-            { id: "lluvia_moderada", label: "Escenario A" },
-            { id: "lluvia_intensa_fen", label: "Escenario B" },
-            { id: "escenario_extremo_fen", label: "Escenario C" },
-          ].map((sc) => (
-            <button
-              key={sc.id}
-              type="button"
-              onClick={() => selectQuickScenario(sc.id)}
-              className={`h-9 rounded-lg px-3 text-xs font-semibold transition ${
-                simParams.hazard_zone_id === sc.id
-                  ? "bg-[#2563EB] text-white"
-                  : "border border-[#E2E8F0] bg-white text-[#475467] hover:text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33] dark:text-slate-300"
-              }`}
-            >
-              {sc.label}
-            </button>
-          ))}
+        <div className="flex flex-col items-start gap-1.5 sm:items-end">
+          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Escenarios por mecanismo">
+            {[
+              { id: "lluvia_moderada", label: "A · Relieve" },
+              { id: "lluvia_intensa_fen", label: "B · Ingreso reportado" },
+              { id: "escenario_extremo_fen", label: "C · Combinado" },
+            ].map((sc) => (
+              <button
+                key={sc.id}
+                type="button"
+                role="tab"
+                aria-selected={simParams.hazard_zone_id === sc.id}
+                onClick={() => selectQuickScenario(sc.id)}
+                className={`h-9 rounded-lg px-3 text-xs font-semibold transition ${
+                  simParams.hazard_zone_id === sc.id
+                    ? "bg-[#2563EB] text-white"
+                    : "border border-[#E2E8F0] bg-white text-[#475467] hover:text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33] dark:text-slate-300"
+                }`}
+              >
+                {sc.label}
+              </button>
+            ))}
+          </div>
+          <p className="max-w-md text-[11px] leading-snug text-[#475467] dark:text-slate-400">
+            A: sectores de cota relativamente baja (DEM de 30 m). B: zonas reportadas por
+            testimonio y prensa. C: ambos. No modelan lluvia ni canaletas.
+          </p>
         </div>
       </div>
 
@@ -459,7 +467,7 @@ export default function CampusMapView({
                   </div>
                   <div className="space-y-1.5 text-[#101828] dark:text-slate-200">
                     {[
-                      { key: "peligro", label: "Zona simulada" },
+                      { key: "peligro", label: "Zona analizada (A/B/C)" },
                       { key: "edificios", label: "Edificios UNT" },
                       { key: "reportes", label: "Zonas reportadas" },
                       { key: "senderos", label: "Vías y senderos" },
@@ -545,7 +553,7 @@ export default function CampusMapView({
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-lg bg-[#F7F9FC] p-3 dark:bg-slate-900/70">
-                    <div className="text-xs text-[#475467] dark:text-slate-400">Expuestos</div>
+                    <div className="text-xs text-[#475467] dark:text-slate-400">Exposición ≥5%</div>
                     <div className="mt-0.5 text-2xl font-bold text-[#101828] tabular-nums dark:text-white">
                       {simResult.spatial_analysis.total_exposed_buildings}
                     </div>
@@ -611,6 +619,8 @@ export default function CampusMapView({
                               >
                                 {LEVELS[b.exposure_level].label}
                               </span>
+                            ) : b.exposure_level === "marginal" ? (
+                              "Contacto marginal"
                             ) : (
                               "Fuera"
                             )}
@@ -655,7 +665,8 @@ export default function CampusMapView({
               </button>
               {techInfoOpen && (
                 <p className="mt-2 text-[11px] leading-relaxed text-[#475467] dark:text-slate-400">
-                  Cálculo espacial real con Shapely sobre huellas OSM y polígonos sintéticos DEM.
+                  Cálculo espacial real con Shapely sobre huellas OSM y geometrías experimentales
+                  (DEM de 30 m y zonas reportadas por testimonio/prensa).
                   Las rutas y puntos de encuentro son referenciales hasta validación oficial UNT.
                 </p>
               )}

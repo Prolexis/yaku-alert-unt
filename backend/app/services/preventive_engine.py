@@ -107,7 +107,7 @@ def evaluate_preventive_rules(
                 rule_id="R-COND-01",
                 description="Condición de drenaje pluvial obstruido considerada",
                 observed_value="Sí (parámetro de escenario)",
-                threshold_note="Incrementa probabilidad de anegamiento superficial local",
+                threshold_note="Condición declarada del escenario; no modifica el polígono ni modela drenaje",
             )
         )
 
@@ -118,7 +118,7 @@ def evaluate_preventive_rules(
                 rule_id="R-COND-02",
                 description="Suelo/superficie con saturación previa",
                 observed_value="Sí (parámetro de escenario)",
-                threshold_note="Reduce infiltración y acelera escorrentía superficial",
+                threshold_note="Condición declarada del escenario; no modifica el polígono ni modela escorrentía",
             )
         )
 
@@ -136,7 +136,7 @@ def evaluate_preventive_rules(
         rules.append(
             RuleTrigger(
                 rule_id="R-ESP-01",
-                description="Múltiples edificaciones o accesos intersectan zona de peligro",
+                description="Múltiples edificaciones o accesos intersectan la zona experimental analizada",
                 observed_value=breakdown,
                 threshold_note="Calculado geométricamente con Shapely; niveles por % de huella dentro de la zona (umbrales experimentales)",
             )
@@ -186,7 +186,7 @@ def evaluate_preventive_rules(
         )
     else:
         sources.append("Meteorología: Parámetros sintéticos ingresados en el simulador offline.")
-    sources.append("Geografía: GeoJSON referencial UNT + escenarios sintéticos procesados con Shapely 2.x.")
+    sources.append("Geografía: GeoJSON referencial UNT + escenarios experimentales por mecanismo procesados con Shapely 2.x.")
 
     return PreventiveEvaluation(
         is_synthetic=is_synthetic,
@@ -197,8 +197,8 @@ def evaluate_preventive_rules(
         hazard_assessment=hazard_text,
         exposure_assessment=exposure_text,
         risk_distinction_note=(
-            "Peligro = intensidad/acumulado de lluvia o escorrentía; "
-            "Exposición = infraestructura UNT dentro del área analizada; "
+            "Peligro meteorológico = intensidad/acumulado de lluvia (alimenta las reglas preventivas, "
+            "no el polígono); Exposición = infraestructura UNT dentro de la zona experimental analizada; "
             "Estado preventivo = orientación experimental basada en reglas. "
             "No se convierte la probabilidad de lluvia en probabilidad de huaico."
         ),

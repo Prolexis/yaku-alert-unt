@@ -30,7 +30,11 @@ PRESET_SCENARIOS: dict[str, dict] = {
 def run_offline_simulation(req: SimulationRequest) -> SimulationResponse:
     """
     Ejecuta una simulación determinista 100% offline combinando parámetros
-    sintéticos de lluvia, análisis espacial Shapely y motor preventivo explicable.
+    de lluvia, análisis espacial Shapely y motor preventivo explicable.
+
+    La lluvia y la duración solo alimentan las reglas preventivas: NO modifican
+    la geometría de la zona (A: relieve DEM; B: zonas reportadas; C: combinación).
+    No se modelan canaletas ni drenaje.
     """
     if req.scenario_id != "personalizado" and req.scenario_id in PRESET_SCENARIOS:
         preset = PRESET_SCENARIOS[req.scenario_id]

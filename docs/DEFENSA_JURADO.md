@@ -3,7 +3,7 @@
 ## 1. Recorrido de Demostración (90 a 120 segundos dentro del Pitch de 5 min)
 
 - **[0:00 – 0:20] Vista 1 (Monitoreo Real):** Mostrar el banner superior verde (*DATOS REALES DE PRONÓSTICO — Open-Meteo API*), la ubicación de la Ciudad Universitaria UNT (`-8.1147, -79.0386`), el gráfico de próximas 24 horas y la distinción explícita entre pronóstico numérico y observación in situ. Activar brevemente el check *"Modo sin conexión (caché)"* para demostrar resiliencia offline.
-- **[0:20 – 0:55] Vista 2 (Mapa y Simulador Offline con Shapely):** Cambiar a *Escenario B — Lluvia Intensa FEN* (28 mm/h, 4h, drenaje obstruido). Mostrar cómo el banner cambia inmediatamente a ámbar (*MODO ESCENARIO SIMULADO / SINTÉTICO*) y cómo **Shapely** calcula en tiempo real qué pabellones (p. ej. Ingeniería, Biblioteca, Comedor) y accesos (Av. América Oeste) intersectan el polígono simulado, junto a puntos de encuentro y rutas referenciales.
+- **[0:20 – 0:55] Vista 2 (Mapa y Simulador Offline con Shapely):** Cambiar a *Escenario B — Ingreso por avenidas y puertas (zonas reportadas)* (28 mm/h de referencia, 4h, drenaje obstruido). Mostrar cómo el banner cambia inmediatamente a ámbar (*MODO ESCENARIO EXPERIMENTAL*) y cómo **Shapely** calcula en tiempo real qué edificaciones y accesos intersectan las zonas reportadas por testimonio y prensa (p. ej. CIDUNT y estacionamientos; Av. Jesús de Nazareth y Av. Juan Pablo II), junto a puntos de encuentro y rutas referenciales. Aclarar que la lluvia no modifica el polígono y que B es testimonio no verificado.
 - **[0:55 – 1:35] Vista 3 (Ficha Preventiva Explicable y Continuidad):** Hacer clic en *"Ver Ficha Preventiva →"*. Mostrar la separación entre **Peligro** y **Exposición**, las **reglas transparentes activadas** (`R-MET-02`, `R-ACU-01`, `R-COND-01`, `R-ESP-01`), las **alternativas de continuidad académica** (transición temporal a aula virtual y reprogramación de prácticas) y el bloque de **cumplimiento SINAGERD / Ley N.° 29733**.
 
 ---
@@ -41,7 +41,7 @@
     *Respuesta:* No. Están etiquetadas explícitamente como *"rutas referenciales de simulación"* y no garantizan transitabilidad ni seguridad operativa en un evento real.
 
 11. **¿El análisis espacial es visual solamente o hay cálculo geométrico real?**  
-    *Respuesta:* Es cálculo geométrico real en el backend usando **Shapely 2.x** (`intersects` e `intersection().area`) entre los polígonos GeoJSON de peligro simulado y los polígonos/puntos de edificios y accesos UNT.
+    *Respuesta:* Es cálculo geométrico real en el backend usando **Shapely 2.x** (`intersects` e `intersection().area`) entre las zonas experimentales por mecanismo (relieve DEM y zonas reportadas) y los polígonos/puntos de edificios y accesos UNT. La lluvia alimenta las reglas preventivas, no la geometría.
 
 12. **¿Cómo detectan si se activan las quebradas San Ildefonso, San Carlos o El León?**  
     *Respuesta:* Este MVP **no** afirma detección en tiempo real de quebradas porque no cuenta con sensores propios ni acceso autorizado a cámaras/pluviómetros del IGP/CENDEHUA o ANIN. Solo presenta contexto informativo externo.

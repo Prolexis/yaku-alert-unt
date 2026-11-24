@@ -20,7 +20,7 @@
     },
     {
       "level": "VIGILANCIA_PREVENTIVA",
-      "label": "Vigilancia Preventiva Experimental — Lluvia Moderada",
+      "label": "Vigilancia Preventiva Experimental — Lluvia de referencia moderada",
       "color": "#f59e0b",
       "guidance": [
         "Evitar transitar por zonas bajas o con acumulación superficial de agua en el campus.",
@@ -34,11 +34,11 @@
     },
     {
       "level": "ATENCION_PREVENTIVA",
-      "label": "Atención Preventiva Experimental — Lluvia Intensa / Alta Exposición",
+      "label": "Atención Preventiva Experimental — Lluvia de referencia intensa / alta exposición",
       "color": "#f97316",
       "guidance": [
         "Restringir preventivamente el tránsito por accesos y pabellones expuestos en el escenario analizado.",
-        "Permanecer en pisos superiores seguros si se encuentra dentro de un pabellón con anegamiento exterior.",
+        "Permanecer en pisos superiores si hay anegamiento exterior, siguiendo las indicaciones oficiales.",
         "No cruzar corrientes de agua ni utilizar instalaciones eléctricas húmedas."
       ],
       "continuity": [
@@ -48,7 +48,7 @@
     },
     {
       "level": "PREPARACION_CRITICA",
-      "label": "Preparación Crítica Experimental — Escenario Extremo",
+      "label": "Preparación Crítica Experimental — Escenario combinado",
       "color": "#ef4444",
       "guidance": [
         "Seguir estrictamente las indicaciones de la Oficina de Seguridad/Defensa Civil UNT y COER La Libertad.",

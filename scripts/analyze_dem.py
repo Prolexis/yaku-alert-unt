@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
-"""Analiza un DEM (Copernicus GLO-30) sobre el campus UNT.
+"""Analiza un DEM (Copernicus GLO-30) sobre el campus UNT y genera escenarios experimentales.
 
 Paso 1 (informe, no escribe escenarios):
     pip install shapely numpy   (NO requiere rasterio/GDAL)
     python scripts/analyze_dem.py --dem scripts/dem/Copernicus_DSM_COG_10_S09_00_W080_00_DEM.tif
 
-Paso 2 (genera backend/app/data/hazard_scenarios.geojson a partir del relieve):
+Paso 2 (genera backend/app/data/hazard_scenarios.geojson):
     python scripts/analyze_dem.py --dem <tif> --write-scenarios
 
-Método (experimental, NO validado): zonas "de cota relativamente baja" dentro del campus,
-definidas por percentiles de elevación (A: p15, B: p30, C: p50). No modela lluvia, drenaje
-urbano ni flujo hidráulico. Si el relieve del campus es menor que el error vertical del DEM,
-el script lo advierte y se niega a escribir escenarios salvo --force.
+Los tres escenarios se distinguen por MECANISMO, no por tamaño ni por lluvia:
+- A (lluvia_moderada): acumulación por relieve = cota bajo el percentil 15 del DEM dentro del campus.
+- B (lluvia_intensa_fen): ingreso por avenidas y puertas = unión de las zonas reportadas
+  (category "zona_reportada" de campus_unt.geojson, testimonio/prensa), sin recortar al perímetro.
+- C (escenario_extremo_fen): combinado = cota bajo el percentil 30 del DEM recortada al campus
+  unida a las zonas reportadas.
+
+La lluvia NO modifica estos polígonos: solo etiquetan mecanismos distintos para el simulador.
+No se modelan canaletas, drenaje ni flujo hidráulico. No es un estudio hidrológico y no
+reemplaza los mapas de CENEPRED/SIGRID/INDECI. Si el relieve del campus es menor que el error
+vertical del DEM, el script lo advierte y no escribe escenarios salvo --force.
 """
 import argparse, json, struct, sys, zlib
 from pathlib import Path
@@ -32,13 +39,17 @@ VERT_ERROR_M = 4.0      # error vertical absoluto declarado (LE90) de Copernicus
 MIN_AREA_M2 = 150.0
 M2_PER_DEG2 = 1.2e10    # aprox. a 8° S
 
+# (id, percentil_o_None, usa_reportes, severidad, hazard_type, nombre, data_nature)
 SCENARIOS = [
-    ("lluvia_moderada", 15, "moderado", "anegamiento_pluvial_simulado",
-     "Zona Experimental A — Cota relativamente baja (p15)"),
-    ("lluvia_intensa_fen", 30, "alto", "escorrentia_pluvial_simulada",
-     "Zona Experimental B — Cota relativamente baja (p30)"),
-    ("escenario_extremo_fen", 50, "muy_alto", "inundacion_pluvial_simulada",
-     "Zona Experimental C — Cota relativamente baja (p50)"),
+    ("lluvia_moderada", 15, False, "moderado", "acumulacion_por_relieve_experimental",
+     "Escenario A — Acumulación por relieve (cota relativamente baja, p15)",
+     "sintetico_experimental_dem"),
+    ("lluvia_intensa_fen", None, True, "alto", "ingreso_reportado_testimonial",
+     "Escenario B — Ingreso por avenidas y puertas (zonas reportadas)",
+     "testimonio_no_verificado"),
+    ("escenario_extremo_fen", 30, True, "muy_alto", "combinado_relieve_y_reportes",
+     "Escenario C — Combinado (relieve p30 + zonas reportadas)",
+     "mixto_dem_testimonio"),
 ]
 
 
@@ -209,7 +220,11 @@ def campus_geometry():
     if not polys:
         sys.exit("campus_unt.geojson no tiene perímetro. Ejecuta antes build_campus_geojson.py")
     blds = [shape(f["geometry"]) for f in d["features"] if f["properties"].get("category") == "edificio"]
-    return unary_union(polys), (unary_union(blds) if blds else None)
+    reps = [shape(f["geometry"]) for f in d["features"]
+            if f["properties"].get("category") == "zona_reportada"]
+    return (unary_union(polys),
+            (unary_union(blds) if blds else None),
+            (unary_union(reps) if reps else None))
 
 
 def main():
@@ -219,7 +234,7 @@ def main():
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args()
 
-    campus, bgeom = campus_geometry()
+    campus, bgeom, reports_geom = campus_geometry()
     minx, miny, maxx, maxy = campus.bounds
     try:
         dem, x0, y0, dx, dy = read_geotiff_window(a.dem, minx - MARGIN_DEG, miny - MARGIN_DEG,
@@ -306,33 +321,57 @@ def main():
         sys.exit("\nNO se generaron escenarios: el relieve no supera el error del DEM. "
                  "Usa --force solo si lo declararás explícitamente así, o usa marcación local (opción B).")
 
-    # --- escenarios: cota relativamente baja (percentiles), contornos suavizados
+    # --- escenarios por mecanismo: relieve (percentiles del DEM) y/o zonas reportadas
     up = upsample_bilinear(dem, UPSAMPLE)
     udx, udy = dx / UPSAMPLE, dy / UPSAMPLE
     cmask = rasterize(campus, *up.shape, x0, y0, udx, udy)
     feats = []
-    for sid, pct, sev, htype, name in SCENARIOS:
-        thr = float(np.percentile(up[cmask], pct))
-        poly = mask_to_polygons((up <= thr) & cmask, x0, y0, udx, udy)
-        if poly is None:
-            sys.exit(f"Escenario {sid}: sin áreas. Relieve insuficiente.")
-        parts = [p for p in (poly.geoms if hasattr(poly, "geoms") else [poly])
-                 if p.area * M2_PER_DEG2 >= MIN_AREA_M2]
-        if not parts:
-            sys.exit(f"Escenario {sid}: sin áreas > {MIN_AREA_M2:.0f} m². Relieve insuficiente.")
-        geom = unary_union([p.simplify(5e-6) for p in parts]).intersection(campus)
-        feats.append({"type": "Feature", "geometry": mapping(geom), "properties": {
+    for sid, pct, uses_reports, sev, htype, name, nature in SCENARIOS:
+        geom = None
+        parts_desc = []
+        method_parts = []
+        threshold = None
+        if pct is not None:
+            thr = float(np.percentile(up[cmask], pct))
+            poly = mask_to_polygons((up <= thr) & cmask, x0, y0, udx, udy)
+            if poly is None:
+                sys.exit(f"Escenario {sid}: sin áreas. Relieve insuficiente.")
+            parts = [p for p in (poly.geoms if hasattr(poly, "geoms") else [poly])
+                     if p.area * M2_PER_DEG2 >= MIN_AREA_M2]
+            if not parts:
+                sys.exit(f"Escenario {sid}: sin áreas > {MIN_AREA_M2:.0f} m². Relieve insuficiente.")
+            geom = unary_union([p.simplify(5e-6) for p in parts]).intersection(campus)
+            threshold = round(thr, 2)
+            parts_desc.append(f"Sectores con cota por debajo del percentil {pct} "
+                              f"(≤ {thr:.1f} m s.n.m., DEM de 30 m)")
+            method_parts.append(f"percentil_{pct}_elevacion_DEM")
+        if uses_reports:
+            if reports_geom is None:
+                sys.exit(f"Escenario {sid} requiere zonas reportadas y campus_unt.geojson no tiene "
+                         "ninguna. Ejecuta primero: python scripts/build_campus_geojson.py")
+            geom = reports_geom if geom is None else unary_union([geom, reports_geom])
+            parts_desc.append("zonas reportadas por testimonio y prensa; NO modeladas ni verificadas")
+            method_parts.append("zonas_reportadas")
+        if geom is None or geom.is_empty:
+            sys.exit(f"Escenario {sid}: geometría vacía.")
+        description = ("; ".join(parts_desc) + ". Estimación experimental: la lluvia no modifica "
+                       "este polígono y no se modelan canaletas ni drenaje; no está validada.")
+        props = {
             "scenario_id": sid, "zone_name": name, "hazard_type": htype, "severity": sev,
-            "description": (f"Sectores del campus con cota por debajo del percentil {pct} (≤ {thr:.1f} m s.n.m., "
-                            "DEM Copernicus GLO-30). Estimación experimental de relieve relativo; "
-                            "no modela lluvia ni drenaje y no está validada."),
-            "data_nature": "sintetico_experimental_dem", "method": f"percentil_{pct}_elevacion_DEM",
-            "threshold_m": round(thr, 2)}})
+            "description": description, "data_nature": nature,
+            "method": "+".join(method_parts),
+        }
+        if threshold is not None:
+            props["threshold_m"] = threshold
+        feats.append({"type": "Feature", "geometry": mapping(geom), "properties": props})
     out = {"type": "FeatureCollection",
-           "metadata": {"data_nature": "sintetico_experimental_dem",
-                        "source": "Copernicus GLO-30 DEM (ESA/Copernicus), análisis propio",
-                        "disclaimer": ("Zonas EXPERIMENTALES de cota relativamente baja derivadas de un DEM de 30 m. "
-                                       "No son un estudio hidrológico ni reemplazan mapas de CENEPRED/SIGRID/INDECI.")},
+           "metadata": {"data_nature": "mixto_dem_testimonio",
+                        "source": ("Copernicus GLO-30 DEM (ESA/Copernicus) y zonas reportadas de "
+                                   "campus_unt.geojson (testimonio/prensa, no verificado)"),
+                        "disclaimer": ("Escenarios EXPERIMENTALES por mecanismo: relieve (DEM de 30 m) "
+                                       "y zonas reportadas (testimonio/prensa). No son un estudio "
+                                       "hidrológico, no modelan lluvia ni canaletas y no reemplazan "
+                                       "mapas de CENEPRED/SIGRID/INDECI.")},
            "features": feats}
     HAZARDS.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print("Escenarios escritos en", HAZARDS)

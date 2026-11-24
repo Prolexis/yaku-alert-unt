@@ -7,11 +7,11 @@ function humanExplanation(level) {
     case "INFORMATIVO":
       return "Las condiciones evaluadas no superan los umbrales experimentales de lluvia. Mantén atención a los avisos oficiales.";
     case "VIGILANCIA_PREVENTIVA":
-      return "Se observa lluvia moderada o exposición puntual. Evita sectores bajos y revisa tus accesos habituales.";
+      return "La evaluación alcanza vigilancia preventiva por umbrales experimentales de lluvia y/o exposición espacial puntual. Evita sectores bajos y consulta avisos oficiales.";
     case "ATENCION_PREVENTIVA":
-      return "El escenario muestra lluvia intensa o varios pabellones expuestos. Extrema precauciones y consulta alternativas académicas.";
+      return "Las reglas alcanzan atención preventiva por umbrales experimentales de lluvia y/o exposición espacial. Consulta alternativas académicas y avisos oficiales.";
     case "PREPARACION_CRITICA":
-      return "Escenario extremo de demostración con alta intensidad y amplia exposición. Ante un evento real similar, sigue las indicaciones de Defensa Civil UNT.";
+      return "Las reglas alcanzan preparación crítica bajo los parámetros evaluados; esto no representa una inundación observada ni una alerta real. Sigue las indicaciones de Defensa Civil UNT.";
     default:
       return "Evaluación preventiva informativa basada en reglas transparentes.";
   }

@@ -41,7 +41,7 @@ YAKU ALERT/
 │   │   │   └── simulator.py  # Simulador determinista offline de lluvia extrema/escenarios
 │   │   └── data/
 │   │       ├── campus_unt.geojson        # Edificios, accesos, puntos de encuentro referenciales
-│   │       ├── hazard_scenarios.geojson  # Escenarios sintéticos de anegamiento/escorrentía
+│   │       ├── hazard_scenarios.geojson  # Escenarios experimentales por mecanismo (relieve DEM / zonas reportadas)
 │   │       ├── protocols.json            # Protocolos SINAGERD/preventivos y continuidad
 │   │       └── open_meteo_fallback.json  # Respaldo local verificable para modo offline
 │   ├── tests/                # Suite pytest (API, offline, Shapely, motor, seguridad)
@@ -62,7 +62,7 @@ YAKU ALERT/
 ### Prioridad P0 (Crítico — MVP Funcional Demostrable)
 - [x] Inspección de bases oficiales (`BASES HACKATHON 2026- VF (1).pdf`) y verificación de API Open-Meteo.
 - [ ] **Backend FastAPI:** Endpoint `/api/weather` (Open-Meteo real con forzado IPv4 + fallback offline etiquetado), `/api/campus/layers` (GeoJSON UNT), `/api/preventive/evaluate` (motor explicable), `/api/simulate` (simulador offline determinista con Shapely), `/api/protocols` (orientaciones y continuidad).
-- [ ] **Análisis Espacial Real (Shapely):** Cálculo de intersección geométrica entre polígonos de peligro sintético/escenario y edificios, accesos y puntos de encuentro del campus UNT.
+- [ ] **Análisis Espacial Real (Shapely):** Cálculo de intersección geométrica entre las zonas experimentales por mecanismo (relieve DEM y zonas reportadas) y edificios, accesos y puntos de encuentro del campus UNT.
 - [ ] **Motor Preventivo Explicable:** Reglas transparentes que distinguen **peligro**, **exposición** y **riesgo**, sin convertir probabilidad de lluvia en probabilidad de huaico ni presentar umbrales experimentales como validados científicamente.
 - [ ] **Frontend React + Tailwind + Leaflet:** 3 vistas principales:
   1. *Monitoreo:* Pronóstico horario, precipitación, probabilidad, intensidad, acumulados, duración, humedad, fuente, unidades y timestamp.

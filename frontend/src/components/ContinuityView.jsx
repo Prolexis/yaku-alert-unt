@@ -16,7 +16,7 @@ const PHASES = [
     title: "Durante",
     items: [
       "Evita cruzar zonas anegadas o instalaciones eléctricas húmedas.",
-      "Permanece en pisos superiores seguros si hay anegamiento exterior.",
+      "Permanece en pisos superiores si hay anegamiento exterior, siguiendo indicaciones oficiales.",
       "Sigue únicamente comunicados oficiales de Defensa Civil UNT e INDECI.",
     ],
   },

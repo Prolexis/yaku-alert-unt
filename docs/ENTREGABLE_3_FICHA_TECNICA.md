@@ -17,14 +17,14 @@
 - **Datos y Respaldo Offline:**
   - API meteorológica real: **Open-Meteo Weather Forecast API** (`latitude=-8.114656`, `longitude=-79.038595`, `America/Lima`).
   - Caché local verificada (`open_meteo_fallback.json`) para operación sin internet.
-  - Capas referenciales del campus UNT (`campus_unt.geojson`) y escenarios sintéticos (`hazard_scenarios.geojson`).
+  - Capas referenciales del campus UNT (`campus_unt.geojson`) y escenarios experimentales por mecanismo (`hazard_scenarios.geojson`).
 - **Pruebas automatizadas:** `pytest` + `fastapi.testclient`.
 
 ---
 
 ## 3. ¿Cómo se utiliza? (3 Vistas Principales)
 1. **Vista 1 — Monitoreo:** Muestra el pronóstico horario (24–48 h), intensidad máxima (mm/h), acumulados, duración estimada, probabilidad y humedad. Permite activar el **Modo sin conexión (caché)** y verificar fuente, unidades, hora de actualización y limitaciones.
-2. **Vista 2 — Mapa de Riesgo y Escenarios:** Visualiza el campus UNT en Leaflet con edificios, accesos, puntos de encuentro referenciales y rutas referenciales. El panel izquierdo permite ejecutar el **Simulador Offline** (escenarios moderado, intenso FEN, extremo FEN o personalizado) calculando con Shapely qué edificios y accesos quedan expuestos.
+2. **Vista 2 — Mapa de Escenarios Experimentales:** Visualiza el campus UNT en Leaflet con edificios, accesos, puntos de encuentro referenciales y rutas referenciales. El panel izquierdo permite ejecutar el **Simulador Offline** con tres zonas por mecanismo —A: acumulación por relieve (DEM de 30 m), B: ingreso por avenidas y puertas (zonas reportadas por testimonio/prensa) y C: combinación— calculando con Shapely qué edificios y accesos quedan dentro de cada zona. La lluvia no modifica estos polígonos.
 3. **Vista 3 — Prevención y Respuesta:** Genera la **Ficha Preventiva Explicable**, detallando por separado el peligro, la exposición espacial, las reglas exactas activadas (`R-MET-*`, `R-ACU-*`, `R-ESP-*`), las orientaciones preventivas, las alternativas de continuidad académica UNT, el contexto informativo de quebradas de Trujillo y los límites legales/científicos.
 
 ---

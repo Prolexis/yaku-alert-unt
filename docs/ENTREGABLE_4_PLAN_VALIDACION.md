@@ -25,11 +25,13 @@
 ### Población objetivo
 - **Muestra planificada:** 12 a 20 participantes de la comunidad UNT (estudiantes de distintas facultades, 2–3 docentes y 1–2 administrativos/brigadistas).
 
-### Tareas de usabilidad y comprensión a evaluar
-1. **Tarea 1 (Monitoreo):** Identificar en menos de 60 segundos si el pronóstico actual corresponde a datos reales o simulación, y cuál es la intensidad máxima prevista.
-2. **Tarea 2 (Mapa y Simulación):** Seleccionar el escenario *Lluvia Intensa FEN*, identificar qué pabellón queda expuesto y qué acceso figura restringido en la simulación.
-3. **Tarea 3 (Prevención y Continuidad):** Abrir la Ficha Preventiva, explicar *por qué* se activó ese nivel (reglas) y señalar qué alternativa de continuidad académica aplica.
-4. **Tarea 4 (Comprensión de Límites):** Confirmar si el usuario comprende que el sistema es preventivo/informativo y **no** reemplaza alertas oficiales de Defensa Civil/SENAMHI.
+### Tareas de usabilidad y comprensión a evaluar (6 tareas reales)
+1. **Tarea 1 (Identificar lluvias):** En el Dashboard/Monitoreo, indicar en menos de 45 segundos si se pronostican lluvias significativas en las próximas 24 horas.
+2. **Tarea 2 (Encontrar instalación):** En el Mapa Interactivo, localizar una facultad o edificio específico usando el buscador y verificar si aparece en la zona simulada.
+3. **Tarea 3 (Distinguir datos):** Identificar claramente si la pantalla actual muestra datos reales (Open-Meteo), caché sin conexión o una simulación sintética.
+4. **Tarea 4 (Comprender ficha preventiva):** En Análisis Preventivo, explicar qué significa el resultado para el usuario y desplegar los detalles técnicos si se requiere.
+5. **Tarea 5 (Localizar orientaciones oficiales):** En Orientaciones y Continuidad, encontrar las medidas *Antes / Durante / Después* y los enlaces oficiales de SENAMHI / INDECI / UNT.
+6. **Tarea 6 (Verificar actualización):** Identificar la fuente y la fecha/hora exacta de la última actualización del pronóstico.
 
 ### Métricas reales a registrar durante las sesiones
 - Tasa de tareas completadas sin asistencia (%).

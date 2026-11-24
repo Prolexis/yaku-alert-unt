@@ -133,7 +133,7 @@ export default function App() {
     (activeView === "prevention" && evalSourceMode === "simulated");
 
   return (
-    <div className="flex min-h-screen bg-[#F7F9FC] text-[#111827] dark:bg-[#071524] dark:text-slate-100">
+    <div className="flex min-h-screen bg-[#F6F8FC] text-[#111827] dark:bg-[#071524] dark:text-slate-100">
       <Sidebar
         activeView={activeView}
         onSelectView={setActiveView}

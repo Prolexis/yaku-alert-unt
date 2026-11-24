@@ -59,6 +59,7 @@ export default function CampusMapView({
   const [tilesFailed, setTilesFailed] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
+  const [buildingFilter, setBuildingFilter] = useState("");
   const [visibleLayers, setVisibleLayers] = useState({
     edificios: true,
     accesos: true,
@@ -574,13 +575,28 @@ export default function CampusMapView({
                 </div>
 
                 <div>
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#64748B] dark:text-slate-400">
-                    <Building2 className="h-3.5 w-3.5 text-[#1D4ED8]" />
-                    Detalle por edificación
-                  </h4>
-                  <div className="mt-2 max-h-64 space-y-2 overflow-y-auto pr-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#64748B] dark:text-slate-400">
+                      <Building2 className="h-3.5 w-3.5 text-[#1D4ED8]" />
+                      Buscar facultad o edificio
+                    </h4>
+                  </div>
+                  <input
+                    type="search"
+                    value={buildingFilter}
+                    onChange={(e) => setBuildingFilter(e.target.value)}
+                    placeholder="Ej. Derecho, Ingeniería, Biblioteca..."
+                    aria-label="Buscar facultad o edificio en el mapa"
+                    className="mt-2 w-full rounded-lg border border-[#E2E8F0] bg-[#F6F8FC] px-3 py-1.5 text-xs text-[#111827] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  />
+                  <div className="mt-2 max-h-60 space-y-2 overflow-y-auto pr-1">
                     {[...simResult.spatial_analysis.exposed_buildings]
                       .filter((b) => isExposedLevel(b.exposure_level) || !isUnnamed(b.name))
+                      .filter((b) =>
+                        buildingFilter.trim()
+                          ? b.name.toLowerCase().includes(buildingFilter.trim().toLowerCase())
+                          : true
+                      )
                       .sort((a, b) => b.overlap_pct - a.overlap_pct)
                       .map((b) => (
                         <div
@@ -642,7 +658,11 @@ export default function CampusMapView({
             )}
           </div>
 
-          <div className="border-t border-[#E2E8F0] pt-4 dark:border-slate-800">
+          <div className="space-y-2.5 border-t border-[#E2E8F0] pt-4 dark:border-slate-800">
+            <p className="text-[11px] leading-relaxed text-[#64748B] dark:text-slate-400">
+              Nota: La afectación mostrada corresponde al escenario simulado. Los puntos de encuentro
+              y rutas son referenciales hasta su validación oficial por la UNT.
+            </p>
             <button
               type="button"
               onClick={() => onNavigate("simulator")}

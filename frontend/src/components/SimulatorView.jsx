@@ -249,7 +249,7 @@ export default function SimulatorView({
               htmlFor="sim-zone"
               className="block text-xs font-semibold uppercase tracking-wide text-[#64748B] dark:text-slate-400"
             >
-              3. Relieve DEM y condiciones locales
+              3. Condiciones del terreno
             </label>
             <select
               id="sim-zone"
@@ -264,12 +264,18 @@ export default function SimulatorView({
                   0
                 )
               }
-              className="w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 py-2.5 text-sm font-medium text-[#111827] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="w-full rounded-lg border border-[#E2E8F0] bg-[#F6F8FC] px-3 py-2.5 text-sm font-medium text-[#111827] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
-              <option value="lluvia_moderada">Zona A — Cota baja p15 (DEM)</option>
-              <option value="lluvia_intensa_fen">Zona B — Cota media-baja p30 (DEM)</option>
-              <option value="escenario_extremo_fen">Zona C — Cota ampliada p50 (DEM)</option>
+              <option value="lluvia_moderada">Zona A — Sectores más bajos del campus (p15 DEM)</option>
+              <option value="lluvia_intensa_fen">Zona B — Sectores bajos y medios (p30 DEM)</option>
+              <option value="escenario_extremo_fen">Zona C — Cobertura amplia del campus (p50 DEM)</option>
             </select>
+            <p className="rounded-lg bg-[#F6F8FC] p-2.5 text-[11px] leading-relaxed text-[#64748B] dark:bg-slate-900/60 dark:text-slate-400">
+              <strong>¿Qué significa DEM (p15, p30, p50)?</strong> Es un mapa satelital de altura
+              del terreno (Modelo Digital de Elevación). <em>p15</em> agrupa el 15% más bajo del
+              campus donde el agua tiende a acumularse primero; <em>p30</em> y <em>p50</em> amplían
+              esa área de ensayo. No representa una predicción oficial.
+            </p>
 
             <div className="space-y-2 pt-1 text-sm text-[#111827] dark:text-slate-200">
               <label className="flex cursor-pointer items-center gap-2.5">

@@ -10,6 +10,7 @@ Plataforma web inteligente de monitoreo meteorológico, análisis espacial geogr
 - `backend/` — API REST en **FastAPI** + **Shapely 2.x** + cliente **Open-Meteo** (IPv4 + respaldo local offline) + suite `pytest`.
 - `frontend/` — Interfaz en **React + Vite + Tailwind CSS + Leaflet** con 3 vistas (*Monitoreo*, *Mapa y Escenarios*, *Prevención y Respuesta*).
 - `docs/` — Matriz de cumplimiento, Entregables Stage-Gate 1 (Ficha del Problema, Ficha Técnica, Plan de Validación) y Defensa de Jurado.
+- `scripts/calibrar_lluvia_historica.py` — Consulta lluvia horaria de eventos documentados en Open-Meteo Archive.
 - `pitch/` — Generador y presentación PowerPoint oficial (`YAKU_ALERT_UNT_PITCH.pptx`, 7 diapositivas).
 - `PLAN_DESARROLLO.md` — Plan maestro, arquitectura y backlog P0/P1/P2.
 
@@ -71,3 +72,13 @@ python -m pytest -v
 - **Ley N.° 29664 (SINAGERD) y D.S. N.° 048-2011-PCM:** Herramienta preventiva e informativa; no reemplaza alertas oficiales de SENAMHI, COEN, INDECI ni Defensa Civil UNT.
 - **Ley N.° 29733 (Protección de Datos Personales):** No recopila datos personales ni geolocalización GPS del usuario.
 - **Transparencia:** Distinción permanente en interfaz y API entre **datos reales de pronóstico** y **escenarios experimentales** (A: relieve DEM de 30 m; B: zonas reportadas por testimonio/prensa; C: combinación). La lluvia no modifica los polígonos.
+
+## Alcance y naturaleza de los escenarios
+
+- **A:** percentil 15 de cotas DEM, capa experimental, escala ~30 m.
+- **B:** zonas ancladas a OSM por testimonio/prensa, no verificadas; las franjas viales se recortan a un buffer de 40 m del perímetro y no documentan la extensión real del agua.
+- **C:** combinación de DEM p30 y zonas reportadas.
+- **Influencia SINTÉTICA:** capa separada para B/C; azimut descendente DEM (~203°), alcances demostrativos por defecto de 40/80 m y buffer lateral 15 m. Son escalas visuales arbitrarias (C duplica el alcance de B), sin base de campo, no es una predicción y no dependen de la lluvia.
+- **Lluvia:** tres ventanas históricas se consultan mediante Open-Meteo Archive. Es reanálisis aproximado que puede subestimar eventos locales; no reemplaza estaciones SENAMHI. Si no se obtiene conexión, los valores 12/28/45 mm/h se conservan solo como supuestos de demostración.
+- **Canaletas nuevas de la UNT:** no modeladas (sin datos); se incorporarán únicamente con datos de la UNT o visita de campo.
+- Las capas experimentales y sintéticas no reemplazan estudios de CENEPRED/SIGRID/INDECI. El proyecto no modela flujo hidráulico ni declara zonas seguras.

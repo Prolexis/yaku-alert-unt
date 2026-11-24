@@ -108,6 +108,7 @@
     }
   },
   "manual_features": [],
+  "canaletas": [],
   "reports": [
     {
       "id": "rep_puerta4",
@@ -156,8 +157,9 @@
     {
       "id": "rep_av_jesus_nazareth",
       "name": "Anegamiento reportado — Av. Jesús de Nazareth",
-      "description": "Prensa: avenida 'enlagunada' frente a la UNT (Andina, 10-ene-2026); inundación de hasta 40 cm (Correo, 20-abr-2017).",
+      "description": "Prensa: avenida 'enlagunada' frente a la UNT (Andina, 10-ene-2026); inundación de hasta 40 cm (Correo, 20-abr-2017). Se muestra solo el tramo frente al campus; la extensión real del encharcamiento no está documentada.",
       "source": "Prensa (Andina 2026, Correo 2017) y testimonio del equipo",
+      "clip_to_frontage_m": 40,
       "evidence": [
         "https://andina.pe/agencia/noticia-trujillo-soporto-lluvia-intensa-inundo-calles-y-avenidas-1058795.aspx",
         "https://diariocorreo.pe/edicion/la-libertad/trujillo-asi-luce-mural-de-la-unt-fotos-y-video-744816/",
@@ -173,8 +175,9 @@
     {
       "id": "rep_av_juan_pablo",
       "name": "Anegamiento reportado — Av. Juan Pablo II",
-      "description": "El equipo reporta inundación de la avenida. Antecedente: en el huaico del 15-mar-2017 el agua recorrió la Av. Juan Pablo II (La República, 2020).",
+      "description": "El equipo reporta inundación de la avenida. Antecedente: en el huaico del 15-mar-2017 el agua recorrió la Av. Juan Pablo II (La República, 2020). Se muestra solo el tramo frente al campus; la extensión real del encharcamiento no está documentada.",
       "source": "Testimonio del equipo (no verificado); prensa 2017",
+      "clip_to_frontage_m": 40,
       "evidence": [
         "https://larepublica.pe/sociedad/2020/03/15/trujillo-se-recuerda-huaico-que-afecto-la-ciudad-lrnd"
       ],

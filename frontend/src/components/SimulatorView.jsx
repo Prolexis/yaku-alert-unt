@@ -9,6 +9,14 @@ const DEFAULT_RESET_PARAMS = {
   drainage_obstructed: true,
   antecedent_soil_saturated: false,
   hazard_zone_id: "lluvia_intensa_fen",
+  synthetic_reach_m: 40,
+};
+
+const isUnnamed = (name) => /^Edificio sin nombre/.test(name || "");
+const displayBuildingName = (building) => {
+  if (!isUnnamed(building.name)) return building.name;
+  const digits = String(building.osm_id || "").match(/\d+$/)?.[0] || "000000";
+  return `Edificio sin nombre (OSM ${digits.slice(-6).padStart(6, "0")})`;
 };
 
 export default function SimulatorView({
@@ -52,6 +60,7 @@ export default function SimulatorView({
         drainage_obstructed: false,
         antecedent_soil_saturated: false,
         hazard_zone_id: "lluvia_moderada",
+        synthetic_reach_m: undefined,
       },
       lluvia_intensa_fen: {
         scenario_id: "lluvia_intensa_fen",
@@ -60,6 +69,7 @@ export default function SimulatorView({
         drainage_obstructed: true,
         antecedent_soil_saturated: false,
         hazard_zone_id: "lluvia_intensa_fen",
+        synthetic_reach_m: 40,
       },
       escenario_extremo_fen: {
         scenario_id: "escenario_extremo_fen",
@@ -68,6 +78,7 @@ export default function SimulatorView({
         drainage_obstructed: true,
         antecedent_soil_saturated: true,
         hazard_zone_id: "escenario_extremo_fen",
+        synthetic_reach_m: 80,
       },
     };
     if (presets[scenarioId]) {
@@ -77,10 +88,15 @@ export default function SimulatorView({
     }
   };
 
-  const timelineSteps = Array.from({ length: Math.min(6, simParams.duration_hours) }, (_, idx) => {
+  const activeIntensity = simResult?.parameters?.intensity_mm_h ?? simParams.intensity_mm_h;
+  const activeDuration = simResult?.parameters?.duration_hours ?? simParams.duration_hours;
+  const rainfallPresetLabel = simResult?.rainfall_reference?.is_historical_reanalysis
+    ? "lluvia histórica de referencia"
+    : "supuesto de lluvia demostrativo";
+  const timelineSteps = Array.from({ length: Math.min(6, activeDuration) }, (_, idx) => {
     const hour = idx + 1;
     const factor = hour === 1 ? 0.55 : hour === 2 ? 0.9 : hour === 3 ? 1.0 : 0.7;
-    return { hour, estMm: (simParams.intensity_mm_h * factor).toFixed(1) };
+    return { hour, estMm: (activeIntensity * factor).toFixed(1) };
   });
 
   const exposedOnly = (simResult?.spatial_analysis?.exposed_buildings || [])
@@ -101,8 +117,8 @@ export default function SimulatorView({
             Centro Interactivo de Simulación
           </h2>
           <p className="mt-1 text-sm text-[#475467] dark:text-slate-400">
-            Ensaya niveles preventivos según lluvia y drenaje. El polígono de cada zona representa un
-            mecanismo distinto y no cambia con la lluvia (datos experimentales offline).
+            Ensaya niveles preventivos según lluvia y drenaje. La lluvia no modifica los polígonos;
+            el alcance de la influencia SINTÉTICA tampoco depende de los mm/h.
           </p>
         </div>
         {lastSimAt && (
@@ -132,14 +148,15 @@ export default function SimulatorView({
               onChange={(e) => applyPreset(e.target.value)}
               className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 text-sm font-medium text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
-              <option value="lluvia_moderada">Escenario A — Relieve · lluvia de referencia 12 mm/h</option>
-              <option value="lluvia_intensa_fen">B — Ingreso reportado · lluvia de referencia 28 mm/h</option>
-              <option value="escenario_extremo_fen">C — Combinado · lluvia de referencia 45 mm/h</option>
+              <option value="lluvia_moderada">Escenario A — Relieve · {rainfallPresetLabel}</option>
+              <option value="lluvia_intensa_fen">B — Ingreso reportado · {rainfallPresetLabel}</option>
+              <option value="escenario_extremo_fen">C — Combinado · {rainfallPresetLabel}</option>
               <option value="personalizado">Personalizado</option>
             </select>
             <p className="text-[11px] leading-relaxed text-[#475467] dark:text-slate-400">
               La lluvia y la duración alimentan las reglas preventivas, pero NO cambian el polígono.
-              Cada zona representa un mecanismo distinto; no se modelan canaletas ni drenaje.
+              Cada zona representa un mecanismo distinto. Canaletas nuevas de la UNT: no modeladas
+              (sin datos).
             </p>
           </div>
 
@@ -225,13 +242,49 @@ export default function SimulatorView({
               <option value="escenario_extremo_fen">Zona C — Combinado (relieve + reportado)</option>
             </select>
 
+            {simParams.hazard_zone_id !== "lluvia_moderada" && (
+              <div className="space-y-2 rounded-lg border border-dashed border-cyan-500/60 bg-cyan-50/50 p-3 dark:bg-cyan-950/20">
+                <div className="flex justify-between gap-2 text-sm">
+                  <label htmlFor="sim-synthetic-reach" className="font-medium text-[#101828] dark:text-slate-200">
+                    Alcance de influencia SINTÉTICA
+                  </label>
+                  <span className="shrink-0 font-bold text-cyan-700 tabular-nums dark:text-cyan-300">
+                    {simParams.synthetic_reach_m ?? (simParams.hazard_zone_id === "escenario_extremo_fen" ? 80 : 40)} m
+                  </span>
+                </div>
+                <input
+                  id="sim-synthetic-reach"
+                  type="range"
+                  min="20"
+                  max="150"
+                  step="1"
+                  value={simParams.synthetic_reach_m ?? (simParams.hazard_zone_id === "escenario_extremo_fen" ? 80 : 40)}
+                  onChange={(e) =>
+                    updateAndRun(
+                      {
+                        ...simParams,
+                        synthetic_reach_m: Number(e.target.value),
+                      },
+                      220
+                    )
+                  }
+                  className="w-full accent-cyan-600"
+                />
+                <p className="text-[11px] leading-relaxed text-[#475467] dark:text-slate-400">
+                  Supuesto sin base de campo; calibrar con datos de la UNT. El alcance es independiente
+                  de la lluvia.
+                </p>
+              </div>
+            )}
+
             {demInfoOpen && (
               <p className="rounded-lg bg-[#F7F9FC] p-3 text-xs leading-relaxed text-[#475467] dark:bg-slate-900/70 dark:text-slate-400">
                 A usa sectores con cota bajo el percentil 15 del DEM Copernicus de 30 m dentro del
-                campus. B usa las zonas reportadas por testimonio y prensa (Puerta 4, CIDUNT,
-                estacionamientos y avenidas), sin recortar al perímetro. C es la unión de la cota
-                p30 con las zonas reportadas. La lluvia no modifica estas geometrías; son
-                estimaciones experimentales y no reemplazan estudios de CENEPRED/SIGRID/INDECI.
+                campus. B usa zonas reportadas por testimonio y prensa; las franjas viales se limitan
+                a 40 m alrededor del perímetro. C combina relieve p30 y reportes. La influencia
+                punteada SINTÉTICA se calcula aparte y no cambia con la lluvia. Canaletas nuevas de la
+                UNT: no modeladas (sin datos). Ninguna capa reemplaza estudios de
+                CENEPRED/SIGRID/INDECI.
               </p>
             )}
 
@@ -311,17 +364,43 @@ export default function SimulatorView({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <ResultKpi label="Intensidad" value={`${simParams.intensity_mm_h} mm/h`} />
+                  <ResultKpi label="Intensidad" value={`${simResult.parameters.intensity_mm_h} mm/h`} />
                   <ResultKpi label="Acumulado" value={`${simResult.simulated_accumulated_mm} mm`} />
                   <ResultKpi
                     label="Edificios con exposición ≥5%"
                     value={simResult.spatial_analysis.total_exposed_buildings}
                   />
                   <ResultKpi
-                    label="Accesos intersectados"
+                    label="Accesos dentro de la zona"
                     value={simResult.spatial_analysis.total_restricted_accesses}
                   />
                 </div>
+
+                {simResult.rainfall_reference && (
+                  <div className="space-y-1 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+                    {simResult.rainfall_reference.is_historical_reanalysis ? (
+                      <p>
+                        Lluvia de referencia: {simResult.rainfall_reference.label} (reanálisis,{" "}
+                        {simResult.rainfall_reference.max_hourly_mm_h} mm/h máx.,{" "}
+                        {simResult.rainfall_reference.max_rolling_24h_mm} mm en 24 h).
+                      </p>
+                    ) : (
+                      <p>
+                        Lluvia de referencia: supuesto de demostración (
+                        {simResult.rainfall_reference.max_hourly_mm_h} mm/h; no es una observación).
+                      </p>
+                    )}
+                    {simResult.rainfall_reference.note && <p>{simResult.rainfall_reference.note}</p>}
+                    {simResult.rainfall_reference.is_historical_reanalysis &&
+                      simResult.rainfall_reference.reanalysis_near_zero &&
+                      simResult.rainfall_reference.demo_assumption_mm_h != null && (
+                        <p>
+                          Supuesto anterior de demostración (no reanálisis):{" "}
+                          {simResult.rainfall_reference.demo_assumption_mm_h} mm/h.
+                        </p>
+                      )}
+                  </div>
+                )}
 
                 <div className="rounded-lg bg-[#F7F9FC] p-4 text-sm text-[#101828] dark:bg-slate-900/70 dark:text-slate-200">
                   {simResult.preventive_evaluation.guidance[0]}
@@ -397,7 +476,7 @@ export default function SimulatorView({
                   className="flex items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2 text-xs dark:border-slate-800"
                 >
                   <span className="truncate font-medium text-[#101828] dark:text-slate-200">
-                    {b.name}
+                    {displayBuildingName(b)}
                   </span>
                   <span className="shrink-0 font-mono font-semibold text-[#475467] tabular-nums dark:text-slate-400">
                     {b.overlap_pct}%
@@ -407,6 +486,45 @@ export default function SimulatorView({
             </div>
           </div>
         </div>
+      )}
+
+      {simResult?.spatial_analysis?.synthetic_exposure && (
+        <section className="rounded-xl border border-dashed border-cyan-500/60 bg-cyan-50/60 p-5 dark:bg-cyan-950/20">
+          <h3 className="text-sm font-bold text-cyan-900 dark:text-cyan-200">
+            Exposición en escenario sintético (alcance{" "}
+            {simResult.spatial_analysis.synthetic_exposure.reach_m} m, azimut{" "}
+            {simResult.spatial_analysis.synthetic_exposure.azimuth_deg}°)
+          </h3>
+          <p className="mt-1 text-xs text-cyan-900 dark:text-cyan-200">
+            Parámetros arbitrarios de demostración; no es una predicción. Umbral marginal/parcial: 5%
+            de la huella; accesos son puntos y el porcentaje refleja intersección geométrica. El
+            alcance no depende de la lluvia.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {simResult.spatial_analysis.synthetic_exposure.buildings
+              .filter((building) => building.exposure_level !== "ninguna")
+              .map((building) => (
+                <div
+                  key={building.id}
+                  className="flex justify-between gap-2 rounded border border-cyan-200/70 px-3 py-2 text-xs dark:border-cyan-900/70"
+                >
+                  <span className="truncate">{displayBuildingName(building)}</span>
+                  <span className="shrink-0">{building.exposure_level} · {building.overlap_pct}%</span>
+                </div>
+              ))}
+            {simResult.spatial_analysis.synthetic_exposure.accesses
+              .filter((access) => access.inside_hazard_zone)
+              .map((access) => (
+                <div
+                  key={access.id}
+                  className="flex justify-between gap-2 rounded border border-cyan-200/70 px-3 py-2 text-xs dark:border-cyan-900/70"
+                >
+                  <span className="truncate">{access.name}</span>
+                  <span className="shrink-0">{access.exposure_level} · {access.overlap_pct}%</span>
+                </div>
+              ))}
+          </div>
+        </section>
       )}
     </div>
   );

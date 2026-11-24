@@ -31,6 +31,12 @@ const LEVELS = {
 const isExposedLevel = (lv) => lv === "parcial" || lv === "alta" || lv === "total";
 
 const isUnnamed = (name) => /^Edificio sin nombre/.test(name || "");
+const displayBuildingName = (building) => {
+  if (!isUnnamed(building.name)) return building.name;
+  const osmId = String(building.osm_id || "");
+  const digits = osmId.match(/\d+$/)?.[0] || "000000";
+  return `Edificio sin nombre (OSM ${digits.slice(-6).padStart(6, "0")})`;
+};
 
 const sourceLine = (props) =>
   `<div class="mt-1 text-[10px] text-slate-500">Fuente: ${esc(props.source || "referencial")} · ${
@@ -71,6 +77,7 @@ export default function CampusMapView({
     senderos: true,
     deportes: true,
     reportes: true,
+    influencia_sintetica: true,
   });
 
   // Inicializa el mapa (sin mapa base: se maneja aparte para poder cambiarlo y degradar sin internet)
@@ -225,6 +232,32 @@ export default function CampusMapView({
         .addTo(group);
     }
 
+    if (visibleLayers.influencia_sintetica && simResult?.synthetic_geojson) {
+      simResult.synthetic_geojson.features.forEach((feature) => {
+        const props = feature.properties || {};
+        L.geoJSON(feature, {
+          style: {
+            color: "#0891B2",
+            weight: 2.5,
+            dashArray: "1 7",
+            lineCap: "round",
+            fillColor: "#22D3EE",
+            fillOpacity: 0.12,
+          },
+        })
+          .bindTooltip("SINTÉTICO", { permanent: true, direction: "center", className: "synthetic-tooltip" })
+          .bindPopup(
+            `<div class="space-y-1">
+              <div class="font-bold text-cyan-700">SINTÉTICO · Influencia demostrativa</div>
+              <div class="text-[11px]">${esc(props.description)}</div>
+              <div class="text-[10px] text-slate-500">Naturaleza del dato: ${esc(props.data_nature)}</div>
+            </div>`,
+            { className: "yaku-popup" }
+          )
+          .addTo(group);
+      });
+    }
+
     const features = campusLayers.campus?.features || [];
 
     // Zonas reportadas por la comunidad: testimonio, NO cálculo ni peligro validado.
@@ -348,6 +381,7 @@ export default function CampusMapView({
         drainage_obstructed: false,
         antecedent_soil_saturated: false,
         hazard_zone_id: "lluvia_moderada",
+        synthetic_reach_m: undefined,
       },
       lluvia_intensa_fen: {
         scenario_id: "lluvia_intensa_fen",
@@ -356,6 +390,7 @@ export default function CampusMapView({
         drainage_obstructed: true,
         antecedent_soil_saturated: false,
         hazard_zone_id: "lluvia_intensa_fen",
+        synthetic_reach_m: 40,
       },
       escenario_extremo_fen: {
         scenario_id: "escenario_extremo_fen",
@@ -364,6 +399,7 @@ export default function CampusMapView({
         drainage_obstructed: true,
         antecedent_soil_saturated: true,
         hazard_zone_id: "escenario_extremo_fen",
+        synthetic_reach_m: 80,
       },
     };
     const next = presets[scenarioId];
@@ -410,7 +446,8 @@ export default function CampusMapView({
           </div>
           <p className="max-w-md text-[11px] leading-snug text-[#475467] dark:text-slate-400">
             A: sectores de cota relativamente baja (DEM de 30 m). B: zonas reportadas por
-            testimonio y prensa. C: ambos. No modelan lluvia ni canaletas.
+            testimonio y prensa. C: ambos. La capa punteada SINTÉTICA usa alcance configurable,
+            independiente de la lluvia. Canaletas nuevas de la UNT: no modeladas (sin datos).
           </p>
         </div>
       </div>
@@ -470,6 +507,7 @@ export default function CampusMapView({
                       { key: "peligro", label: "Zona analizada (A/B/C)" },
                       { key: "edificios", label: "Edificios UNT" },
                       { key: "reportes", label: "Zonas reportadas" },
+                      { key: "influencia_sintetica", label: "Influencia SINTÉTICA" },
                       { key: "senderos", label: "Vías y senderos" },
                       { key: "deportes", label: "Áreas verdes" },
                       { key: "accesos", label: "Accesos" },
@@ -524,13 +562,16 @@ export default function CampusMapView({
                   <span className="h-2.5 w-2.5 rounded-sm bg-[#2563EB]" /> Fuera de zona
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" /> Sin identificar
+                  <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" /> Edificio sin nombre
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Acceso restringido
+                  <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Acceso dentro de la zona
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-[#14B8A6]" /> Punto encuentro
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3 border-t-2 border-dotted border-cyan-600" /> SINTÉTICO
                 </span>
               </div>
             </div>
@@ -560,7 +601,7 @@ export default function CampusMapView({
                   </div>
                   <div className="rounded-lg bg-[#F7F9FC] p-3 dark:bg-slate-900/70">
                     <div className="text-xs text-[#475467] dark:text-slate-400">
-                      Accesos restringidos
+                      Accesos dentro de la zona
                     </div>
                     <div className="mt-0.5 text-2xl font-bold text-[#101828] tabular-nums dark:text-white">
                       {simResult.spatial_analysis.total_restricted_accesses}
@@ -609,7 +650,7 @@ export default function CampusMapView({
                           className="flex items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2 text-xs dark:border-slate-800"
                         >
                           <span className="truncate font-medium text-[#101828] dark:text-slate-200">
-                            {isUnnamed(b.name) ? "Edificio sin identificar" : b.name}
+                            {displayBuildingName(b)}
                           </span>
                           <span className="shrink-0 tabular-nums text-[#475467] dark:text-slate-400">
                             {isExposedLevel(b.exposure_level) ? (
@@ -646,12 +687,51 @@ export default function CampusMapView({
                             : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                         }`}
                       >
-                        {a.inside_hazard_zone ? "Restringido" : "Transitable"}
+                        {a.inside_hazard_zone ? "Dentro de la zona" : "Fuera de la zona"}
                       </span>
                     </div>
                   ))}
+                  <p className="text-[10px] leading-relaxed text-[#64748B] dark:text-slate-400">
+                    En B y C son zonas reportadas por testimonio; no confirman cierre.
+                  </p>
                 </div>
               </>
+            )}
+
+            {simResult?.spatial_analysis?.synthetic_exposure && (
+              <section className="space-y-2 rounded-lg border border-dashed border-cyan-500/60 bg-cyan-50/60 p-3 dark:bg-cyan-950/20">
+                <div className="text-xs font-bold text-cyan-800 dark:text-cyan-300">
+                  Exposición en escenario sintético (alcance{" "}
+                  {simResult.spatial_analysis.synthetic_exposure.reach_m} m, azimut{" "}
+                  {simResult.spatial_analysis.synthetic_exposure.azimuth_deg}°)
+                </div>
+                <p className="text-[10px] leading-relaxed text-cyan-900 dark:text-cyan-200">
+                  Parámetros arbitrarios de demostración; no es una predicción. El alcance no
+                  depende de la lluvia.
+                </p>
+                <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+                  {simResult.spatial_analysis.synthetic_exposure.buildings
+                    .filter((b) => isExposedLevel(b.exposure_level))
+                    .map((b) => (
+                      <div key={b.id} className="flex justify-between gap-2 text-[11px]">
+                        <span className="truncate">{displayBuildingName(b)}</span>
+                        <span className="shrink-0">
+                          {b.exposure_level} · {b.overlap_pct}%
+                        </span>
+                      </div>
+                    ))}
+                  {simResult.spatial_analysis.synthetic_exposure.accesses
+                    .filter((access) => access.inside_hazard_zone)
+                    .map((access) => (
+                      <div key={access.id} className="flex justify-between gap-2 text-[11px]">
+                        <span className="truncate">{access.name}</span>
+                        <span className="shrink-0">
+                          {access.exposure_level} · {access.overlap_pct}%
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </section>
             )}
 
             {/* Explicación técnica expandible */}

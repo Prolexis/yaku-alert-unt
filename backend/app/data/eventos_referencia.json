@@ -1,0 +1,74 @@
+{
+  "source": "Open-Meteo Historical Weather API, reanálisis; aproxima pero no reemplaza estaciones SENAMHI",
+  "source_status": "reanálisis_consultado",
+  "historical_values_available": true,
+  "queried_at": "2026-11-24T13:35:35+00:00",
+  "location": {
+    "latitude": -8.1145,
+    "longitude": -79.0385,
+    "timezone": "America/Lima"
+  },
+  "limitation": "El reanálisis aproxima la lluvia regional, puede subestimar eventos locales y no reemplaza observaciones de estaciones SENAMHI.",
+  "events": [
+    {
+      "id": "evento_marzo_2017",
+      "label": "evento de marzo de 2017",
+      "start_date": "2017-03-12",
+      "end_date": "2017-03-18",
+      "press_links": [
+        "https://larepublica.pe/sociedad/2020/03/15/trujillo-se-recuerda-huaico-que-afecto-la-ciudad-lrnd",
+        "https://diariocorreo.pe/edicion/la-libertad/trujillo-asi-luce-mural-de-la-unt-fotos-y-video-744816/"
+      ],
+      "max_hourly_mm_h": 3.1,
+      "max_rolling_24h_mm": 21.8,
+      "hours_ge_0_1mm": 49,
+      "source": "Open-Meteo Historical Weather API, reanálisis; aproxima pero no reemplaza estaciones SENAMHI",
+      "is_historical_reanalysis": true
+    },
+    {
+      "id": "evento_marzo_2023",
+      "label": "evento de marzo de 2023",
+      "start_date": "2023-03-09",
+      "end_date": "2023-03-16",
+      "press_links": [
+        "https://elbuho.pe/?p=282430"
+      ],
+      "max_hourly_mm_h": 2.8,
+      "max_rolling_24h_mm": 23.8,
+      "hours_ge_0_1mm": 60,
+      "source": "Open-Meteo Historical Weather API, reanálisis; aproxima pero no reemplaza estaciones SENAMHI",
+      "is_historical_reanalysis": true
+    },
+    {
+      "id": "evento_marzo_2025",
+      "label": "evento de marzo de 2025",
+      "start_date": "2025-03-26",
+      "end_date": "2025-03-31",
+      "press_links": [
+        "https://trome.com/actualidad/trujillo-azotada-por-fuertes-lluvias-calles-inundadas-y-viviendas-afectadas-tras-activacion-de-quebradas-emergencia-noticia/",
+        "https://elbuho.pe/?p=379990",
+        "https://www.infobae.com/peru/2025/03/29/trujillo-en-emergencia-por-lluvias-impactantes-imagenes-y-videos-de-las-inundaciones-que-deja-la-activacion-de-quebradas-en-la-libertad/",
+        "https://www.unitru.edu.pe/noticia_item.aspx?IDNoticia=1774"
+      ],
+      "max_hourly_mm_h": 5.0,
+      "max_rolling_24h_mm": 13.0,
+      "hours_ge_0_1mm": 16,
+      "source": "Open-Meteo Historical Weather API, reanálisis; aproxima pero no reemplaza estaciones SENAMHI",
+      "is_historical_reanalysis": true
+    }
+  ],
+  "demo_assumptions_kept": {
+    "evento_marzo_2017": {
+      "intensity_mm_h": 12.0,
+      "duration_hours": 3
+    },
+    "evento_marzo_2023": {
+      "intensity_mm_h": 28.0,
+      "duration_hours": 4
+    },
+    "evento_marzo_2025": {
+      "intensity_mm_h": 45.0,
+      "duration_hours": 6
+    }
+  }
+}

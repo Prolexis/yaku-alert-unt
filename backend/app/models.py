@@ -56,6 +56,22 @@ class SimulationRequest(BaseModel):
         "lluvia_intensa_fen",
         "escenario_extremo_fen",
     ] = "lluvia_intensa_fen"
+    synthetic_reach_m: Optional[float] = Field(default=None, ge=20.0, le=150.0)
+
+
+class RainfallReference(BaseModel):
+    source: str
+    event_id: Optional[str] = None
+    label: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    max_hourly_mm_h: Optional[float] = None
+    max_rolling_24h_mm: Optional[float] = None
+    hours_ge_0_1mm: Optional[int] = None
+    is_historical_reanalysis: bool
+    note: Optional[str] = None
+    demo_assumption_mm_h: Optional[float] = None
+    reanalysis_near_zero: bool = False
 
 
 class ExposedElement(BaseModel):
@@ -64,9 +80,24 @@ class ExposedElement(BaseModel):
     category: str
     criticality: Optional[str] = None
     inside_hazard_zone: bool  # True si la geometría toca la zona (cualquier traslape)
-    overlap_pct: float = 0.0  # % de la huella (edificios) que cae dentro de la zona
-    exposure_level: Optional[str] = None  # ninguna | marginal | parcial | alta | total (solo edificios)
+    overlap_pct: float = 0.0  # % de huella; para puntos expresa intersección geométrica (0 o 100)
+    exposure_level: Optional[str] = None  # ninguna | marginal | parcial | alta | total
     status_in_scenario: str
+    osm_id: Optional[str] = None
+
+
+class SyntheticExposureAnalysis(BaseModel):
+    data_nature: str = "sintetico_demostrativo"
+    reach_m: float
+    azimuth_deg: float
+    azimuth_assumption: bool = False
+    buildings: list[ExposedElement]
+    accesses: list[ExposedElement]
+    building_counts: dict[str, int]
+    access_counts: dict[str, int]
+    total_buildings_exposed: int
+    total_accesses_inside: int
+    description: str
 
 
 class SpatialAnalysisResult(BaseModel):
@@ -79,6 +110,7 @@ class SpatialAnalysisResult(BaseModel):
     total_exposed_buildings: int  # edificios con exposición parcial, alta o total (>= 5 % de la huella)
     total_restricted_accesses: int
     exposure_counts: dict[str, int] = {}  # {"marginal": n, "parcial": n, "alta": n, "total": n}
+    synthetic_exposure: Optional[SyntheticExposureAnalysis] = None
     spatial_engine: str
 
 
@@ -117,6 +149,9 @@ class SimulationResponse(BaseModel):
     data_nature: str = "ESCENARIO_SIMULADO_SINTETICO"
     parameters: SimulationRequest
     simulated_accumulated_mm: float
+    synthetic_reach_m_effective: Optional[float] = None
+    rainfall_reference: Optional[RainfallReference] = None
     spatial_analysis: SpatialAnalysisResult
     preventive_evaluation: PreventiveEvaluation
     hazard_geojson: dict[str, Any]
+    synthetic_geojson: Optional[dict[str, Any]] = None

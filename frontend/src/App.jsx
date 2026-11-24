@@ -24,6 +24,7 @@ const DEFAULT_SIM_PARAMS = {
   drainage_obstructed: true,
   antecedent_soil_saturated: false,
   hazard_zone_id: "lluvia_intensa_fen",
+  synthetic_reach_m: 40,
 };
 
 export default function App() {
@@ -82,6 +83,7 @@ export default function App() {
     try {
       const res = await runSimulation(paramsToRun);
       setSimResult(res);
+      setSimParams(res.parameters);
       setEvalSourceMode("simulated");
       setLastSimAt(new Date().toLocaleTimeString("es-PE", { hour12: false }));
     } catch (err) {

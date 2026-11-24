@@ -82,6 +82,10 @@ def build_reports(feats, reports):
     import re
     out = []
     parkings = [(f, shape(f["geometry"])) for f in feats if f["properties"]["category"] == "estacionamiento"]
+    perimeter = unary_union([
+        _to_m(shape(f["geometry"])) for f in feats
+        if f["properties"].get("category") == "perimetro_campus"
+    ]) if any(f["properties"].get("category") == "perimetro_campus" for f in feats) else None
     for r in reports:
         a = r["anchor"]
         t = a["type"]
@@ -115,7 +119,13 @@ def build_reports(feats, reports):
             if not lines:
                 print(f"[aviso] {r['id']}: no hay vía {a['name']!r}", file=sys.stderr)
                 continue
-            geom = _from_m(unary_union([_to_m(g) for g in lines]).buffer(a.get("buffer_m", 8)))
+            road_m = unary_union([_to_m(g) for g in lines]).buffer(a.get("buffer_m", 8))
+            frontage_m = r.get("clip_to_frontage_m")
+            if frontage_m is not None:
+                if perimeter is None:
+                    sys.exit(f"{r['id']}: clip_to_frontage_m requiere perímetro de campus")
+                road_m = road_m.intersection(perimeter.buffer(frontage_m))
+            geom = _from_m(road_m)
         else:
             sys.exit(f"anchor.type desconocido: {t}")
         out.append({"type": "Feature", "geometry": mapping(geom), "properties": {

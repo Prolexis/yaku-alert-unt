@@ -10,8 +10,8 @@ Paso 2 (genera backend/app/data/hazard_scenarios.geojson):
 
 Los tres escenarios se distinguen por MECANISMO, no por tamaño ni por lluvia:
 - A (lluvia_moderada): acumulación por relieve = cota bajo el percentil 15 del DEM dentro del campus.
-- B (lluvia_intensa_fen): ingreso por avenidas y puertas = unión de las zonas reportadas
-  (category "zona_reportada" de campus_unt.geojson, testimonio/prensa), sin recortar al perímetro.
+- B (lluvia_intensa_fen): ingreso reportado = zonas reportadas (category "zona_reportada"
+  de campus_unt.geojson); solo las franjas viales se limitan a 40 m del perímetro del campus.
 - C (escenario_extremo_fen): combinado = cota bajo el percentil 30 del DEM recortada al campus
   unida a las zonas reportadas.
 
@@ -21,11 +21,13 @@ reemplaza los mapas de CENEPRED/SIGRID/INDECI. Si el relieve del campus es menor
 vertical del DEM, el script lo advierte y no escribe escenarios salvo --force.
 """
 import argparse, json, struct, sys, zlib
+import math
 from pathlib import Path
 
 import numpy as np
 import shapely
 from shapely.geometry import shape, mapping, box
+from shapely.affinity import translate
 from shapely.ops import unary_union
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +40,10 @@ UPSAMPLE = 6            # 30 m -> ~5 m (solo para contornos suaves; no añade in
 VERT_ERROR_M = 4.0      # error vertical absoluto declarado (LE90) de Copernicus GLO-30
 MIN_AREA_M2 = 150.0
 M2_PER_DEG2 = 1.2e10    # aprox. a 8° S
+LAT0 = -8.114
+KX, KY = 111320 * math.cos(math.radians(LAT0)), 110574
+SYNTH_REACH_M = {"lluvia_intensa_fen": 40.0, "escenario_extremo_fen": 80.0}
+SYNTH_SPREAD_M = 15.0
 
 # (id, percentil_o_None, usa_reportes, severidad, hazard_type, nombre, data_nature)
 SCENARIOS = [
@@ -364,6 +370,76 @@ def main():
         if threshold is not None:
             props["threshold_m"] = threshold
         feats.append({"type": "Feature", "geometry": mapping(geom), "properties": props})
+
+    dem_report = json.loads(REPORT.read_text(encoding="utf-8"))
+    has_dem_azimuth = dem_report.get("azimut_descenso_deg") is not None
+    azimuth = float(dem_report.get("azimut_descenso_deg", 203))
+    report_features = [
+        f for f in json.loads(CAMPUS.read_text(encoding="utf-8")).get("features", [])
+        if f.get("properties", {}).get("category") == "zona_reportada"
+    ]
+
+    def to_local(geom):
+        return shapely.transform(
+            geom,
+            lambda coords: np.column_stack((
+                (coords[:, 0] + 79.0) * KX,
+                (coords[:, 1] - LAT0) * KY,
+            )),
+        )
+
+    def to_degrees(geom):
+        return shapely.transform(
+            geom,
+            lambda coords: np.column_stack((
+                coords[:, 0] / KX - 79.0,
+                coords[:, 1] / KY + LAT0,
+            )),
+        )
+
+    angle = math.radians(azimuth)
+    for sid, reach in SYNTH_REACH_M.items():
+        for report in report_features:
+            report_props = report["properties"]
+            report_shape = shape(report["geometry"])
+            zones = list(report_shape.geoms) if report_shape.geom_type == "MultiPolygon" else [report_shape]
+            for component_index, zone in enumerate(zones):
+                report_geom = to_local(zone)
+                downstream = translate(
+                    report_geom,
+                    xoff=math.sin(angle) * reach,
+                    yoff=math.cos(angle) * reach,
+                )
+                influence = unary_union([report_geom, downstream]).convex_hull.buffer(SYNTH_SPREAD_M)
+                assumed_direction = (
+                    "Se asumió azimut 203° porque dem_report.json no tenía azimut_descenso_deg. "
+                    if not has_dem_azimuth else ""
+                )
+                desc = (
+                    f"Área de influencia SINTÉTICA: se extiende {reach:g} m aguas abajo "
+                    f"(azimut {azimuth:g}°, derivado del DEM) desde las zonas reportadas. "
+                    "Parámetros arbitrarios de demostración, sin base de campo; no es una predicción. "
+                    f"Zona de origen: {report_props.get('name', 'reporte')}. "
+                    f"{assumed_direction}El alcance no depende de la lluvia."
+                )
+                feats.append({
+                    "type": "Feature",
+                    "geometry": mapping(to_degrees(influence)),
+                    "properties": {
+                        "kind": "influencia_sintetica",
+                        "scenario_id": sid,
+                        "report_id": report_props.get("id"),
+                        "report_component_index": component_index,
+                        "report_name": report_props.get("name"),
+                        "data_nature": "sintetico_demostrativo",
+                        "method": "reporte+direccion_descenso_DEM",
+                        "reach_m": reach,
+                        "spread_m": SYNTH_SPREAD_M,
+                        "azimuth_deg": azimuth,
+                        "azimuth_assumption": not has_dem_azimuth,
+                        "description": desc,
+                    },
+                })
     out = {"type": "FeatureCollection",
            "metadata": {"data_nature": "mixto_dem_testimonio",
                         "source": ("Copernicus GLO-30 DEM (ESA/Copernicus) y zonas reportadas de "

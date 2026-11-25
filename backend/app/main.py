@@ -8,9 +8,10 @@ from app.models import (
     SimulationResponse,
     WeatherResponse,
 )
+from app.services.conditions import load_conditions_catalog, resolve_conditions
 from app.services.preventive_engine import evaluate_preventive_rules, load_protocols
 from app.services.simulator import run_offline_simulation
-from app.services.spatial import load_campus_geojson, load_hazards_geojson
+from app.services.spatial import analyze_conditions_exposure, load_campus_geojson, load_hazards_geojson
 from app.services.weather import fetch_weather_for_unt
 
 app = FastAPI(
@@ -71,7 +72,16 @@ def get_campus_layers() -> dict:
 @app.get("/api/preventive/evaluate", response_model=PreventiveEvaluation)
 async def get_live_preventive_evaluation(
     offline: bool = Query(default=False, description="Forzar uso de caché local sin conexión"),
+    conditions: list[str] = Query(
+        default=[],
+        description="Condiciones externas declaradas como activas (ids de /api/conditions). Sin ellas, no cambia el comportamiento previo.",
+    ),
 ) -> PreventiveEvaluation:
+    try:
+        resolved = resolve_conditions(conditions) if conditions else None
+        spatial = analyze_conditions_exposure(resolved.active)[0] if resolved else None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     weather = await fetch_weather_for_unt(force_offline=offline)
     return evaluate_preventive_rules(
         max_intensity_mm_h=weather.summary.max_intensity_mm_h,
@@ -79,9 +89,10 @@ async def get_live_preventive_evaluation(
         duration_hours=max(1, weather.summary.estimated_event_duration_h),
         drainage_obstructed=False,
         antecedent_soil_saturated=False,
-        spatial=None,
+        spatial=spatial,
         is_synthetic=False,
         weather_meta=weather,
+        external_rules=resolved.fired_rules if resolved else None,
     )
 
 
@@ -91,6 +102,12 @@ def simulate_scenario(payload: SimulationRequest) -> SimulationResponse:
         return run_offline_simulation(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/conditions")
+def get_external_conditions() -> dict:
+    """Catálogo de condiciones externas declarables (sí/no) y sus reglas."""
+    return load_conditions_catalog()
 
 
 @app.get("/api/protocols")

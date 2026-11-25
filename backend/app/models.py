@@ -55,8 +55,11 @@ class SimulationRequest(BaseModel):
         "lluvia_moderada",
         "lluvia_intensa_fen",
         "escenario_extremo_fen",
+        "condiciones_externas",
     ] = "lluvia_intensa_fen"
     synthetic_reach_m: Optional[float] = Field(default=None, ge=20.0, le=150.0)
+    # Condiciones externas declaradas (sí/no). Solo se usan con hazard_zone_id="condiciones_externas".
+    external_conditions: list[str] = Field(default_factory=list, max_length=20)
 
 
 class RainfallReference(BaseModel):
@@ -86,6 +89,19 @@ class ExposedElement(BaseModel):
     osm_id: Optional[str] = None
 
 
+class WatchedBuilding(BaseModel):
+    """Edificio con agua reportada en un evento previo. Se vigila aunque quede fuera del polígono."""
+    id: str
+    name: str
+    event_id: str
+    event_date: Optional[str] = None
+    source: str
+    confidence: str
+    inside_hazard_zone: bool
+    overlap_pct: float = 0.0
+    status_in_scenario: str
+
+
 class SyntheticExposureAnalysis(BaseModel):
     data_nature: str = "sintetico_demostrativo"
     reach_m: float
@@ -111,6 +127,7 @@ class SpatialAnalysisResult(BaseModel):
     total_restricted_accesses: int
     exposure_counts: dict[str, int] = {}  # {"marginal": n, "parcial": n, "alta": n, "total": n}
     synthetic_exposure: Optional[SyntheticExposureAnalysis] = None
+    watch_buildings: list[WatchedBuilding] = []
     spatial_engine: str
 
 

@@ -1,6 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
-import { AlertTriangle, Droplets, Layers, Loader2, MapPin, Pause, Play, WifiOff } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  Droplets,
+  Layers,
+  Loader2,
+  MapPin,
+  Pause,
+  Play,
+  WifiOff,
+} from "lucide-react";
 import { fetchHydroForecast, fetchHydroPresets, fetchHydroRun } from "../services/api";
 
 const UNT_CENTER = [-8.11473, -79.03923];
@@ -79,6 +89,18 @@ const classFromCm = (cm) => {
 const classLabel = (cls) => (cls ? WATER_CLASSES[cls].label : "Sin agua");
 const classRange = (cls) => (cls ? WATER_CLASSES[cls].range : "bajo el umbral visible");
 
+const CATEGORY_LABELS = {
+  edificio: "Edificio",
+  acceso: "Acceso",
+  estacionamiento: "Estacionamiento",
+  area_deportiva: "Área deportiva",
+};
+
+const elementName = (element) =>
+  element?.name && element.name !== "area_deportiva"
+    ? element.name
+    : CATEGORY_LABELS[element?.category] || element?.name || "Elemento";
+
 const areaLabel = (m2) => {
   if (!m2) return "≈ 0 m²";
   if (m2 >= 10000) return `≈ ${Math.round(m2 / 10000)} ha`;
@@ -146,6 +168,8 @@ export default function DynamicSimulationView({ campusLayers }) {
   const [hour, setHour] = useState(1);
   const [playing, setPlaying] = useState(false);
   const [lastCalcAt, setLastCalcAt] = useState("");
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const [focusedElementId, setFocusedElementId] = useState("");
 
   const offline = manualOffline || browserOffline;
   const selectedPreset = useMemo(
@@ -457,6 +481,32 @@ export default function DynamicSimulationView({ campusLayers }) {
     setPlaying((value) => !value);
   };
 
+  const elements = result?.elements || [];
+  const affectedElements = elements.filter((element) => element.first_hour_affected);
+  const wetElements = affectedElements.filter(
+    (element) => element.first_hour_affected <= hour
+  );
+  const firstAffectation = [...affectedElements].sort(
+    (a, b) =>
+      a.first_hour_affected - b.first_hour_affected || b.max_depth_cm - a.max_depth_cm
+  );
+
+  const focusElement = (element) => {
+    setFocusedElementId(element.id);
+    const map = mapInstanceRef.current;
+    const feature = (campusLayers?.campus?.features || []).find(
+      (item) => item.properties?.id === element.id
+    );
+    if (!map || !feature) return;
+    if (feature.geometry?.type === "Point") {
+      const [lon, lat] = feature.geometry.coordinates;
+      map.setView([lat, lon], 18);
+      return;
+    }
+    const bounds = L.geoJSON(feature).getBounds();
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [60, 60], maxZoom: 18 });
+  };
+
   const sourceMeta = result
     ? sourceKind === "forecast"
       ? {
@@ -478,7 +528,7 @@ export default function DynamicSimulationView({ campusLayers }) {
   const badge =
     sourceKind === "preset"
       ? { label: "Evento tipo (supuesto)", className: "bg-violet-100 text-violet-800 border-violet-300" }
-      : result?.metadata?.offline || result?.weather?.data_status === "OFFLINE_FALLBACK"
+      : result?.weather?.data_status === "OFFLINE_FALLBACK"
       ? { label: "Caché local", className: "bg-amber-100 text-amber-900 border-amber-300" }
       : { label: "Pronóstico real", className: "bg-sky-100 text-sky-900 border-sky-300" };
 
@@ -515,6 +565,16 @@ export default function DynamicSimulationView({ campusLayers }) {
             <span>
               Sin conexión: se consulta el pronóstico con <code>offline=true</code> y la API responde
               con su respaldo local, que puede ser de otra fecha.
+            </span>
+          </div>
+        )}
+
+        {!offline && sourceKind === "forecast" && result?.weather?.data_status === "OFFLINE_FALLBACK" && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+            <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              El backend no obtuvo el pronóstico en línea y respondió con su respaldo local, que
+              puede ser de otra fecha.
             </span>
           </div>
         )}
@@ -735,8 +795,9 @@ export default function DynamicSimulationView({ campusLayers }) {
           </div>
         </div>
 
-        {/* Controles */}
-        <section className="min-w-0 space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4 dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-4">
+        {/* Controles y panel de la hora seleccionada */}
+        <div className="min-w-0 space-y-4 lg:col-span-4">
+          <section className="min-w-0 space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4 dark:border-slate-800 dark:bg-[#0B1F33]">
           <div>
             <h3 className="text-sm font-bold text-[#101828] dark:text-white">Controles del escenario</h3>
             <p className="text-[11px] text-[#475467] dark:text-slate-400">
@@ -869,7 +930,164 @@ export default function DynamicSimulationView({ campusLayers }) {
               </div>
             </div>
           )}
-        </section>
+          </section>
+
+          <section className="min-w-0 space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4 dark:border-slate-800 dark:bg-[#0B1F33]">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-[#101828] dark:text-white">Hora seleccionada</h3>
+                <p className="text-[10px] text-[#64748B] dark:text-slate-400">Lectura del marco horario actual</p>
+              </div>
+              <span className="shrink-0 rounded-md bg-[#F7F9FC] px-2 py-1 text-[10px] font-semibold tabular-nums text-[#101828] dark:bg-slate-900/70 dark:text-white">
+                {currentFrame?.label || "—"}
+              </span>
+            </div>
+
+            {loading && result && (
+              <p className="flex items-center gap-1.5 text-[10px] text-[#64748B] dark:text-slate-400">
+                <Loader2 className="h-3 w-3 animate-spin" /> Actualizando la corrida…
+              </p>
+            )}
+
+            {!result && loading && (
+              <p className="flex items-center gap-2 rounded-lg bg-[#F7F9FC] px-3 py-3 text-[11px] text-[#475467] dark:bg-slate-900/70 dark:text-slate-300">
+                <Loader2 className="h-4 w-4 animate-spin" /> Cargando la simulación inicial…
+              </p>
+            )}
+
+            {!result && !loading && (
+              <p className="rounded-lg bg-[#F7F9FC] px-3 py-3 text-[11px] text-[#475467] dark:bg-slate-900/70 dark:text-slate-300">
+                Aún no hay una corrida. Elija los controles y pulse Calcular.
+              </p>
+            )}
+
+            {result && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="min-w-0 rounded-lg bg-[#F7F9FC] p-2.5 dark:bg-slate-900/70">
+                    <div className="text-[10px] text-[#475467] dark:text-slate-400">Clase máxima</div>
+                    <div className="truncate text-sm font-bold text-[#101828] dark:text-white">
+                      {classLabel(maxClass)}
+                    </div>
+                    <div className="text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
+                      {classRange(maxClass)}
+                    </div>
+                  </div>
+                  <div className="min-w-0 rounded-lg bg-[#F7F9FC] p-2.5 dark:bg-slate-900/70">
+                    <div className="text-[10px] text-[#475467] dark:text-slate-400">Área mojada aprox.</div>
+                    <div className="truncate text-sm font-bold tabular-nums text-[#101828] dark:text-white">
+                      {areaLabel(currentFrame?.wet_area_m2)}
+                    </div>
+                    <div className="text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
+                      en este marco horario
+                    </div>
+                  </div>
+                  <div className="col-span-2 min-w-0 rounded-lg bg-[#F7F9FC] p-2.5 dark:bg-slate-900/70">
+                    <div className="text-[10px] text-[#475467] dark:text-slate-400">Elementos con agua</div>
+                    <div className="text-sm font-bold tabular-nums text-[#101828] dark:text-white">
+                      {wetElements.length}{" "}
+                      <span className="text-[10px] font-normal text-[#64748B] dark:text-slate-400">
+                        de {affectedElements.length} que el modelo moja en la corrida
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
+                  estimación exploratoria; el DEM tiene ±4 m de error
+                </p>
+
+                <div className="space-y-1.5 border-t border-[#E2E8F0] pt-3 dark:border-slate-800">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold text-[#101828] dark:text-white">Primera afectación</h4>
+                    <span className="shrink-0 text-[10px] tabular-nums text-[#64748B] dark:text-slate-400">
+                      {firstAffectation.length}
+                    </span>
+                  </div>
+                  <p className="text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
+                    Hora en que el modelo moja por primera vez cada elemento. Clic para centrar en el
+                    mapa. La clase describe la lámina modelada, no un nivel de daño.
+                  </p>
+                  <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                    {firstAffectation.length ? (
+                      firstAffectation.map((element) => {
+                        const cls = classFromCm(element.max_depth_cm);
+                        return (
+                          <button
+                            key={element.id}
+                            type="button"
+                            onClick={() => focusElement(element)}
+                            className={`flex w-full items-center justify-between gap-2 rounded-lg border px-2 py-1.5 text-left transition hover:border-[#2563EB] ${
+                              focusedElementId === element.id
+                                ? "border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/30"
+                                : "border-[#E2E8F0] dark:border-slate-800"
+                            }`}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-[11px] font-medium text-[#101828] dark:text-slate-200">
+                                {elementName(element)}
+                              </span>
+                              <span className="block text-[10px] text-[#64748B] dark:text-slate-400">
+                                {CATEGORY_LABELS[element.category] || element.category} · {classLabel(cls)} (
+                                {classRange(cls)})
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-[10px] font-semibold tabular-nums text-[#2563EB] dark:text-blue-300">
+                              h+{element.first_hour_affected}
+                            </span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="rounded-lg bg-[#F7F9FC] px-2.5 py-2 text-[10px] text-[#475467] dark:bg-slate-900/70 dark:text-slate-300">
+                        Ningún elemento del catálogo tiene agua en esta corrida.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t border-[#E2E8F0] pt-2 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setAssumptionsOpen((value) => !value)}
+                    aria-expanded={assumptionsOpen}
+                    className="flex w-full items-center justify-between gap-2 text-left text-[11px] font-semibold text-[#101828] dark:text-white"
+                  >
+                    <span>Supuestos y límites</span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 text-[#64748B] transition-transform dark:text-slate-400 ${
+                        assumptionsOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {assumptionsOpen && (
+                    <div className="mt-2 space-y-2 text-[10px] leading-relaxed text-[#475467] dark:text-slate-300">
+                      <div>
+                        <div className="font-bold text-[#101828] dark:text-white">Supuestos</div>
+                        <ul className="list-disc space-y-1 pl-4">
+                          {(result.assumptions || []).map((text, index) => (
+                            <li key={index} className="break-words">
+                              {text}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <div className="font-bold text-[#101828] dark:text-white">Límites</div>
+                        <ul className="list-disc space-y-1 pl-4">
+                          {(result.limitations || []).map((text, index) => (
+                            <li key={index} className="break-words">
+                              {text}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

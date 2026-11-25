@@ -6,6 +6,7 @@ export default function PreventionView({
   evaluation,
   weather,
   simResult,
+  hydroResult,
   evalSourceMode,
   onChangeEvalSource,
   conditionsCatalog,
@@ -118,6 +119,7 @@ export default function PreventionView({
             evaluation={evaluation}
             weather={weather}
             simResult={simResult}
+            hydroResult={hydroResult}
           />
 
           {/* Fuentes y limitaciones */}

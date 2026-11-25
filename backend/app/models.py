@@ -230,6 +230,44 @@ class HydroElementImpact(BaseModel):
     scope: str
     max_depth_cm: float
     first_hour_affected: Optional[int] = None
+    first_hour_depth_cm: Optional[float] = None
+    hours_with_water_above_threshold: int = 0
+
+
+class HydroRoleGuidance(BaseModel):
+    role: str
+    text: str
+
+
+class HydroAffectedElement(BaseModel):
+    id: str
+    name: str
+    category: str
+    first_hour_affected: int
+    depth_class: str
+
+
+class HydroActionWindow(BaseModel):
+    hour: int
+    time_label: str
+    affected_elements: list[HydroAffectedElement]
+    recommendation: str
+    role_guidance: list[HydroRoleGuidance]
+    academic_continuity: list[str]
+
+
+class HydroEvaluationSheet(BaseModel):
+    what: str
+    where: str
+    when: str
+    what_to_do: str
+    who_informs: str
+    rules_triggered: list[RuleTrigger]
+    action_windows: list[HydroActionWindow]
+    sources: list[str]
+    updated_at_utc: str
+    uncertainty: list[str]
+    notice: str
 
 
 class HydroRunResponse(BaseModel):
@@ -245,6 +283,7 @@ class HydroRunResponse(BaseModel):
     limitations: list[str]
     avisos: list[str]
     weather: Optional[dict[str, Any]] = None
+    evaluation: Optional[HydroEvaluationSheet] = None
 
 
 class HydroPreset(BaseModel):

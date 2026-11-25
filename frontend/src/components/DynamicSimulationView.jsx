@@ -134,7 +134,7 @@ const FIELD_CLASS =
   "w-full rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-2 text-xs text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white";
 const CHECK_CLASS = "h-4 w-4 rounded accent-[#2563EB]";
 
-export default function DynamicSimulationView({ campusLayers }) {
+export default function DynamicSimulationView({ campusLayers, onResultChange }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const catalogGroupRef = useRef(null);
@@ -169,6 +169,7 @@ export default function DynamicSimulationView({ campusLayers }) {
   const [playing, setPlaying] = useState(false);
   const [lastCalcAt, setLastCalcAt] = useState("");
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [focusedElementId, setFocusedElementId] = useState("");
 
   const offline = manualOffline || browserOffline;
@@ -176,6 +177,10 @@ export default function DynamicSimulationView({ campusLayers }) {
     () => (presets || []).find((preset) => preset.id === source) || null,
     [presets, source]
   );
+
+  useEffect(() => {
+    onResultChange?.(result);
+  }, [result, onResultChange]);
 
   // Red disponible: el modo pronóstico usa ?offline=true cuando no hay conexión.
   useEffect(() => {
@@ -490,6 +495,8 @@ export default function DynamicSimulationView({ campusLayers }) {
     (a, b) =>
       a.first_hour_affected - b.first_hour_affected || b.max_depth_cm - a.max_depth_cm
   );
+  const actionWindows = result?.evaluation?.action_windows || [];
+  const activeHydroRules = result?.evaluation?.rules_triggered || [];
 
   const focusElement = (element) => {
     setFocusedElementId(element.id);
@@ -1010,7 +1017,9 @@ export default function DynamicSimulationView({ campusLayers }) {
                   <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
                     {firstAffectation.length ? (
                       firstAffectation.map((element) => {
-                        const cls = classFromCm(element.max_depth_cm);
+                        const cls = classFromCm(
+                          element.first_hour_depth_cm ?? element.max_depth_cm
+                        );
                         return (
                           <button
                             key={element.id}
@@ -1044,6 +1053,117 @@ export default function DynamicSimulationView({ campusLayers }) {
                     )}
                   </div>
                 </div>
+
+                <section className="space-y-2 border-t border-[#E2E8F0] pt-3 dark:border-slate-800">
+                  <div>
+                    <h4 className="text-xs font-bold text-[#101828] dark:text-white">
+                      Qué hacer y cuándo
+                    </h4>
+                    <p className="text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
+                      {result.evaluation?.notice ||
+                        "Orientación experimental a partir de la corrida; no reemplaza avisos oficiales."}
+                    </p>
+                  </div>
+                  {actionWindows.length ? (
+                    <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                      {actionWindows.map((window) => (
+                        <article
+                          key={window.hour}
+                          className="rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] p-2.5 dark:border-slate-800 dark:bg-slate-900/60"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-[11px] font-bold text-[#101828] dark:text-white">
+                              {window.time_label}
+                            </span>
+                            <span className="shrink-0 text-[10px] font-semibold text-[#2563EB] dark:text-blue-300">
+                              h+{window.hour}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[10px] leading-snug text-[#475467] dark:text-slate-300">
+                            {window.recommendation}
+                          </p>
+                          {window.role_guidance?.length > 0 && (
+                            <ul className="mt-1.5 space-y-1 text-[10px] leading-snug text-[#475467] dark:text-slate-300">
+                              {window.role_guidance.map((guidance) => (
+                                <li key={guidance.role}>
+                                  <strong>{guidance.role}:</strong> {guidance.text}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {window.academic_continuity?.length > 0 && (
+                            <p className="mt-1.5 text-[10px] leading-snug text-[#475467] dark:text-slate-300">
+                              Continuidad académica: {window.academic_continuity.join(" ")}
+                            </p>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg bg-[#F7F9FC] px-2.5 py-2 text-[10px] text-[#475467] dark:bg-slate-900/70 dark:text-slate-300">
+                      {result.evaluation?.when ||
+                        "No hay ventanas de acción disponibles en esta respuesta."}
+                    </p>
+                  )}
+                  {result.evaluation && (
+                    <>
+                      <p className="break-words text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
+                        Fuente: {(result.evaluation.sources || []).join(" · ")} · actualizado:{" "}
+                        {formatLima(result.evaluation.updated_at_utc) || result.evaluation.updated_at_utc}
+                      </p>
+                      <ul className="space-y-1 text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
+                        {(result.evaluation.uncertainty || []).map((text, index) => (
+                          <li key={index} className="break-words">
+                            {text}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </section>
+
+                <section className="border-t border-[#E2E8F0] pt-2 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setRulesOpen((value) => !value)}
+                    aria-expanded={rulesOpen}
+                    className="flex w-full items-center justify-between gap-2 text-left text-[11px] font-semibold text-[#101828] dark:text-white"
+                  >
+                    <span>Reglas R-HID activadas ({activeHydroRules.length})</span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 text-[#64748B] transition-transform dark:text-slate-400 ${
+                        rulesOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {rulesOpen && (
+                    <div className="mt-2 space-y-1.5">
+                      {activeHydroRules.length ? (
+                        activeHydroRules.map((rule) => (
+                          <div
+                            key={rule.rule_id}
+                            className="rounded-lg bg-[#F7F9FC] p-2 text-[10px] dark:bg-slate-900/70"
+                          >
+                            <div className="font-semibold text-[#101828] dark:text-white">
+                              <span className="mr-1 font-mono text-[#2563EB]">{rule.rule_id}</span>
+                              {rule.description}
+                            </div>
+                            <p className="mt-0.5 break-words text-[#475467] dark:text-slate-300">
+                              Observado: {rule.observed_value}
+                            </p>
+                            <p className="mt-0.5 break-words text-[#64748B] dark:text-slate-400">
+                              {rule.threshold_note}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-[#64748B] dark:text-slate-400">
+                          No se activaron reglas R-HID en esta corrida.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </section>
 
                 <div className="border-t border-[#E2E8F0] pt-2 dark:border-slate-800">
                   <button

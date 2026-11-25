@@ -59,6 +59,7 @@ export default function App() {
 
   const [simParams, setSimParams] = useState(DEFAULT_SIM_PARAMS);
   const [simResult, setSimResult] = useState(null);
+  const [hydroResult, setHydroResult] = useState(null);
   const [simLoading, setSimLoading] = useState(false);
   const [simError, setSimError] = useState("");
   const [lastSimAt, setLastSimAt] = useState("");
@@ -247,6 +248,7 @@ export default function App() {
               evaluation={currentEvaluation}
               weather={weather}
               simResult={simResult}
+              hydroResult={hydroResult}
               evalSourceMode={evalSourceMode}
               onChangeEvalSource={setEvalSourceMode}
               conditionsCatalog={conditionsCatalog}
@@ -270,7 +272,10 @@ export default function App() {
           )}
 
           {activeView === "hydro" && (
-            <DynamicSimulationView campusLayers={campusLayers} />
+            <DynamicSimulationView
+              campusLayers={campusLayers}
+              onResultChange={setHydroResult}
+            />
           )}
 
           {activeView === "continuity" && (

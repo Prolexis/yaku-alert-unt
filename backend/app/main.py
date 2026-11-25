@@ -15,7 +15,11 @@ from app.models import (
 )
 from app.services.conditions import load_conditions_catalog, resolve_conditions
 from app.services.hydro import list_presets, run_hydro_simulation
-from app.services.preventive_engine import evaluate_preventive_rules, load_protocols
+from app.services.preventive_engine import (
+    build_hydro_evaluation,
+    evaluate_preventive_rules,
+    load_protocols,
+)
 from app.services.simulator import run_offline_simulation
 from app.services.spatial import analyze_conditions_exposure, load_campus_geojson, load_hazards_geojson
 from app.services.weather import fetch_weather_for_unt
@@ -124,6 +128,11 @@ def get_protocols() -> dict:
 # ---------------------------------------------------------------------------
 # Motor de agua (capa NUEVA — no modifica los endpoints anteriores)
 # ---------------------------------------------------------------------------
+def _with_hydro_evaluation(response: HydroRunResponse) -> HydroRunResponse:
+    response.evaluation = build_hydro_evaluation(response)
+    return response
+
+
 @app.post("/api/hydro/run", response_model=HydroRunResponse)
 def hydro_run(payload: HydroRunRequest) -> HydroRunResponse:
     """Corre la simulación exploratoria de escurrimiento con la serie recibida.
@@ -132,15 +141,23 @@ def hydro_run(payload: HydroRunRequest) -> HydroRunResponse:
     máximo 48 h, estados y niveles literales) -> 422 en FastAPI si no cumplen.
     """
     try:
-        return run_hydro_simulation(
-            payload.rainfall_mm_h,
-            drainage_state=payload.drainage_state,
-            inflow_p4=payload.inflow_p4,
-            secondary_inflow=payload.secondary_inflow,
-            use_reported_sinks=payload.use_reported_sinks,
+        return _with_hydro_evaluation(
+            run_hydro_simulation(
+                payload.rainfall_mm_h,
+                drainage_state=payload.drainage_state,
+                inflow_p4=payload.inflow_p4,
+                secondary_inflow=payload.secondary_inflow,
+                use_reported_sinks=payload.use_reported_sinks,
+            )
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/hydro/evaluate", response_model=HydroRunResponse)
+def hydro_evaluate(payload: HydroRunRequest) -> HydroRunResponse:
+    """Evalúa la corrida y añade reglas R-HID y ventanas de acción explicables."""
+    return hydro_run(payload)
 
 
 @app.get("/api/hydro/presets", response_model=HydroPresetsResponse)
@@ -178,16 +195,18 @@ async def hydro_forecast(
     for idx, point in enumerate(weather.hourly[:48]):
         series[idx] = max(0.0, round(float(point.precipitation_mm), 4))
 
-    return run_hydro_simulation(
-        series,
-        drainage_state=drainage_state,
-        inflow_p4=inflow_p4,
-        secondary_inflow=secondary_inflow,
-        use_reported_sinks=use_reported_sinks,
-        data_nature=f"SIMULACION_CON_PRONOSTICO_HORARIO_{weather.data_status}",
-        source=(
-            f"pronóstico horario de {weather.source_name} "
-            f"({weather.data_status}, {weather.fetched_at_utc})"
-        ),
-        weather=weather.model_dump(),
+    return _with_hydro_evaluation(
+        run_hydro_simulation(
+            series,
+            drainage_state=drainage_state,
+            inflow_p4=inflow_p4,
+            secondary_inflow=secondary_inflow,
+            use_reported_sinks=use_reported_sinks,
+            data_nature=f"SIMULACION_CON_PRONOSTICO_HORARIO_{weather.data_status}",
+            source=(
+                f"pronóstico horario de {weather.source_name} "
+                f"({weather.data_status}, {weather.fetched_at_utc})"
+            ),
+            weather=weather.model_dump(),
+        )
     )

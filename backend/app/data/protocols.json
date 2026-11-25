@@ -3,6 +3,26 @@
     "framework": "Ley N.° 29664 (SINAGERD), D.S. N.° 048-2011-PCM, PLANAGERD 2022-2030, Ley N.° 29733",
     "disclaimer": "Orientaciones preventivas de apoyo informativo. No sustituyen disposiciones oficiales de Defensa Civil UNT, COEN, INDECI ni SENAMHI."
   },
+  "hydro_action_guidance": {
+    "role_guidance": [
+      {
+        "role": "Comunidad universitaria",
+        "text": "Consultar rutas referenciales y ubicaciones de puntos de encuentro antes de desplazarse."
+      },
+      {
+        "role": "Docencia",
+        "text": "Habilitar grabación o transmisión sincrónica de sesiones teóricas."
+      },
+      {
+        "role": "Coordinación académica",
+        "text": "Mantener clases presenciales con flexibilidad de asistencia para estudiantes de zonas periféricas."
+      }
+    ],
+    "academic_continuity": [
+      "Disponibilidad de aulas virtuales como respaldo preventivo.",
+      "Habilitar grabación o transmisión sincrónica de sesiones teóricas."
+    ]
+  },
   "preventive_levels": [
     {
       "level": "INFORMATIVO",

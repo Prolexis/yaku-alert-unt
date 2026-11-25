@@ -134,10 +134,15 @@ export default function ContinuityView({ protocols }) {
 
       {activeTab === "official" && (
         <section className="space-y-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { name: "SENAMHI", desc: "Avisos meteorológicos oficiales.", url: "https://www.gob.pe/senamhi" },
               { name: "INDECI / COEN", desc: "Alertas y emergencia nacional.", url: "https://www.gob.pe/indeci" },
+              {
+                name: "ENFEN",
+                desc: "El estado del Niño es contexto, no un dato de la simulación.",
+                url: "https://enfen.imarpe.gob.pe",
+              },
               { name: "UNT Oficial", desc: "Comunicados universitarios.", url: "https://www.unitru.edu.pe" },
             ].map((ch) => (
               <a

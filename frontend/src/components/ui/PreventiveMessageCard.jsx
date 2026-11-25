@@ -3,7 +3,7 @@ import { CheckCircle2, Download, Printer } from "lucide-react";
 import { formatLimaTime, humanPreventiveTitle } from "../../utils/formatters";
 import { downloadBulletin, printBulletin } from "../../utils/bulletin";
 
-export default function PreventiveMessageCard({ evaluation, weather, simResult }) {
+export default function PreventiveMessageCard({ evaluation, weather, simResult, hydroResult }) {
   if (!evaluation) return null;
 
   const isSim = Boolean(evaluation.is_synthetic);
@@ -33,7 +33,7 @@ export default function PreventiveMessageCard({ evaluation, weather, simResult }
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => downloadBulletin({ evaluation, weather, simResult })}
+            onClick={() => downloadBulletin({ evaluation, weather, simResult, hydroResult })}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#101828] hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
             <Download className="h-3.5 w-3.5 text-[#2563EB]" />
@@ -41,7 +41,7 @@ export default function PreventiveMessageCard({ evaluation, weather, simResult }
           </button>
           <button
             type="button"
-            onClick={() => printBulletin({ evaluation, weather, simResult })}
+            onClick={() => printBulletin({ evaluation, weather, simResult, hydroResult })}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#101828] hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
           >
             <Printer className="h-3.5 w-3.5 text-[#2563EB]" />

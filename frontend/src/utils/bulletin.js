@@ -6,7 +6,7 @@ const esc = (s) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
 
-export function buildBulletinHtml({ evaluation, weather, simResult }) {
+export function buildBulletinHtml({ evaluation, weather, simResult, hydroResult }) {
   if (!evaluation) return "";
   const isSim = Boolean(evaluation.is_synthetic);
   const title = humanPreventiveTitle(evaluation.preventive_level, isSim);
@@ -32,6 +32,33 @@ export function buildBulletinHtml({ evaluation, weather, simResult }) {
   const limitsHtml = (evaluation.uncertainty_and_limits || [])
     .map((u) => `<li>${esc(u)}</li>`)
     .join("");
+  const hydroElements = (hydroResult?.evaluation?.action_windows || []).flatMap((window) =>
+    (window.affected_elements || []).map((element) => ({
+      ...element,
+      time_label: window.time_label,
+    }))
+  );
+  const hydroImpactsHtml = hydroResult
+    ? `<h3>Primera afectación por elemento (simulación dinámica)</h3>
+       ${
+         hydroElements.length
+           ? `<table><thead><tr><th>Elemento</th><th>Hora</th><th>Clase</th></tr></thead><tbody>
+              ${hydroElements
+                .map(
+                  (element) =>
+                    `<tr><td>${esc(element.name)}</td><td>${esc(element.time_label)}</td><td>${esc(
+                      element.depth_class
+                    )}</td></tr>`
+                )
+                .join("")}
+             </tbody></table>`
+           : "<p>Sin primera afectación modelada en los elementos considerados.</p>"
+       }
+       <h3>Supuestos de la simulación dinámica</h3>
+       <ul>${(hydroResult.assumptions || []).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>
+       <h3>Límites de la simulación dinámica</h3>
+       <ul>${(hydroResult.limitations || []).map((item) => `<li>${esc(item)}</li>`).join("")}</ul>`
+    : "";
 
   return `<!doctype html>
 <html lang="es">
@@ -52,6 +79,8 @@ export function buildBulletinHtml({ evaluation, weather, simResult }) {
     h3 { font-size: 15px; color: #0B1F33; margin: 18px 0 8px; }
     ul { margin: 0; padding-left: 20px; font-size: 13px; }
     li { margin-bottom: 4px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { border: 1px solid #CBD5E1; padding: 6px 8px; text-align: left; }
     .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #475467; }
     @media print { body { margin: 0; } }
   </style>
@@ -87,6 +116,8 @@ export function buildBulletinHtml({ evaluation, weather, simResult }) {
 
   <h3>Reglas activadas (Trazabilidad)</h3>
   <ul>${rulesHtml}</ul>
+
+  ${hydroImpactsHtml}
 
   <h3>Limitaciones e incertidumbre</h3>
   <ul>${limitsHtml}</ul>

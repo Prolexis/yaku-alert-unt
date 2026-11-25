@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
-import { AlertTriangle, Droplets, Layers, Loader2, MapPin, WifiOff } from "lucide-react";
+import { AlertTriangle, Droplets, Layers, Loader2, MapPin, Pause, Play, WifiOff } from "lucide-react";
 import { fetchHydroForecast, fetchHydroPresets, fetchHydroRun } from "../services/api";
 
 const UNT_CENTER = [-8.11473, -79.03923];
@@ -85,6 +85,29 @@ const areaLabel = (m2) => {
   return `≈ ${Math.round(m2).toLocaleString("es-PE")} m²`;
 };
 
+const LIMA_TZ = "America/Lima";
+const LIMA_FORMAT = {
+  timeZone: LIMA_TZ,
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+};
+
+const formatLima = (raw) => {
+  if (!raw) return null;
+  const match = String(raw).match(
+    /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/
+  );
+  const date = new Date(match ? match[0] : raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.toLocaleString("es-PE", LIMA_FORMAT)} (Lima)`;
+};
+
+const limaNow = () => `${new Date().toLocaleString("es-PE", LIMA_FORMAT)} (Lima)`;
+
 const FIELD_CLASS =
   "w-full rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-2 text-xs text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white";
 const CHECK_CLASS = "h-4 w-4 rounded accent-[#2563EB]";
@@ -121,6 +144,8 @@ export default function DynamicSimulationView({ campusLayers }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hour, setHour] = useState(1);
+  const [playing, setPlaying] = useState(false);
+  const [lastCalcAt, setLastCalcAt] = useState("");
 
   const offline = manualOffline || browserOffline;
   const selectedPreset = useMemo(
@@ -169,7 +194,8 @@ export default function DynamicSimulationView({ campusLayers }) {
         if (cancelled) return;
         setResult(data);
         setSourceKind("forecast");
-        setHour(data.summary?.peak_hour || 1);
+        setHour(1);
+        setLastCalcAt(limaNow());
       })
       .catch((err) => {
         if (!cancelled) setError(err.message || "No se pudo cargar el pronóstico.");
@@ -183,6 +209,7 @@ export default function DynamicSimulationView({ campusLayers }) {
   }, []);
 
   async function calcular() {
+    setPlaying(false);
     setLoading(true);
     setError("");
     try {
@@ -194,7 +221,7 @@ export default function DynamicSimulationView({ campusLayers }) {
           use_reported_sinks: useReportedSinks,
         });
         setSourceKind("forecast");
-        setHour(data.summary?.peak_hour || 1);
+        setHour(1);
       } else {
         const preset = (presets || []).find((item) => item.id === source);
         if (!preset) throw new Error("El evento tipo no está disponible; recargue la página.");
@@ -209,6 +236,7 @@ export default function DynamicSimulationView({ campusLayers }) {
         setHour(data.summary?.peak_hour || 1);
       }
       setResult(data);
+      setLastCalcAt(limaNow());
     } catch (err) {
       setError(err.message || "No se pudo ejecutar la simulación.");
     } finally {
@@ -406,6 +434,46 @@ export default function DynamicSimulationView({ campusLayers }) {
   const frames = result?.frames || [];
   const currentFrame = frames[Math.min(Math.max(hour, 1), Math.max(frames.length, 1)) - 1] || null;
   const maxClass = classFromCm(currentFrame?.max_depth_cm);
+  const rain = result?.parameters?.rainfall_mm_h || [];
+  const rainMax = Math.max(1, ...rain);
+  const currentRain = rain[Math.min(Math.max(hour, 1), Math.max(rain.length, 1)) - 1] || 0;
+
+  // Reproducción: 1 hora por segundo, sin volver a llamar a la API.
+  useEffect(() => {
+    if (!playing) return;
+    if (hour >= frames.length) {
+      setPlaying(false);
+      return;
+    }
+    const timer = setInterval(() => {
+      setHour((prev) => Math.min(prev + 1, frames.length));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [playing, hour, frames.length]);
+
+  const togglePlayback = () => {
+    if (!frames.length) return;
+    if (!playing && hour >= frames.length) setHour(1);
+    setPlaying((value) => !value);
+  };
+
+  const sourceMeta = result
+    ? sourceKind === "forecast"
+      ? {
+          source:
+            result.weather?.source_name ||
+            String(result.metadata?.source || "Pronóstico numérico").split(" (")[0],
+          updated: formatLima(result.weather?.fetched_at_utc) || lastCalcAt || "s/f",
+          cached: result.weather?.data_status === "OFFLINE_FALLBACK",
+        }
+      : {
+          source: selectedPreset?.source
+            ? `${selectedPreset.source}; hietograma horario supuesto`
+            : "Evento tipo (supuesto)",
+          updated: lastCalcAt || "s/f",
+          cached: false,
+        }
+    : null;
 
   const badge =
     sourceKind === "preset"
@@ -551,6 +619,109 @@ export default function DynamicSimulationView({ campusLayers }) {
                   estimación exploratoria; el DEM tiene ±4 m de error
                 </div>
               </div>
+            </div>
+
+            {/* Línea de tiempo y mini-gráfico de lluvia (sin llamadas extra a la API) */}
+            <div className="space-y-2.5 border-t border-[#E2E8F0] px-3 py-3 dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <button
+                  type="button"
+                  onClick={togglePlayback}
+                  disabled={!frames.length}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#0B1F33] px-3 text-[11px] font-semibold text-white transition hover:bg-[#122C46] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2563EB]"
+                >
+                  {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                  {playing ? "Pausa" : "Reproducir"}
+                </button>
+                <span className="text-[11px] font-semibold text-[#101828] tabular-nums dark:text-white">
+                  {currentFrame?.label || "Sin marco"}
+                </span>
+                <span className="text-[10px] text-[#64748B] dark:text-slate-400">1 h por segundo</span>
+                <span className="ml-auto text-[10px] text-[#64748B] dark:text-slate-400">
+                  Lluvia de la hora: ≈ {Math.round(currentRain)} mm
+                </span>
+              </div>
+
+              <div>
+                <input
+                  type="range"
+                  min={1}
+                  max={Math.max(frames.length, 1)}
+                  step={1}
+                  value={Math.min(Math.max(hour, 1), Math.max(frames.length, 1))}
+                  onChange={(event) => {
+                    setPlaying(false);
+                    setHour(Number(event.target.value));
+                  }}
+                  disabled={!frames.length}
+                  aria-label="Hora de la simulación"
+                  className="h-2 w-full cursor-pointer accent-[#2563EB] disabled:cursor-not-allowed"
+                />
+                {sourceKind === "forecast" && (
+                  <div className="mt-0.5 flex justify-between text-[10px] font-medium text-[#64748B] dark:text-slate-400">
+                    <span className="text-amber-700 dark:text-amber-300">▏ahora</span>
+                    <span>h+{frames.length}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-[10px] text-[#64748B] dark:text-slate-400">
+                  <span>Lluvia por hora (mm)</span>
+                  <span>h+1 … h+{rain.length}</span>
+                </div>
+                <svg
+                  viewBox={`0 0 ${Math.max(rain.length, 1) * 8} 64`}
+                  preserveAspectRatio="none"
+                  role="img"
+                  aria-label="Mini-gráfico de lluvia por hora; elija una hora con el deslizador"
+                  className="h-14 w-full cursor-pointer rounded bg-[#F7F9FC] dark:bg-slate-900/70"
+                  onClick={(event) => {
+                    if (!rain.length) return;
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const ratio = Math.min(
+                      Math.max((event.clientX - rect.left) / rect.width, 0),
+                      0.999
+                    );
+                    setPlaying(false);
+                    setHour(Math.min(rain.length, Math.max(1, Math.floor(ratio * rain.length) + 1)));
+                  }}
+                >
+                  {rain.map((value, index) => {
+                    const height = value > 0 ? Math.max((value / rainMax) * 56, 1.5) : 0;
+                    const isCurrent = index + 1 === hour;
+                    const isPast = index + 1 <= hour;
+                    return (
+                      <rect
+                        key={index}
+                        x={index * 8 + 1}
+                        y={64 - height}
+                        width={6}
+                        height={height}
+                        fill={isCurrent ? "#1D4ED8" : isPast ? "#60A5FA" : "#BFDBFE"}
+                      />
+                    );
+                  })}
+                  {sourceKind === "forecast" && (
+                    <line
+                      x1="0.5"
+                      y1="0"
+                      x2="0.5"
+                      y2="64"
+                      stroke="#D97706"
+                      strokeWidth="1.5"
+                      strokeDasharray="3 3"
+                    />
+                  )}
+                </svg>
+              </div>
+
+              {sourceMeta && (
+                <p className="break-words text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
+                  Fuente: {sourceMeta.source} · actualizado: {sourceMeta.updated}
+                  {sourceMeta.cached ? " (respaldo local; puede ser de otra fecha)" : ""}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] px-3 py-2 text-[11px] text-[#64748B] dark:border-slate-800 dark:text-slate-400">

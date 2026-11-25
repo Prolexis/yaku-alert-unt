@@ -42,3 +42,23 @@ export function runSimulation(payload) {
 export function fetchProtocols() {
   return requestJson("/protocols");
 }
+
+// --- Simulación dinámica (agua modelada por hora, capa exploratoria) ---------
+export function fetchHydroPresets() {
+  return requestJson("/hydro/presets");
+}
+
+export function fetchHydroForecast(offline = false, params = {}) {
+  const query = new URLSearchParams({ offline: offline ? "true" : "false" });
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) query.set(key, String(value));
+  });
+  return requestJson(`/hydro/forecast?${query.toString()}`);
+}
+
+export function fetchHydroRun(payload) {
+  return requestJson("/hydro/run", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

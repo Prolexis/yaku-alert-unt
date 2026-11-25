@@ -16,6 +16,13 @@ export const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", fullTitle: "Dashboard principal", icon: LayoutDashboard },
   { id: "monitoring", label: "Monitoreo", fullTitle: "Monitoreo meteorológico", icon: CloudRain },
   { id: "map", label: "Mapa UNT", fullTitle: "Mapa interactivo del campus UNT", icon: MapIcon },
+  {
+    id: "hydro",
+    label: "Simulación dinámica",
+    fullTitle: "Agua modelada por hora (simulación exploratoria)",
+    icon: Waves,
+    badge: "EXP",
+  },
   { id: "simulator", label: "Simulaciones", fullTitle: "Simulador de escenarios", icon: Sliders, badge: "SIM" },
   { id: "prevention", label: "Prevención", fullTitle: "Análisis preventivo explicable", icon: ShieldCheck },
   { id: "continuity", label: "Continuidad", fullTitle: "Orientaciones y continuidad académica", icon: BookOpen },

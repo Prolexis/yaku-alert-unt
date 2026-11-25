@@ -17,6 +17,7 @@ import MonitoringView from "./components/MonitoringView";
 import CampusMapView from "./components/CampusMapView";
 import PreventionView from "./components/PreventionView";
 import SimulatorView from "./components/SimulatorView";
+import DynamicSimulationView from "./components/DynamicSimulationView";
 import ContinuityView from "./components/ContinuityView";
 
 const DEFAULT_SIM_PARAMS = {
@@ -266,6 +267,10 @@ export default function App() {
               onRunSimulation={handleRunSimulation}
               onNavigate={setActiveView}
             />
+          )}
+
+          {activeView === "hydro" && (
+            <DynamicSimulationView campusLayers={campusLayers} />
           )}
 
           {activeView === "continuity" && (

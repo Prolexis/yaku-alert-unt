@@ -1,0 +1,82 @@
+{
+  "_nota": "Evidencia de agua en el campus. 'ref_ids' apunta a ids de campus_unt.geojson (no se inventan coordenadas). 'independiente' = false si la evidencia ya se uso para construir el escenario B/C, y por tanto NO sirve para validarlo. Confirmar cada fuente abriendo el articulo.",
+  "eventos": [
+    {
+      "id": "ev01_educacion_2025",
+      "descripcion": "Agua en pasillos y zonas comunes de la Facultad de Educacion",
+      "ref_ids": ["bld_osm_376912913"],
+      "fecha": "2025-03-29",
+      "fuente": "https://www.infobae.com/peru/2025/03/29/trujillo-en-emergencia-por-lluvias-impactantes-imagenes-y-videos-de-las-inundaciones-que-deja-la-activacion-de-quebradas-en-la-libertad/",
+      "tipo": "agua_en_interior",
+      "confianza": "media",
+      "independiente": true,
+      "pre_obra_vias": true
+    },
+    {
+      "id": "ev02_economia_2025",
+      "descripcion": "Agua en pasillos y zonas comunes de la Facultad de Economia (hay dos edificios OSM con ese nombre)",
+      "ref_ids": ["bld_osm_376912901", "bld_osm_1194867289"],
+      "fecha": "2025-03-29",
+      "fuente": "https://www.infobae.com/peru/2025/03/29/trujillo-en-emergencia-por-lluvias-impactantes-imagenes-y-videos-de-las-inundaciones-que-deja-la-activacion-de-quebradas-en-la-libertad/",
+      "tipo": "agua_en_interior",
+      "confianza": "media",
+      "independiente": true,
+      "pre_obra_vias": true
+    },
+    {
+      "id": "ev03_farmacia_2025",
+      "descripcion": "Ingreso de agua a laboratorios de Farmacia y Bioquimica",
+      "ref_ids": ["bld_osm_376912922"],
+      "fecha": "2025-03-29",
+      "fuente": "https://larazon.pe/lluvias-y-huaicos-causan-destrozos-en-trujillo/",
+      "tipo": "agua_en_interior",
+      "confianza": "media",
+      "independiente": true,
+      "pre_obra_vias": true
+    },
+    {
+      "id": "ev04_puerta4_2025",
+      "descripcion": "Agua de la Av. Jesus de Nazareth ingreso al campus (Puerta 4 / frente)",
+      "ref_ids": ["acc_osm_5052281066"],
+      "fecha": "2025-03-29",
+      "fuente": "https://elbuho.pe/?p=379990",
+      "tipo": "ingreso",
+      "confianza": "media",
+      "independiente": false,
+      "pre_obra_vias": true
+    },
+    {
+      "id": "ev05_cidunt_testimonio",
+      "descripcion": "Encharcamiento en CIDUNT (testimonio del equipo, sin fecha)",
+      "ref_ids": ["bld_osm_376912929"],
+      "fecha": null,
+      "fuente": "ANTECEDENTES_Y_TESTIMONIOS.md, seccion B",
+      "tipo": "agua_en_interior",
+      "confianza": "baja",
+      "independiente": false,
+      "pre_obra_vias": null
+    },
+    {
+      "id": "ev06_servat_2023",
+      "descripcion": "Agua alrededor del Edificio Servat (no existe edificio con ese nombre en campus_unt.geojson: pendiente de ubicar)",
+      "ref_ids": [],
+      "fecha": "2023-03-10",
+      "fuente": "https://elbuho.pe/?p=282430",
+      "tipo": "agua_en_exterior",
+      "confianza": "media",
+      "independiente": true,
+      "pre_obra_vias": true
+    },
+    {
+      "id": "ev07_medicina_2026",
+      "descripcion": "Frontis de la Facultad de Medicina sobre Av. Jesus de Nazareth (no figura en campus_unt.geojson: pendiente de ubicar)",
+      "ref_ids": [],
+      "fecha": "2026-03-13",
+      "fuente": "https://buenapepa.pe/lluvia-en-trujillo-aniegos-semaforos-danados-y-caos/",
+      "tipo": "agua_en_via",
+      "confianza": "media",
+      "independiente": true,
+      "pre_obra_vias": false
+    }
+  ]
+}

@@ -1,0 +1,263 @@
+{
+  "version": "1.0",
+  "generated_utc": "2026-11-25T00:00:00+00:00",
+  "model": "SIMULACION_EXPLORATORIA_SIMPLIFICADA",
+  "disclaimer": "Parámetros de un modelo EXPLORATORIO SIMPLIFICADO de escurrimiento superficial por autómata celular. NO es un modelo hidrodinámico ni está validado, NO es una estimación de eventos futuros y NO sustituye estudios hidrológicos ni mapas de CENEPRED/SIGRID/INDECI.",
+  "referencias": {
+    "norma_drenaje": {
+      "id": "OS.060",
+      "texto": "Norma peruana de drenaje pluvial OS.060 (Ministerio de Vivienda, Construcción y Saneamiento)",
+      "rangos_usados": "asfalto 0,70-0,95; concreto 0,80-0,95; adoquín 0,70-0,85; techos 0,75-0,95; césped 0,10-0,22",
+      "aviso": "VERIFICAR VERSIÓN VIGENTE DE LA NORMA antes de cualquier uso que no sea exploratorio."
+    },
+    "quebrada_san_ildefonso": {
+      "texto": "Caudales publicados discrepantes: Q100 = 30,6 m³/s (SENACE 2023) vs Q20 = 99,7 m³/s (tesis UCV 2021); se terminaron 35 diques en nov-2023.",
+      "aviso": "Por esa discrepancia el ingreso por la Puerta 4 es un parámetro graduable y NUNCA un caudal medido."
+    },
+    "buzonetas": {
+      "texto": "4 buzonetas exteriores sobre la Av. Jesús de Nazareth (UNT 1957, ene-2026) interceptan parte del flujo antes de la Puerta 4.",
+      "aviso": "Sin aforos: la fracción interceptada es un SUPUESTO."
+    },
+    "dem": {
+      "texto": "Copernicus GLO-30, 30 m, error vertical +/-4 m (LE90); el campus desciende del noreste al suroeste (azimut ~203°).",
+      "aviso": "El alivio real a escala de celda de 10 m no está resuelto por el DEM."
+    }
+  },
+  "coeficientes_escorrentia": {
+    "unit": "-",
+    "_nota": "Valor medio del rango de la norma OS.060, marcado SUPUESTO. VERIFICAR VERSIÓN VIGENTE DE LA NORMA.",
+    "edificio": {
+      "value": 0.85,
+      "unit": "-",
+      "range": [0.75, 0.95],
+      "source": "SUPUESTO",
+      "justification": "Valor medio del rango de techos de OS.060 (0,75-0,95); el agua de tejados se reparte a las celdas abiertas vecinas. VERIFICAR VERSIÓN VIGENTE DE LA NORMA."
+    },
+    "via": {
+      "value": 0.825,
+      "unit": "-",
+      "range": [0.7, 0.95],
+      "source": "SUPUESTO",
+      "justification": "Valor medio del rango combinado asfalto (0,70-0,95) y adoquín (0,70-0,85) de OS.060. VERIFICAR VERSIÓN VIGENTE DE LA NORMA."
+    },
+    "estacionamiento": {
+      "value": 0.875,
+      "unit": "-",
+      "range": [0.8, 0.95],
+      "source": "SUPUESTO",
+      "justification": "Valor medio del rango de concreto de OS.060 (0,80-0,95), asumiendo pavimento impermeable. VERIFICAR VERSIÓN VIGENTE DE LA NORMA."
+    },
+    "area_deportiva": {
+      "value": 0.55,
+      "unit": "-",
+      "range": [0.1, 0.95],
+      "source": "SUPUESTO",
+      "justification": "Superficie mixta: pista/concreto (0,70-0,95) más césped (0,10-0,22); no hay dato local de composición. VERIFICAR VERSIÓN VIGENTE DE LA NORMA."
+    },
+    "area_verde": {
+      "value": 0.16,
+      "unit": "-",
+      "range": [0.1, 0.22],
+      "source": "SUPUESTO",
+      "justification": "Valor medio del rango de césped de OS.060 (0,10-0,22). VERIFICAR VERSIÓN VIGENTE DE LA NORMA."
+    },
+    "otro": {
+      "value": 0.6,
+      "unit": "-",
+      "range": [0.1, 0.95],
+      "source": "SUPUESTO",
+      "justification": "Superficie no catalogada (patios, veredas, tierra expuesta); se asume mezcla de césped y pavimento."
+    }
+  },
+  "capacidad_drenaje_mm_h": {
+    "unit": "mm/h",
+    "_nota": "Capacidad de remoción de lámina por el drenaje del campus. No hay aforos ni inspección: los tres estados son SUPUESTOS.",
+    "normal": {
+      "value": 8.0,
+      "unit": "mm/h",
+      "range": [5.0, 15.0],
+      "source": "SUPUESTO",
+      "justification": "Drenaje urbano funcionando sin obstrucciones, sin aforos en el campus; orden de magnitud de drenaje vecinal operativo."
+    },
+    "obstruido": {
+      "value": 1.0,
+      "unit": "mm/h",
+      "range": [0.0, 3.0],
+      "source": "SUPUESTO",
+      "justification": "Buzonetas tapadas por basura y escombros: solo queda remoción mínima por filtración."
+    },
+    "pendiente_deficiente": {
+      "value": 3.0,
+      "unit": "mm/h",
+      "range": [1.0, 6.0],
+      "source": "SUPUESTO",
+      "justification": "HIPÓTESIS NO VERIFICADA de pendientes de drenaje deficientes en la obra de vías; se expone solo como estado opcional marcado como hipótesis."
+    }
+  },
+  "ingreso_p4_m3_h_por_celda": {
+    "unit": "m³/h por celda de ingreso",
+    "_nota": "Ingreso externo por la Puerta 4 (Av. Jesús de Nazareth). NO ES EL CAUDAL DE LA QUEBRADA SAN ILDEFONSO: es un parámetro experimental graduable (ninguno/bajo/medio/alto) porque los caudales publicados son discrepantes.",
+    "ninguno": {
+      "value": 0.0,
+      "unit": "m³/h por celda de ingreso",
+      "range": [0.0, 0.0],
+      "source": "SUPUESTO",
+      "justification": "Sin ingreso externo: solo actúa la lluvia sobre la cuadrícula."
+    },
+    "bajo": {
+      "value": 6.0,
+      "unit": "m³/h por celda de ingreso",
+      "range": [0.0, 300.0],
+      "source": "SUPUESTO",
+      "justification": "Nivel BAJO de ingreso experimental por celda; no corresponde a ningún caudal medido de la quebrada."
+    },
+    "medio": {
+      "value": 20.0,
+      "unit": "m³/h por celda de ingreso",
+      "range": [0.0, 300.0],
+      "source": "SUPUESTO",
+      "justification": "Nivel MEDIO de ingreso experimental por celda; no corresponde a ningún caudal medido de la quebrada."
+    },
+    "alto": {
+      "value": 50.0,
+      "unit": "m³/h por celda de ingreso",
+      "range": [0.0, 300.0],
+      "source": "SUPUESTO",
+      "justification": "Nivel ALTO de ingreso experimental por celda; no corresponde a ningún caudal medido de la quebrada."
+    }
+  },
+  "intercepcion_buzonetas": {
+    "value": 0.3,
+    "unit": "fracción",
+    "range": [0.0, 0.6],
+    "source": "SUPUESTO",
+    "justification": "Las 4 buzonetas exteriores sobre Jesús de Nazareth (UNT 1957, ene-2026) interceptan parte del flujo antes de la Puerta 4; sin aforos se asume 30 %."
+  },
+  "ingreso_secundario_fraccion": {
+    "value": 0.25,
+    "unit": "fracción del total de P4",
+    "range": [0.0, 0.5],
+    "source": "SUPUESTO",
+    "justification": "Ingreso por las puertas P1-P3 de la Av. Juan Pablo II declarado débil e incierto: se aplica como fracción del total que entra por P4."
+  },
+  "propagacion": {
+    "subpasos_por_hora": {
+      "value": 8,
+      "unit": "subpasos por hora",
+      "range": [1, 24],
+      "source": "SUPUESTO",
+      "justification": "Subdivisión horaria fija para que la actualización celular sea estable y determinista; no deriva de una medición."
+    },
+    "coeficiente_transferencia": {
+      "value": 0.2,
+      "unit": "fracción de diferencia de nivel por vecino y subpaso",
+      "range": [0.05, 0.5],
+      "source": "SUPUESTO",
+      "justification": "Regula qué tan rápido se iguala el nivel entre celdas vecinas; sin calibración con medición alguna en el campus."
+    },
+    "max_frac_salida_por_subpaso": {
+      "value": 0.5,
+      "unit": "fracción de la profundidad",
+      "range": [0.1, 0.9],
+      "source": "SUPUESTO",
+      "justification": "Tope de salida por subpaso: ninguna celda puede vaciar más de la mitad de lo que tiene, lo que garantiza estabilidad."
+    },
+    "drenaje_borde_frac_por_subpaso": {
+      "value": 0.35,
+      "unit": "fracción de la profundidad",
+      "range": [0.05, 1.0],
+      "source": "SUPUESTO",
+      "justification": "Las celdas del borde exterior de la cuadrícula son frontera abierta: la que llega drena hacia fuera del modelo."
+    },
+    "umbral_profundidad_visible_m": {
+      "value": 0.01,
+      "unit": "m",
+      "range": [0.005, 0.05],
+      "source": "SUPUESTO",
+      "justification": "Debajo de 1 cm no se dibuja la celda: un DEM de 30 m con error ±4 m no respalda láminas más finas."
+    }
+  },
+  "clases_profundidad_m": {
+    "unit": "m",
+    "_nota": "Umbrales de COMUNICACIÓN VISUAL de una simulación exploratoria; NO clasifican peligro, daño ni seguridad de ningún elemento.",
+    "leve": {
+      "range": [0.01, 0.05],
+      "source": "SUPUESTO",
+      "justification": "Lámina de 1 a 5 cm, umbral bajo de pasabilidad peatonal; sin estándar local ni aforos."
+    },
+    "moderada": {
+      "range": [0.05, 0.15],
+      "source": "SUPUESTO",
+      "justification": "Lámina de 5 a 15 cm, umbral medio de incomodidad para vehículos ligeros; sin estándar local ni aforos."
+    },
+    "alta": {
+      "range": [0.15, null],
+      "source": "SUPUESTO",
+      "justification": "Lámina de 15 cm o más; sin estándar local ni aforos, solo marca la zona con más agua en la simulación."
+    }
+  },
+  "hietograma_supuesto": {
+    "unit": "pesos normalizados por hora",
+    "source": "SUPUESTO",
+    "justification": "No existen registros horarios para los eventos de referencia: el acumulado diario sí es dato, pero la distribución horaria se SUPONE concentrada en 4 a 6 h con forma triangular.",
+    "pesos_5h": [0.1, 0.22, 0.36, 0.22, 0.1],
+    "pesos_6h": [0.08, 0.17, 0.25, 0.25, 0.17, 0.08]
+  },
+  "presets": [
+    {
+      "id": "evento_2017_03",
+      "label": "Marzo 2017 — 27,5 mm acumulados en 24 h",
+      "total_mm": 27.5,
+      "start_hour": 6,
+      "window_hours": 5,
+      "data_nature": "DATO_ACUMULADO_DIARIO_HISTORICO",
+      "source": "Acumulado diario de referencia (mar-2017)",
+      "note": "El acumulado diario es dato; el hietograma horario es SUPUESTO (concentrado en 5 h).",
+      "defaults": {"drainage_state": "normal", "inflow_p4": "medio", "secondary_inflow": false}
+    },
+    {
+      "id": "evento_2023_03_10",
+      "label": "10 de marzo de 2023 — 35 mm acumulados en el día",
+      "total_mm": 35.0,
+      "start_hour": 6,
+      "window_hours": 5,
+      "data_nature": "DATO_ACUMULADO_DIARIO_HISTORICO",
+      "source": "Acumulado diario de referencia (10-mar-2023)",
+      "note": "El acumulado diario es dato; el hietograma horario es SUPUESTO (concentrado en 5 h).",
+      "defaults": {"drainage_state": "obstruido", "inflow_p4": "medio", "secondary_inflow": false}
+    },
+    {
+      "id": "evento_2025_03_29",
+      "label": "29 de marzo de 2025 — 14 mm acumulados en el día",
+      "total_mm": 14.0,
+      "start_hour": 6,
+      "window_hours": 5,
+      "data_nature": "DATO_ACUMULADO_DIARIO_HISTORICO",
+      "source": "Acumulado diario de referencia (29-mar-2025)",
+      "note": "El acumulado diario es dato; el hietograma horario es SUPUESTO (concentrado en 5 h).",
+      "defaults": {"drainage_state": "normal", "inflow_p4": "bajo", "secondary_inflow": false}
+    },
+    {
+      "id": "evento_2026_01_10",
+      "label": "10 de enero de 2026 — 8 mm acumulados en el día",
+      "total_mm": 8.0,
+      "start_hour": 6,
+      "window_hours": 5,
+      "data_nature": "DATO_ACUMULADO_DIARIO_HISTORICO",
+      "source": "Acumulado diario de referencia (10-ene-2026)",
+      "note": "El acumulado diario es dato; el hietograma horario es SUPUESTO (concentrado en 5 h).",
+      "defaults": {"drainage_state": "normal", "inflow_p4": "bajo", "secondary_inflow": false}
+    },
+    {
+      "id": "extremo_hipotetico",
+      "label": "Evento extremo hipotético — 70 mm acumulados en 24 h",
+      "total_mm": 70.0,
+      "start_hour": 6,
+      "window_hours": 6,
+      "data_nature": "SUPUESTO_TOTAL",
+      "source": "SUPUESTO",
+      "note": "Doble del acumulado máximo de referencia (35 mm); caso de estrés hipotético para explorar el modelo, no corresponde a ningún evento observado.",
+      "defaults": {"drainage_state": "obstruido", "inflow_p4": "alto", "secondary_inflow": true}
+    }
+  ]
+}

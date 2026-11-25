@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -172,3 +172,93 @@ class SimulationResponse(BaseModel):
     preventive_evaluation: PreventiveEvaluation
     hazard_geojson: dict[str, Any]
     synthetic_geojson: Optional[dict[str, Any]] = None
+
+
+# ---------------------------------------------------------------------------
+# FASE 1 — simulación dinámica de agua (capa NUEVA; los escenarios A-D no cambian)
+# ---------------------------------------------------------------------------
+HydroDrainageState = Literal["normal", "obstruido", "pendiente_deficiente"]
+HydroInflowLevel = Literal["ninguno", "bajo", "medio", "alto"]
+
+
+class HydroRunRequest(BaseModel):
+    """Serie horaria de lluvia (mm/h) + estado de drenaje + nivel de ingreso P4."""
+
+    rainfall_mm_h: list[Annotated[float, Field(ge=0.0, le=200.0)]] = Field(
+        min_length=1,
+        max_length=48,
+        description="Lluvia horaria en mm/h. Máximo 48 h para cumplir el presupuesto de tiempo.",
+    )
+    drainage_state: HydroDrainageState = Field(
+        default="normal",
+        description="normal | obstruido | pendiente_deficiente (esta última es una hipótesis no verificada).",
+    )
+    inflow_p4: HydroInflowLevel = Field(
+        default="medio",
+        description="Nivel de ingreso externo por la Puerta 4 (parámetro graduable, nunca un caudal medido).",
+    )
+    secondary_inflow: bool = Field(
+        default=False,
+        description="Activa el ingreso secundario débil e incierto por P1-P3 (Av. Juan Pablo II).",
+    )
+
+
+class HydroFrame(BaseModel):
+    """Un hora de simulación: resumen + GeoJSON con las clases leve/moderada/alta."""
+
+    hour: int
+    label: str
+    max_depth_cm: float
+    wet_area_m2: float
+    campus_edge_wet_cells: int
+    geojson: dict[str, Any]
+
+
+class HydroElementImpact(BaseModel):
+    """Agua modelada sobre la huella (o el anillo) de un elemento del catálogo."""
+
+    id: str
+    name: str
+    category: str
+    scope: str
+    max_depth_cm: float
+    first_hour_affected: Optional[int] = None
+
+
+class HydroRunResponse(BaseModel):
+    run_id: str
+    is_simulation: Literal[True] = True
+    data_nature: str
+    parameters: dict[str, Any]
+    frames: list[HydroFrame]
+    elements: list[HydroElementImpact]
+    summary: dict[str, Any]
+    metadata: dict[str, Any]
+    assumptions: list[str]
+    limitations: list[str]
+    avisos: list[str]
+    weather: Optional[dict[str, Any]] = None
+
+
+class HydroPreset(BaseModel):
+    id: str
+    label: str
+    total_mm: float
+    hours: int
+    start_hour: int
+    window_hours: int
+    data_nature: str
+    source: str
+    note: str
+    defaults: dict[str, Any]
+    rainfall_mm_h: list[float]
+
+
+class HydroPresetsResponse(BaseModel):
+    is_simulation: Literal[True] = True
+    data_nature: str
+    assumptions: list[str]
+    limitations: list[str]
+    avisos: list[str]
+    hyetogram_note: str
+    presets: list[HydroPreset]

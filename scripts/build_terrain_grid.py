@@ -63,6 +63,7 @@ from analyze_dem import (  # noqa: E402  (import tras sys.path, es un script her
 
 DATA_DIR = ROOT / "backend" / "app" / "data"
 CAMPUS_PATH = DATA_DIR / "campus_unt.geojson"
+PARAMS_PATH = DATA_DIR / "hydro_params.json"
 DEM_PATH = ROOT / "scripts" / "dem" / "S09_W080.tif"
 OUT_PATH = DATA_DIR / "terrain_grid.json"
 
@@ -136,7 +137,8 @@ def _union(features, categories: tuple[str, ...] | list[str]):
     return unary_union(geoms)
 
 
-def _priority_flood_fill(elevation: np.ndarray, blocked: np.ndarray) -> np.ndarray:
+def _priority_flood_fill(elevation: np.ndarray, blocked: np.ndarray,
+                         max_rise: float | None = None) -> np.ndarray:
     """Rellena microdepresiones cerradas hasta su nivel de vertida (priority flood).
 
     Método estándar de procesamiento de DEM para enrutamiento de flujo (mismo
@@ -146,6 +148,11 @@ def _priority_flood_fill(elevation: np.ndarray, blocked: np.ndarray) -> np.ndarr
     Solo se SUBEN celdas (nunca se baja el relieve) y las celdas bloqueadas
     (edificios) actúan como muros. La elevación cruda se conserva aparte para
     reportar cotas; esta superficie se usa únicamente para el enrutamiento.
+
+    ``max_rise`` (m) es el tope de subida por celda: ``None`` = sin tope
+    (comportamiento de la Fase 1). Con tope, las depresiones más profundas que
+    el tope quedan parcialmente rellenas y retienen agua: el agua se empoza en
+    ellas en vez de solo frenarse por la lentitud del flujo.
     """
     ny, nx = elevation.shape
     filled = elevation.copy()
@@ -177,6 +184,8 @@ def _priority_flood_fill(elevation: np.ndarray, blocked: np.ndarray) -> np.ndarr
                 if blocked[nr, nc]:
                     continue
                 nlv = max(level, float(elevation[nr, nc]))
+                if max_rise is not None:
+                    nlv = min(nlv, float(elevation[nr, nc]) + float(max_rise))
                 if nlv > elevation[nr, nc]:
                     filled[nr, nc] = nlv
                 heapq.heappush(heap, (nlv, nr, nc))
@@ -236,7 +245,9 @@ def main() -> None:
     open_mask = ~blocked
 
     # --- superficie de enrutamiento: relleno de microdepresiones ---------------
-    elevation_routing = _priority_flood_fill(elevation, blocked)
+    params = json.loads(PARAMS_PATH.read_text(encoding="utf-8"))
+    fill_max_rise = params.get("fill_max_rise_m", {}).get("value")
+    elevation_routing = _priority_flood_fill(elevation, blocked, fill_max_rise)
     fill_delta = elevation_routing - elevation
     n_filled = int((fill_delta > 1e-9).sum())
 
@@ -300,6 +311,21 @@ def main() -> None:
             "cells": [int(c) for c in cells],
         })
 
+    # --- zonas reportadas por el equipo (posibles sumideros locales) -----------
+    reported_zones = []
+    for f in features:
+        props = f.get("properties", {})
+        if props.get("category") != "zona_reportada" or not f.get("geometry"):
+            continue
+        geom = shape(f["geometry"])
+        cells = np.flatnonzero(_mask(geom, X, Y).ravel() & open_mask.ravel())
+        reported_zones.append({
+            "id": props.get("id") or f"zona_{len(reported_zones)}",
+            "label": props.get("name") or "",
+            "reported": True,
+            "cells": [int(c) for c in cells],
+        })
+
     # --- red de salida (vecinos abiertos, para repartir agua de tejados) ---------
     # La información útil para el motor se deja en el JSON; el cómputo es del runtime.
 
@@ -326,8 +352,9 @@ def main() -> None:
             ),
             "routing_fill": {
                 "method": "priority flood (relleno de microdepresiones hasta su nivel de vertida)",
+                "fill_max_rise_m": fill_max_rise,
                 "cells_filled": n_filled,
-                "fill_max_m": round(float(fill_delta.max()), 3),
+                "fill_max_obs_m": round(float(fill_delta.max()), 3),
                 "fill_mean_filled_m": (
                     round(float(fill_delta[fill_delta > 1e-9].mean()), 3) if n_filled else 0.0
                 ),
@@ -373,6 +400,7 @@ def main() -> None:
              "cells": [int(c) for c in secondary_cells]},
         ],
         "elements": elements,
+        "reported_zones": reported_zones,
     }
     OUT_PATH.write_text(json.dumps(grid, ensure_ascii=False, separators=(",", ":")),
                         encoding="utf-8")
@@ -386,8 +414,11 @@ def main() -> None:
     print(f"Elevación: min {elevation.min():.1f} / max {elevation.max():.1f} m | "
           f"elementos: {len(elements)}")
     print(f"Relleno de microdepresiones (enrutamiento): {n_filled} celdas, "
-          f"máx {float(fill_delta.max()):.2f} m | "
+          f"máx {float(fill_delta.max()):.2f} m | tope: "
+          f"{'sin tope' if fill_max_rise is None else f'{float(fill_max_rise):g} m'} | "
           f"cotas crudas: min {elevation.min():.1f} / max {elevation.max():.1f} m")
+    print(f"Zonas reportadas por el equipo: {len(reported_zones)} "
+          f"({sum(len(z['cells']) for z in reported_zones)} celdas abiertas)")
     print(f"Escrito: {OUT_PATH} ({size_kb:.0f} kB)")
 
 

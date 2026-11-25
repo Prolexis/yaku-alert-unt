@@ -98,8 +98,13 @@ def _distribute_roof(roof: np.ndarray, blocked: np.ndarray, open_mask: np.ndarra
 
 def _propagate(depth: np.ndarray, z: np.ndarray, open_mask: np.ndarray,
                outlet_mask: np.ndarray, k: float, max_frac: float,
-               edge_frac: float, area_m2: float) -> float:
-    """Un subpaso de propagación + drenaje de frontera. Devuelve m³ que salen."""
+               edge_frac: float, area_m2: float,
+               storage: np.ndarray | None = None) -> float:
+    """Un subpaso de propagación + drenaje de frontera. Devuelve m³ que salen.
+
+    ``storage`` (m) es la lámina retenida por celda en los sumideros activos:
+    esas celdas solo ceden el agua que excede su capacidad declarada.
+    """
     if not depth.any():
         return 0.0
 
@@ -123,6 +128,9 @@ def _propagate(depth: np.ndarray, z: np.ndarray, open_mask: np.ndarray,
 
     # Nunca se transfiere más de la fracción permitida: la celda no se vacía.
     cap = max_frac * d
+    if storage is not None:
+        # Los sumideros retienen hasta su capacidad: solo ceden el excedente.
+        cap = np.minimum(cap, np.maximum(d - storage[r0:r1, c0:c1], 0.0))
     scale = np.ones_like(out_total)
     nz = out_total > 0.0
     scale[nz] = np.minimum(1.0, cap[nz] / out_total[nz])
@@ -213,6 +221,19 @@ class TerrainGrid:
                 "scope": element["scope"],
                 "cells": cells,
             })
+
+        # Zonas reportadas por el equipo (pueden activarse como sumideros locales)
+        self.reported_zones: dict[str, dict[str, Any]] = {}
+        for zone in raw.get("reported_zones", []):
+            cells = np.asarray(zone.get("cells", []), dtype=np.int64)
+            if cells.size:
+                cells = cells[~self.blocked.ravel()[cells]]
+            self.reported_zones[str(zone["id"])] = {
+                "id": str(zone["id"]),
+                "label": zone.get("label") or str(zone["id"]),
+                "reported": bool(zone.get("reported", True)),
+                "cells": cells,
+            }
 
         # Coeficiente de escorrentía por celda (se completa con hydro_params.json)
         self.runoff_c: np.ndarray | None = None
@@ -394,6 +415,7 @@ def run_hydro_simulation(
     drainage_state: str = "normal",
     inflow_p4: str = "medio",
     secondary_inflow: bool = False,
+    use_reported_sinks: bool = False,
     *,
     data_nature: str = "SIMULACION_EXPLORATORIA_SIMPLIFICADA",
     source: str = "serie horaria de lluvia recibida en la petición",
@@ -405,6 +427,7 @@ def run_hydro_simulation(
         drainage_state=drainage_state,
         inflow_p4=inflow_p4,
         secondary_inflow=secondary_inflow,
+        use_reported_sinks=use_reported_sinks,
         data_nature=data_nature,
         source=source,
         weather=weather,
@@ -416,19 +439,23 @@ def simulate_core(
     drainage_state: str = "normal",
     inflow_p4: str = "medio",
     secondary_inflow: bool = False,
+    use_reported_sinks: bool = False,
     *,
     data_nature: str = "SIMULACION_EXPLORATORIA_SIMPLIFICADA",
     source: str = "serie horaria de lluvia recibida en la petición",
     weather: dict[str, Any] | None = None,
+    grid: TerrainGrid | None = None,
+    hourly_out: list[np.ndarray] | None = None,
 ) -> tuple[HydroRunResponse, np.ndarray]:
     """Igual que run_hydro_simulation pero devuelve también la lámina final (m).
 
     La lámina final la usan las pruebas para verificar conservación de masa,
     monotonicidad, que el agua baja hacia el suroeste y que no hay agua sobre
-    celdas de edificio.
+    celdas de edificio. ``grid`` permite inyectar otra superficie de
+    enrutamiento (diagnósticos) y ``hourly_out`` acumula la lámina por hora.
     """
     params = load_hydro_params()
-    grid = load_terrain_grid()
+    grid = grid if grid is not None else load_terrain_grid()
     grid.apply_runoff_coefficients(params["coeficientes_escorrentia"])
 
     if drainage_state not in params["capacidad_drenaje_mm_h"]:
@@ -451,6 +478,27 @@ def simulate_core(
 
     drain_mm_h = float(params["capacidad_drenaje_mm_h"][drainage_state]["value"])
     drain_sub = (drain_mm_h / 1000.0) / n_sub
+
+    # --- sumideros locales reportados (opcionales, apagados por defecto) ------
+    storage: np.ndarray | None = None
+    sink_info: list[dict[str, Any]] = []
+    if use_reported_sinks:
+        sink_cfg = params.get("sumideros_reportados", {})
+        storage_depth = float(sink_cfg.get("storage_depth_m", {}).get("value", 0.0))
+        storage = np.zeros((grid.ny, grid.nx), dtype=np.float64)
+        for sink in sink_cfg.get("sinks", []):
+            if not bool(sink.get("reported", True)):
+                continue
+            zone = grid.reported_zones.get(str(sink.get("zone_id", "")))
+            if zone is None or zone["cells"].size == 0:
+                continue
+            storage.reshape(-1)[zone["cells"]] = storage_depth
+            sink_info.append({
+                "id": str(sink["id"]),
+                "label": sink.get("label") or str(sink["id"]),
+                "cells": int(zone["cells"].size),
+                "storage_depth_m": storage_depth,
+            })
 
     area = grid.area_m2
     p4_cells = grid.inlets.get("p4", np.empty(0, dtype=np.int64))
@@ -509,7 +557,11 @@ def simulate_core(
         for _ in range(n_sub):
             depth += input_sub
             if drain_sub > 0.0:
-                removed = np.minimum(depth, drain_sub)
+                if storage is None:
+                    removed = np.minimum(depth, drain_sub)
+                else:
+                    # los sumideros conservan su lámina hasta la capacidad declarada
+                    removed = np.minimum(np.maximum(depth - storage, 0.0), drain_sub)
                 depth -= removed
                 mass_drain += float(removed.sum()) * area
             if p4_step:
@@ -518,7 +570,7 @@ def simulate_core(
                 depth_flat[sec_cells] += sec_step
             mass_inflow += inflow_hour_m3 / n_sub
             mass_edge += _propagate(depth, grid.z_route, open_mask, outlet_mask,
-                                    k, max_frac, edge_frac, area)
+                                    k, max_frac, edge_frac, area, storage=storage)
 
         for idx, element in enumerate(grid.elements):
             cells = element["cells"]
@@ -547,6 +599,8 @@ def simulate_core(
             campus_edge_wet_cells=int((wet & grid.campus_edge).sum()),
             geojson=_frame_geojson(depth, grid, class_ranges),
         ))
+        if hourly_out is not None:
+            hourly_out.append(depth.copy())
 
     elements_out: list[HydroElementImpact] = []
     for idx, element in enumerate(grid.elements):
@@ -572,14 +626,22 @@ def simulate_core(
         "secondary_inflow": bool(secondary_inflow),
     })
 
+    routing_fill = dict(grid.metadata.get("routing_fill", {}))
     assumptions = [
         "Modelo exploratorio simplificado: autómata celular de 8 vecinos sobre celdas de 10 m; "
         "no es un modelo hidrodinámico ni sustituye estudios hidrológicos.",
-        "La elevación es una interpolación bilineal de un DEM de 30 m con error vertical de "
-        "±4 m: suaviza la malla pero no agrega información sobre el terreno real.",
-        "El enrutamiento usa una superficie con las microdepresiones rellenadas (priority "
-        "flood, práctica estándar): solo se suben celdas para que el agua pueda drenar; las "
-        "cotas reportadas son las del DEM crudo sin rellenar.",
+        "DEM de 30 m interpolado a 10 m, error vertical ±4 m: la malla más fina suaviza el "
+        "relieve pero no agrega información sobre el terreno real.",
+        "Microdepresiones rellenadas hasta "
+        + (
+            f"{float(routing_fill.get('fill_max_rise_m')):.1f} m por celda para el enrutamiento"
+            if routing_fill.get("fill_max_rise_m") is not None
+            else f"sin tope (máximo observado {float(routing_fill.get('fill_max_obs_m', 0.0)):.2f} m) "
+                 "para el enrutamiento"
+        )
+        + " (priority flood, práctica estándar); las cotas reportadas son las del DEM crudo.",
+        "Las profundidades que muestra esta respuesta son estimaciones exploratorias de una "
+        "capa de agua modelada, no mediciones ni niveles de inundación observados.",
         f"Coeficientes de escorrentía SUPUESTOS dentro de los rangos de la norma OS.060 "
         f"(verificar versión vigente de la norma); estado de drenaje '{drainage_state}' con "
         f"capacidad de {drain_mm_h:g} mm/h SUPUESTA, sin aforos en el campus.",
@@ -589,6 +651,15 @@ def simulate_core(
         f"Ingreso secundario por P1-P3 (Av. Juan Pablo II): "
         + (f"{sec_total:.1f} m³/h, fracción débil e incierto del total de P4."
            if secondary_inflow else "desactivado en esta corrida."),
+        (
+            "Sumideros locales reportados ACTIVOS (use_reported_sinks=true, SUPUESTO): "
+            + ", ".join(f"{s['label']} ({s['cells']} celdas)" for s in sink_info)
+            + f" retienen hasta {sink_info[0]['storage_depth_m']:.2f} m de lámina; el excedente "
+            "sigue el flujo normal. Es una hipótesis del equipo, no una medición."
+            if sink_info else
+            "Sumideros locales reportados DESACTIVADOS (use_reported_sinks=false): el modelo "
+            "no impone acumulación adicional en CIDUNT, Derecho, Puerta 4 ni Av. Juan Pablo II."
+        ),
         "Las celdas de edificio están bloqueadas: el agua no las atraviesa y el escurrimiento "
         "de sus tejados se reparte a las celdas abiertas vecinas.",
         "Umbrales de profundidad (1 cm visible; leve 1-5 cm, moderada 5-15 cm, alta ≥15 cm): "
@@ -642,6 +713,10 @@ def simulate_core(
             "secondary_inflow_cells": int(sec_cells.size),
             "substeps_per_hour": n_sub,
             "visible_threshold_cm": round(visible_m * 100.0, 1),
+            "fill_max_rise_m": routing_fill.get("fill_max_rise_m"),
+            "fill_max_obs_m": routing_fill.get("fill_max_obs_m"),
+            "use_reported_sinks": bool(use_reported_sinks and sink_info),
+            "reported_sinks": sink_info,
         },
         frames=frames,
         elements=elements_out,
@@ -676,6 +751,7 @@ def simulate_core(
             "dem_vertical_error_m": grid.metadata["dem_vertical_error_m"],
             "interpolation": grid.metadata["interpolation"],
             "routing_fill": grid.metadata.get("routing_fill"),
+            "reported_sinks": sink_info,
             "cells_total": grid.n,
             "cells_blocked": int(blocked.sum()),
             "cells_campus_edge": int(grid.campus_edge.sum()),

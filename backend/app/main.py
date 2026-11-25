@@ -137,6 +137,7 @@ def hydro_run(payload: HydroRunRequest) -> HydroRunResponse:
             drainage_state=payload.drainage_state,
             inflow_p4=payload.inflow_p4,
             secondary_inflow=payload.secondary_inflow,
+            use_reported_sinks=payload.use_reported_sinks,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -158,6 +159,10 @@ async def hydro_forecast(
         default="medio", description="Nivel de ingreso externo por la Puerta 4"
     ),
     secondary_inflow: bool = Query(default=False, description="Activar ingreso P1-P3"),
+    use_reported_sinks: bool = Query(
+        default=False,
+        description="Activar sumideros locales reportados (CIDUNT, Derecho, P4, Av. Juan Pablo II)",
+    ),
 ) -> HydroRunResponse:
     """Simulación de 48 h alimentada con el pronóstico horario real de /api/weather.
 
@@ -178,6 +183,7 @@ async def hydro_forecast(
         drainage_state=drainage_state,
         inflow_p4=inflow_p4,
         secondary_inflow=secondary_inflow,
+        use_reported_sinks=use_reported_sinks,
         data_nature=f"SIMULACION_CON_PRONOSTICO_HORARIO_{weather.data_status}",
         source=(
             f"pronóstico horario de {weather.source_name} "

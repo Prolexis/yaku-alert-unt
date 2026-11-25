@@ -201,6 +201,13 @@ class HydroRunRequest(BaseModel):
         default=False,
         description="Activa el ingreso secundario débil e incierto por P1-P3 (Av. Juan Pablo II).",
     )
+    use_reported_sinks: bool = Field(
+        default=False,
+        description=(
+            "Activa los sumideros locales reportados por el equipo (CIDUNT, Derecho, Puerta 4 y "
+            "Av. Juan Pablo II) con una profundidad de almacenamiento SUPUESTA. Apagado por defecto."
+        ),
+    )
 
 
 class HydroFrame(BaseModel):

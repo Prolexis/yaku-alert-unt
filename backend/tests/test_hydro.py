@@ -6,6 +6,7 @@ sobre edificios, determinismo, validación 422 y frases prohibidas en las
 respuestas de los tres endpoints nuevos.
 """
 import math
+import re
 
 import numpy as np
 from fastapi.testclient import TestClient
@@ -116,9 +117,73 @@ def test_hydro_run_rejects_invalid_payloads_with_422():
         assert resp.status_code == 422, payload
 
 
+# --- tope de relleno de microdepresiones --------------------------------------
+def test_priority_flood_fill_respects_max_rise():
+    import sys
+    from pathlib import Path
+
+    scripts = Path(__file__).resolve().parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    from build_terrain_grid import _priority_flood_fill
+
+    elevation = np.array([
+        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
+        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
+        [10.0, 10.0, 9.0, 9.0, 9.0, 10.0, 10.0],
+        [10.0, 10.0, 9.0, 7.0, 9.0, 10.0, 10.0],
+        [10.0, 10.0, 9.0, 9.0, 9.0, 10.0, 10.0],
+        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
+        [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
+    ])
+    blocked = np.zeros_like(elevation, dtype=bool)
+
+    full = _priority_flood_fill(elevation, blocked, None)
+    capped = _priority_flood_fill(elevation, blocked, 0.5)
+
+    # solo se suben celdas, nunca se baja el relieve
+    assert (full >= elevation).all()
+    assert (capped >= elevation).all()
+    # el tope se respeta celda por celda
+    assert float((capped - elevation).max()) <= 0.5 + 1e-9
+    # sin tope el pozo central se rellena más que con tope
+    assert float((full - elevation).max()) > 0.5
+
+
+# --- sumideros locales reportados (opcionales) --------------------------------
+def test_reported_sinks_add_local_storage_and_conserve_mass():
+    grid = load_terrain_grid()
+    sink_zone_ids = ("rep_estac_cidunt", "rep_estac_derecho", "rep_puerta4",
+                     "rep_av_juan_pablo")
+    sink_cells = np.concatenate([
+        grid.reported_zones[zid]["cells"] for zid in sink_zone_ids
+        if zid in grid.reported_zones and grid.reported_zones[zid]["cells"].size
+    ])
+    assert sink_cells.size > 0
+
+    off, depth_off = simulate_core([0.0] * 48, inflow_p4="alto",
+                                   use_reported_sinks=False)
+    on, depth_on = simulate_core([0.0] * 48, inflow_p4="alto",
+                                 use_reported_sinks=True)
+
+    # el agua se queda almacenada en las celdas reportadas
+    assert float(depth_on.ravel()[sink_cells].sum()) > float(depth_off.ravel()[sink_cells].sum())
+
+    # la masa se conserva en ambos casos
+    for resp in (off, on):
+        mb = resp.summary["mass_balance_m3"]
+        assert abs(mb["residual"]) < 0.01
+        assert abs(mb["residual_pct"]) < 1e-4
+
+    # el estado de los sumideros queda declarado en supuestos y parámetros
+    assert any("ACTIVOS" in text for text in on.assumptions)
+    assert any("DESACTIVADOS" in text for text in off.assumptions)
+    assert on.parameters["use_reported_sinks"] is True
+    assert off.parameters["use_reported_sinks"] is False
+    assert on.parameters["reported_sinks"]
+
+
 # --- frases prohibidas + campos obligatorios en las 3 respuestas ---------------
 def test_hydro_responses_never_use_prohibited_phrases():
-    import re
 
     run = client.post("/api/hydro/run", json={
         "rainfall_mm_h": [0.0, 3.0, 8.0, 4.0] + [0.0] * 44,

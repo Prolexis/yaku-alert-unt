@@ -23,6 +23,14 @@
       "aviso": "El alivio real a escala de celda de 10 m no está resuelto por el DEM."
     }
   },
+  "fill_max_rise_m": {
+    "value": 0.5,
+    "previous_value": null,
+    "unit": "m",
+    "range": [0.0, 5.0],
+    "source": "SUPUESTO",
+    "justification": "Tope de subida por celda al rellenar microdepresiones para el enrutamiento. Valor ANTERIOR: null (sin tope, máx observado 2,63 m). Valor NUEVO: 0,5 m. Motivo: las 20 mayores subidas del relleno coinciden con los puntos reportados por el equipo (estacionamiento junto a CIDUNT, estadio, estacionamiento suroeste) y con el punto más bajo del campus; sin tope esas cuencas internas reales desaparecían y el agua se repartía en una lámina única. Con 0,5 m se conservan y el agua se empoza en ellas. El costo (máximos de 1,2 m en el evento 2023 y 2,0 m en el extremo hipotético) lo produce el ingreso externo sostenido y el drenaje obstruido declarados, no el tope. Ver datos_nuevos/analisis/DIAGNOSTICO_ACUMULACION.md."
+  },
   "coeficientes_escorrentia": {
     "unit": "-",
     "_nota": "Valor medio del rango de la norma OS.060, marcado SUPUESTO. VERIFICAR VERSIÓN VIGENTE DE LA NORMA.",
@@ -195,6 +203,23 @@
       "source": "SUPUESTO",
       "justification": "Lámina de 15 cm o más; sin estándar local ni aforos, solo marca la zona con más agua en la simulación."
     }
+  },
+  "sumideros_reportados": {
+    "_nota": "Zonas que el equipo reportó como puntos de empozamiento o ingreso (campus_unt.geojson, category=zona_reportada). Por defecto DESACTIVADOS: solo si el pedido envía use_reported_sinks=true, las celdas de cada zona retienen hasta storage_depth_m de lámina (almacenamiento local) y el excedente sigue el flujo normal. Es una hipótesis del equipo, no una medición.",
+    "default_enabled": false,
+    "storage_depth_m": {
+      "value": 0.2,
+      "unit": "m",
+      "range": [0.05, 0.6],
+      "source": "SUPUESTO",
+      "justification": "Profundidad de almacenamiento en las zonas reportadas. Sin aforos ni levantamiento topográfico: 0,20 m es el orden de los encharcamientos reportados (prensa menciona hasta 40 cm en la avenida, no dentro del campus). Se declara como SUPUESTO."
+    },
+    "sinks": [
+      {"id": "cidunt", "label": "Estacionamiento junto a CIDUNT", "zone_id": "rep_estac_cidunt", "reported": true},
+      {"id": "derecho", "label": "Estacionamiento junto a Derecho", "zone_id": "rep_estac_derecho", "reported": true},
+      {"id": "p4", "label": "Puerta 4 (Av. Jesús de Nazareth)", "zone_id": "rep_puerta4", "reported": true},
+      {"id": "juan_pablo", "label": "Av. Juan Pablo II frente al campus", "zone_id": "rep_av_juan_pablo", "reported": true}
+    ]
   },
   "hietograma_supuesto": {
     "unit": "pesos normalizados por hora",

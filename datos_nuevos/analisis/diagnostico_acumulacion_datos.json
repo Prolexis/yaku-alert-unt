@@ -1,0 +1,2030 @@
+{
+  "generated_by": "scripts_nuevos/diagnostico_acumulacion.py",
+  "grid": {
+    "shape": [
+      122,
+      123
+    ],
+    "cell_size_m": 10.0,
+    "cells_total": 15006,
+    "cells_blocked": 606,
+    "reported_zones": [
+      {
+        "id": "rep_puerta4",
+        "label": "Ingreso de agua reportado — Puerta 4 (Av. Jesús de Nazareth)",
+        "cells": 28
+      },
+      {
+        "id": "rep_estac_cidunt",
+        "label": "Empozamiento reportado — estacionamiento junto a CIDUNT",
+        "cells": 25
+      },
+      {
+        "id": "rep_estac_derecho",
+        "label": "Empozamiento reportado — estacionamiento junto a Derecho",
+        "cells": 77
+      },
+      {
+        "id": "rep_av_jesus_nazareth",
+        "label": "Anegamiento reportado — Av. Jesús de Nazareth",
+        "cells": 170
+      },
+      {
+        "id": "rep_av_juan_pablo",
+        "label": "Anegamiento reportado — Av. Juan Pablo II",
+        "cells": 314
+      }
+    ]
+  },
+  "configured_fill_max_rise_m": 0.5,
+  "caps_m": [
+    null,
+    1.0,
+    0.5
+  ],
+  "cases": [
+    {
+      "id": "evento_2023_p4_medio",
+      "label": "Evento 2023-03-10 (35 mm) con ingreso P4 medio",
+      "params": {
+        "drainage_state": "obstruido",
+        "inflow_p4": "medio",
+        "secondary_inflow": false
+      },
+      "rainfall_total_mm": 35.0
+    },
+    {
+      "id": "extremo_p4_alto",
+      "label": "Extremo hipotético (70 mm) con ingreso P4 alto",
+      "params": {
+        "drainage_state": "obstruido",
+        "inflow_p4": "alto",
+        "secondary_inflow": true
+      },
+      "rainfall_total_mm": 70.0
+    },
+    {
+      "id": "solo_lluvia_sin_ingreso",
+      "label": "Solo lluvia (35 mm) sin ingreso externo",
+      "params": {
+        "drainage_state": "normal",
+        "inflow_p4": "ninguno",
+        "secondary_inflow": false
+      },
+      "rainfall_total_mm": 35.0
+    }
+  ],
+  "fill": {
+    "sin_tope": {
+      "cap_m": null,
+      "cells_filled": 2807,
+      "p50_m": 0.32,
+      "p90_m": 0.91,
+      "p99_m": 1.579,
+      "max_m": 2.63,
+      "top20": [
+        {
+          "rank": 1,
+          "lon": -79.041221,
+          "lat": -8.118229,
+          "rise_m": 2.63,
+          "raw_z_m": 16.02,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 27.2
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 2,
+          "lon": -79.041221,
+          "lat": -8.118138,
+          "rise_m": 2.4,
+          "raw_z_m": 16.25,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 20.5
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 3,
+          "lon": -79.041312,
+          "lat": -8.118229,
+          "rise_m": 2.38,
+          "raw_z_m": 16.27,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 22.1
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 4,
+          "lon": -79.041312,
+          "lat": -8.118138,
+          "rise_m": 2.17,
+          "raw_z_m": 16.48,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 13.2
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 5,
+          "lon": -79.04113,
+          "lat": -8.118229,
+          "rise_m": 2.1,
+          "raw_z_m": 16.55,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 34.4
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 6,
+          "lon": -79.04113,
+          "lat": -8.118138,
+          "rise_m": 1.91,
+          "raw_z_m": 16.74,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 29.5
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 7,
+          "lon": -79.036775,
+          "lat": -8.11235,
+          "rise_m": 1.91,
+          "raw_z_m": 24.06,
+          "nearest_element": {
+            "id": "area_deportiva_376779192",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 30.4
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 8,
+          "lon": -79.036775,
+          "lat": -8.11226,
+          "rise_m": 1.88,
+          "raw_z_m": 24.09,
+          "nearest_element": {
+            "id": "area_deportiva_376779192",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 23.8
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 9,
+          "lon": -79.036775,
+          "lat": -8.112169,
+          "rise_m": 1.85,
+          "raw_z_m": 24.12,
+          "nearest_element": {
+            "id": "area_deportiva_376779192",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 20.2
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 10,
+          "lon": -79.036865,
+          "lat": -8.11235,
+          "rise_m": 1.84,
+          "raw_z_m": 24.13,
+          "nearest_element": {
+            "id": "area_deportiva_376779192",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 24.9
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 11,
+          "lon": -79.036593,
+          "lat": -8.112079,
+          "rise_m": 1.83,
+          "raw_z_m": 24.14,
+          "nearest_element": {
+            "id": "estacionamiento_376912964",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 14.8
+          },
+          "reported_zone": "Empozamiento reportado — estacionamiento junto a CIDUNT"
+        },
+        {
+          "rank": 12,
+          "lon": -79.036684,
+          "lat": -8.112079,
+          "rise_m": 1.82,
+          "raw_z_m": 24.15,
+          "nearest_element": {
+            "id": "estacionamiento_376912964",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 12.6
+          },
+          "reported_zone": "Empozamiento reportado — estacionamiento junto a CIDUNT"
+        },
+        {
+          "rank": 13,
+          "lon": -79.03986,
+          "lat": -8.113707,
+          "rise_m": 1.82,
+          "raw_z_m": 20.99,
+          "nearest_element": {
+            "id": "bld_osm_376912909",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 12.5
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 14,
+          "lon": -79.036503,
+          "lat": -8.112079,
+          "rise_m": 1.81,
+          "raw_z_m": 24.16,
+          "nearest_element": {
+            "id": "estacionamiento_376912964",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 21.9
+          },
+          "reported_zone": "Empozamiento reportado — estacionamiento junto a CIDUNT"
+        },
+        {
+          "rank": 15,
+          "lon": -79.036775,
+          "lat": -8.112079,
+          "rise_m": 1.8,
+          "raw_z_m": 24.17,
+          "nearest_element": {
+            "id": "estacionamiento_376912964",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 17.3
+          },
+          "reported_zone": "Empozamiento reportado — estacionamiento junto a CIDUNT"
+        },
+        {
+          "rank": 16,
+          "lon": -79.041221,
+          "lat": -8.118319,
+          "rise_m": 1.79,
+          "raw_z_m": 16.86,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 35.4
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 17,
+          "lon": -79.041402,
+          "lat": -8.118229,
+          "rise_m": 1.76,
+          "raw_z_m": 16.89,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 21.0
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 18,
+          "lon": -79.03986,
+          "lat": -8.113797,
+          "rise_m": 1.76,
+          "raw_z_m": 21.05,
+          "nearest_element": {
+            "id": "bld_osm_376912909",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 7.5
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 19,
+          "lon": -79.036865,
+          "lat": -8.11226,
+          "rise_m": 1.74,
+          "raw_z_m": 24.23,
+          "nearest_element": {
+            "id": "area_deportiva_376779192",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 16.3
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 20,
+          "lon": -79.044034,
+          "lat": -8.116872,
+          "rise_m": 1.72,
+          "raw_z_m": 17.85,
+          "nearest_element": {
+            "id": "area_deportiva_376912939",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 60.2
+          },
+          "reported_zone": null
+        }
+      ]
+    },
+    "1m": {
+      "cap_m": 1.0,
+      "cells_filled": 2231,
+      "p50_m": 0.26,
+      "p90_m": 0.75,
+      "p99_m": 1.0,
+      "max_m": 1.0,
+      "top20": [
+        {
+          "rank": 1,
+          "lon": -79.036956,
+          "lat": -8.111446,
+          "rise_m": 1.0,
+          "raw_z_m": 24.79,
+          "nearest_element": {
+            "id": "bld_osm_376912929",
+            "name": "Centro de Idiomas - CIDUNT",
+            "category": "edificio",
+            "distance_m": 31.6
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 2,
+          "lon": -79.037047,
+          "lat": -8.111446,
+          "rise_m": 1.0,
+          "raw_z_m": 24.84,
+          "nearest_element": {
+            "id": "area_deportiva_475412973",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 25.0
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 3,
+          "lon": -79.040132,
+          "lat": -8.115696,
+          "rise_m": 1.0,
+          "raw_z_m": 19.77,
+          "nearest_element": {
+            "id": "bld_osm_376779175",
+            "name": "Escuela de Ingeniería de Materiales",
+            "category": "edificio",
+            "distance_m": 18.9
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 4,
+          "lon": -79.035414,
+          "lat": -8.115425,
+          "rise_m": 1.0,
+          "raw_z_m": 24.31,
+          "nearest_element": {
+            "id": "bld_osm_376779186",
+            "name": "Facultad de Ciencias Agropecuarias",
+            "category": "edificio",
+            "distance_m": 169.2
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 5,
+          "lon": -79.042854,
+          "lat": -8.116148,
+          "rise_m": 1.0,
+          "raw_z_m": 17.35,
+          "nearest_element": {
+            "id": "area_deportiva_376912940",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 21.7
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 6,
+          "lon": -79.04113,
+          "lat": -8.118229,
+          "rise_m": 1.0,
+          "raw_z_m": 16.55,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 34.4
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 7,
+          "lon": -79.038771,
+          "lat": -8.112621,
+          "rise_m": 1.0,
+          "raw_z_m": 22.29,
+          "nearest_element": {
+            "id": "bld_osm_1195896218",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 10.0
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 8,
+          "lon": -79.040949,
+          "lat": -8.118319,
+          "rise_m": 1.0,
+          "raw_z_m": 17.51,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 56.6
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 9,
+          "lon": -79.03623,
+          "lat": -8.113707,
+          "rise_m": 1.0,
+          "raw_z_m": 24.02,
+          "nearest_element": {
+            "id": "estacionamiento_376912963",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 28.3
+          },
+          "reported_zone": "Empozamiento reportado — estacionamiento junto a Derecho"
+        },
+        {
+          "rank": 10,
+          "lon": -79.041221,
+          "lat": -8.118229,
+          "rise_m": 1.0,
+          "raw_z_m": 16.02,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 27.2
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 11,
+          "lon": -79.04113,
+          "lat": -8.118319,
+          "rise_m": 1.0,
+          "raw_z_m": 17.09,
+          "nearest_element": {
+            "id": "estacionamiento_376912960",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 41.3
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 12,
+          "lon": -79.036775,
+          "lat": -8.11226,
+          "rise_m": 1.0,
+          "raw_z_m": 24.09,
+          "nearest_element": {
+            "id": "area_deportiva_376779192",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 23.8
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 13,
+          "lon": -79.039043,
+          "lat": -8.11235,
+          "rise_m": 1.0,
+          "raw_z_m": 22.31,
+          "nearest_element": {
+            "id": "bld_osm_1195896218",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 36.1
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 14,
+          "lon": -79.038045,
+          "lat": -8.119042,
+          "rise_m": 1.0,
+          "raw_z_m": 19.91,
+          "nearest_element": {
+            "id": "acc_osm_11037474038",
+            "name": "Puerta 3 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 191.1
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 15,
+          "lon": -79.039225,
+          "lat": -8.112621,
+          "rise_m": 1.0,
+          "raw_z_m": 22.31,
+          "nearest_element": {
+            "id": "bld_osm_376779193",
+            "name": "Laboratorios de Química",
+            "category": "edificio",
+            "distance_m": 29.9
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 16,
+          "lon": -79.037954,
+          "lat": -8.119042,
+          "rise_m": 1.0,
+          "raw_z_m": 19.72,
+          "nearest_element": {
+            "id": "acc_osm_11037474038",
+            "name": "Puerta 3 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 196.5
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 17,
+          "lon": -79.039315,
+          "lat": -8.112621,
+          "rise_m": 1.0,
+          "raw_z_m": 22.32,
+          "nearest_element": {
+            "id": "bld_osm_376779193",
+            "name": "Laboratorios de Química",
+            "category": "edificio",
+            "distance_m": 29.9
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 18,
+          "lon": -79.043489,
+          "lat": -8.112621,
+          "rise_m": 1.0,
+          "raw_z_m": 22.34,
+          "nearest_element": {
+            "id": "bld_osm_519450071",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 373.0
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 19,
+          "lon": -79.041221,
+          "lat": -8.111807,
+          "rise_m": 1.0,
+          "raw_z_m": 22.62,
+          "nearest_element": {
+            "id": "bld_osm_376779193",
+            "name": "Laboratorios de Química",
+            "category": "edificio",
+            "distance_m": 245.7
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 20,
+          "lon": -79.044034,
+          "lat": -8.116872,
+          "rise_m": 1.0,
+          "raw_z_m": 17.85,
+          "nearest_element": {
+            "id": "area_deportiva_376912939",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 60.2
+          },
+          "reported_zone": null
+        }
+      ]
+    },
+    "0.5m": {
+      "cap_m": 0.5,
+      "cells_filled": 1707,
+      "p50_m": 0.2,
+      "p90_m": 0.5,
+      "p99_m": 0.5,
+      "max_m": 0.5,
+      "top20": [
+        {
+          "rank": 1,
+          "lon": -79.03623,
+          "lat": -8.113797,
+          "rise_m": 0.5,
+          "raw_z_m": 23.99,
+          "nearest_element": {
+            "id": "estacionamiento_376912963",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 22.5
+          },
+          "reported_zone": "Empozamiento reportado — estacionamiento junto a Derecho"
+        },
+        {
+          "rank": 2,
+          "lon": -79.039225,
+          "lat": -8.115787,
+          "rise_m": 0.5,
+          "raw_z_m": 19.95,
+          "nearest_element": {
+            "id": "bld_osm_1034573626",
+            "name": "Comedor Universitario",
+            "category": "edificio",
+            "distance_m": 50.0
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 3,
+          "lon": -79.033962,
+          "lat": -8.111627,
+          "rise_m": 0.5,
+          "raw_z_m": 27.53,
+          "nearest_element": {
+            "id": "area_deportiva_475412974",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 165.5
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 4,
+          "lon": -79.039315,
+          "lat": -8.115787,
+          "rise_m": 0.5,
+          "raw_z_m": 19.64,
+          "nearest_element": {
+            "id": "bld_osm_1034573626",
+            "name": "Comedor Universitario",
+            "category": "edificio",
+            "distance_m": 42.4
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 5,
+          "lon": -79.034688,
+          "lat": -8.115968,
+          "rise_m": 0.5,
+          "raw_z_m": 24.76,
+          "nearest_element": {
+            "id": "acc_osm_3802902558",
+            "name": "Puerta 1 (Av. Juan Pablo II)",
+            "category": "acceso",
+            "distance_m": 265.2
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 6,
+          "lon": -79.044578,
+          "lat": -8.115968,
+          "rise_m": 0.5,
+          "raw_z_m": 19.27,
+          "nearest_element": {
+            "id": "bld_osm_519450071",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 72.9
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 7,
+          "lon": -79.037954,
+          "lat": -8.119042,
+          "rise_m": 0.5,
+          "raw_z_m": 19.72,
+          "nearest_element": {
+            "id": "acc_osm_11037474038",
+            "name": "Puerta 3 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 196.5
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 8,
+          "lon": -79.03868,
+          "lat": -8.117686,
+          "rise_m": 0.5,
+          "raw_z_m": 19.54,
+          "nearest_element": {
+            "id": "acc_osm_11037474038",
+            "name": "Puerta 3 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 32.6
+          },
+          "reported_zone": "Anegamiento reportado — Av. Juan Pablo II"
+        },
+        {
+          "rank": 9,
+          "lon": -79.042582,
+          "lat": -8.116239,
+          "rise_m": 0.5,
+          "raw_z_m": 17.56,
+          "nearest_element": {
+            "id": "area_deportiva_376912940",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 20.1
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 10,
+          "lon": -79.042673,
+          "lat": -8.116239,
+          "rise_m": 0.5,
+          "raw_z_m": 17.5,
+          "nearest_element": {
+            "id": "area_deportiva_376912940",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 11.8
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 11,
+          "lon": -79.038771,
+          "lat": -8.118138,
+          "rise_m": 0.5,
+          "raw_z_m": 19.32,
+          "nearest_element": {
+            "id": "acc_osm_11037474038",
+            "name": "Puerta 3 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 66.0
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 12,
+          "lon": -79.038862,
+          "lat": -8.118138,
+          "rise_m": 0.5,
+          "raw_z_m": 19.59,
+          "nearest_element": {
+            "id": "acc_osm_11037474038",
+            "name": "Puerta 3 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 63.6
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 13,
+          "lon": -79.039315,
+          "lat": -8.115696,
+          "rise_m": 0.5,
+          "raw_z_m": 19.35,
+          "nearest_element": {
+            "id": "bld_osm_376912905",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 44.7
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 14,
+          "lon": -79.040132,
+          "lat": -8.114068,
+          "rise_m": 0.5,
+          "raw_z_m": 22.22,
+          "nearest_element": {
+            "id": "bld_osm_376912908",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 6.2
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 15,
+          "lon": -79.038771,
+          "lat": -8.117686,
+          "rise_m": 0.5,
+          "raw_z_m": 19.55,
+          "nearest_element": {
+            "id": "acc_osm_11037474038",
+            "name": "Puerta 3 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 23.8
+          },
+          "reported_zone": "Anegamiento reportado — Av. Juan Pablo II"
+        },
+        {
+          "rank": 16,
+          "lon": -79.042491,
+          "lat": -8.116329,
+          "rise_m": 0.5,
+          "raw_z_m": 17.81,
+          "nearest_element": {
+            "id": "area_deportiva_376912940",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 28.4
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 17,
+          "lon": -79.043217,
+          "lat": -8.119404,
+          "rise_m": 0.5,
+          "raw_z_m": 18.37,
+          "nearest_element": {
+            "id": "acc_osm_9099956838",
+            "name": "Acceso (OSM)",
+            "category": "acceso",
+            "distance_m": 212.8
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 18,
+          "lon": -79.043308,
+          "lat": -8.119404,
+          "rise_m": 0.5,
+          "raw_z_m": 18.5,
+          "nearest_element": {
+            "id": "acc_osm_9099956838",
+            "name": "Acceso (OSM)",
+            "category": "acceso",
+            "distance_m": 217.2
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 19,
+          "lon": -79.040041,
+          "lat": -8.114159,
+          "rise_m": 0.5,
+          "raw_z_m": 21.9,
+          "nearest_element": {
+            "id": "bld_osm_376912907",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 9.4
+          },
+          "reported_zone": null
+        },
+        {
+          "rank": 20,
+          "lon": -79.042764,
+          "lat": -8.116239,
+          "rise_m": 0.5,
+          "raw_z_m": 17.35,
+          "nearest_element": {
+            "id": "area_deportiva_376912940",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 8.5
+          },
+          "reported_zone": null
+        }
+      ]
+    }
+  },
+  "comparison": {
+    "sin_tope": {
+      "evento_2023_p4_medio": {
+        "peak_hour": 9,
+        "max_depth_cm": 38.2,
+        "peak_wet_area_m2": 480200.0,
+        "zones_ge_500m2": 25,
+        "zones_top": [
+          {
+            "area_m2": 228100.0,
+            "max_depth_cm": 16.1,
+            "centroid_lon": -79.039946,
+            "centroid_lat": -8.11585,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376779175",
+              "name": "Escuela de Ingeniería de Materiales",
+              "category": "edificio",
+              "distance_m": 8.3
+            }
+          },
+          {
+            "area_m2": 46500.0,
+            "max_depth_cm": 16.0,
+            "centroid_lon": -79.035542,
+            "centroid_lat": -8.114134,
+            "sector_from_p4": "S",
+            "nearest_element": {
+              "id": "acc_osm_3802902558",
+              "name": "Puerta 1 (Av. Juan Pablo II)",
+              "category": "acceso",
+              "distance_m": 41.7
+            }
+          },
+          {
+            "area_m2": 37300.0,
+            "max_depth_cm": 25.3,
+            "centroid_lon": -79.036436,
+            "centroid_lat": -8.11136,
+            "sector_from_p4": "NO",
+            "nearest_element": {
+              "id": "acc_osm_11090514811",
+              "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+              "category": "acceso",
+              "distance_m": 15.5
+            }
+          },
+          {
+            "area_m2": 27800.0,
+            "max_depth_cm": 15.5,
+            "centroid_lon": -79.040655,
+            "centroid_lat": -8.110912,
+            "sector_from_p4": "O",
+            "nearest_element": {
+              "id": "bld_osm_1195896219",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 218.8
+            }
+          },
+          {
+            "area_m2": 21900.0,
+            "max_depth_cm": 12.9,
+            "centroid_lon": -79.043327,
+            "centroid_lat": -8.110925,
+            "sector_from_p4": "O",
+            "nearest_element": {
+              "id": "bld_osm_376912909",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 491.1
+            }
+          }
+        ]
+      },
+      "extremo_p4_alto": {
+        "peak_hour": 10,
+        "max_depth_cm": 95.6,
+        "peak_wet_area_m2": 655600.0,
+        "zones_ge_500m2": 6,
+        "zones_top": [
+          {
+            "area_m2": 613400.0,
+            "max_depth_cm": 61.5,
+            "centroid_lon": -79.039238,
+            "centroid_lat": -8.114528,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376779181",
+              "name": "Escuela de Ingeniería Mecánica",
+              "category": "edificio",
+              "distance_m": 22.8
+            }
+          },
+          {
+            "area_m2": 14900.0,
+            "max_depth_cm": 22.9,
+            "centroid_lon": -79.043406,
+            "centroid_lat": -8.119394,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "acc_osm_9099956838",
+              "name": "Acceso (OSM)",
+              "category": "acceso",
+              "distance_m": 221.4
+            }
+          },
+          {
+            "area_m2": 10500.0,
+            "max_depth_cm": 14.5,
+            "centroid_lon": -79.044163,
+            "centroid_lat": -8.118169,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "acc_osm_11090514815",
+              "name": "Acceso (OSM)",
+              "category": "acceso",
+              "distance_m": 167.9
+            }
+          },
+          {
+            "area_m2": 10300.0,
+            "max_depth_cm": 30.8,
+            "centroid_lon": -79.035071,
+            "centroid_lat": -8.109708,
+            "sector_from_p4": "NE",
+            "nearest_element": {
+              "id": "acc_osm_11090514811",
+              "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+              "category": "acceso",
+              "distance_m": 226.7
+            }
+          },
+          {
+            "area_m2": 2000.0,
+            "max_depth_cm": 10.8,
+            "centroid_lon": -79.042568,
+            "centroid_lat": -8.109438,
+            "sector_from_p4": "O",
+            "nearest_element": {
+              "id": "bld_osm_517761510",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 455.8
+            }
+          }
+        ]
+      },
+      "solo_lluvia_sin_ingreso": {
+        "peak_hour": 10,
+        "max_depth_cm": 7.5,
+        "peak_wet_area_m2": 21400.0,
+        "zones_ge_500m2": 1,
+        "zones_top": [
+          {
+            "area_m2": 500.0,
+            "max_depth_cm": 5.3,
+            "centroid_lon": -79.038263,
+            "centroid_lat": -8.113164,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376779196",
+              "name": "Facultad de Ciencias Físicas y Matematicas",
+              "category": "edificio",
+              "distance_m": 7.2
+            }
+          }
+        ]
+      }
+    },
+    "1m": {
+      "evento_2023_p4_medio": {
+        "peak_hour": 9,
+        "max_depth_cm": 94.7,
+        "peak_wet_area_m2": 427800.0,
+        "zones_ge_500m2": 34,
+        "zones_top": [
+          {
+            "area_m2": 153900.0,
+            "max_depth_cm": 18.6,
+            "centroid_lon": -79.039802,
+            "centroid_lat": -8.116254,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376779167",
+              "name": "Bienestar Universitario",
+              "category": "edificio",
+              "distance_m": 27.7
+            }
+          },
+          {
+            "area_m2": 33800.0,
+            "max_depth_cm": 16.0,
+            "centroid_lon": -79.035824,
+            "centroid_lat": -8.114017,
+            "sector_from_p4": "S",
+            "nearest_element": {
+              "id": "acc_osm_3802902558",
+              "name": "Puerta 1 (Av. Juan Pablo II)",
+              "category": "acceso",
+              "distance_m": 27.3
+            }
+          },
+          {
+            "area_m2": 31700.0,
+            "max_depth_cm": 36.0,
+            "centroid_lon": -79.036362,
+            "centroid_lat": -8.111271,
+            "sector_from_p4": "NO",
+            "nearest_element": {
+              "id": "acc_osm_11090514811",
+              "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+              "category": "acceso",
+              "distance_m": 11.8
+            }
+          },
+          {
+            "area_m2": 27500.0,
+            "max_depth_cm": 15.5,
+            "centroid_lon": -79.040651,
+            "centroid_lat": -8.110899,
+            "sector_from_p4": "O",
+            "nearest_element": {
+              "id": "bld_osm_1195896219",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 219.0
+            }
+          },
+          {
+            "area_m2": 25400.0,
+            "max_depth_cm": 10.7,
+            "centroid_lon": -79.038601,
+            "centroid_lat": -8.113222,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376912899",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 12.0
+            }
+          }
+        ]
+      },
+      "extremo_p4_alto": {
+        "peak_hour": 10,
+        "max_depth_cm": 176.8,
+        "peak_wet_area_m2": 625500.0,
+        "zones_ge_500m2": 7,
+        "zones_top": [
+          {
+            "area_m2": 573700.0,
+            "max_depth_cm": 79.9,
+            "centroid_lon": -79.039094,
+            "centroid_lat": -8.114509,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376779181",
+              "name": "Escuela de Ingeniería Mecánica",
+              "category": "edificio",
+              "distance_m": 13.7
+            }
+          },
+          {
+            "area_m2": 13800.0,
+            "max_depth_cm": 29.9,
+            "centroid_lon": -79.04342,
+            "centroid_lat": -8.119398,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "acc_osm_9099956838",
+              "name": "Acceso (OSM)",
+              "category": "acceso",
+              "distance_m": 222.6
+            }
+          },
+          {
+            "area_m2": 11600.0,
+            "max_depth_cm": 24.4,
+            "centroid_lon": -79.043892,
+            "centroid_lat": -8.112364,
+            "sector_from_p4": "O",
+            "nearest_element": {
+              "id": "bld_osm_519450071",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 398.5
+            }
+          },
+          {
+            "area_m2": 10500.0,
+            "max_depth_cm": 14.5,
+            "centroid_lon": -79.044163,
+            "centroid_lat": -8.118169,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "acc_osm_11090514815",
+              "name": "Acceso (OSM)",
+              "category": "acceso",
+              "distance_m": 167.9
+            }
+          },
+          {
+            "area_m2": 9600.0,
+            "max_depth_cm": 30.8,
+            "centroid_lon": -79.035024,
+            "centroid_lat": -8.10971,
+            "sector_from_p4": "NE",
+            "nearest_element": {
+              "id": "acc_osm_11090514811",
+              "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+              "category": "acceso",
+              "distance_m": 229.6
+            }
+          }
+        ]
+      },
+      "solo_lluvia_sin_ingreso": {
+        "peak_hour": 10,
+        "max_depth_cm": 7.5,
+        "peak_wet_area_m2": 23300.0,
+        "zones_ge_500m2": 1,
+        "zones_top": [
+          {
+            "area_m2": 500.0,
+            "max_depth_cm": 5.3,
+            "centroid_lon": -79.038263,
+            "centroid_lat": -8.113164,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376779196",
+              "name": "Facultad de Ciencias Físicas y Matematicas",
+              "category": "edificio",
+              "distance_m": 7.2
+            }
+          }
+        ]
+      }
+    },
+    "0.5m": {
+      "evento_2023_p4_medio": {
+        "peak_hour": 9,
+        "max_depth_cm": 120.4,
+        "peak_wet_area_m2": 383800.0,
+        "zones_ge_500m2": 52,
+        "zones_top": [
+          {
+            "area_m2": 53100.0,
+            "max_depth_cm": 16.1,
+            "centroid_lon": -79.041961,
+            "centroid_lat": -8.115412,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376912938",
+              "name": "Coliseo del C.E.E. Rafael Narváez Cadenillas",
+              "category": "edificio",
+              "distance_m": 84.0
+            }
+          },
+          {
+            "area_m2": 27800.0,
+            "max_depth_cm": 30.6,
+            "centroid_lon": -79.040431,
+            "centroid_lat": -8.117895,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "area_deportiva_1034573624",
+              "name": "area_deportiva",
+              "category": "area_deportiva",
+              "distance_m": 12.7
+            }
+          },
+          {
+            "area_m2": 27600.0,
+            "max_depth_cm": 15.8,
+            "centroid_lon": -79.036915,
+            "centroid_lat": -8.115806,
+            "sector_from_p4": "S",
+            "nearest_element": {
+              "id": "acc_osm_11090514813",
+              "name": "Puerta 2 (ingreso adyacente)",
+              "category": "acceso",
+              "distance_m": 43.4
+            }
+          },
+          {
+            "area_m2": 25000.0,
+            "max_depth_cm": 15.5,
+            "centroid_lon": -79.040602,
+            "centroid_lat": -8.110792,
+            "sector_from_p4": "O",
+            "nearest_element": {
+              "id": "bld_osm_1195896219",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 219.3
+            }
+          },
+          {
+            "area_m2": 23800.0,
+            "max_depth_cm": 60.7,
+            "centroid_lon": -79.036618,
+            "centroid_lat": -8.111284,
+            "sector_from_p4": "NO",
+            "nearest_element": {
+              "id": "bld_osm_376912929",
+              "name": "Centro de Idiomas - CIDUNT",
+              "category": "edificio",
+              "distance_m": 28.8
+            }
+          }
+        ]
+      },
+      "extremo_p4_alto": {
+        "peak_hour": 10,
+        "max_depth_cm": 203.3,
+        "peak_wet_area_m2": 594000.0,
+        "zones_ge_500m2": 19,
+        "zones_top": [
+          {
+            "area_m2": 241300.0,
+            "max_depth_cm": 53.4,
+            "centroid_lon": -79.038859,
+            "centroid_lat": -8.113173,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_425242290",
+              "name": "Facultad de Ingeniería Química",
+              "category": "edificio",
+              "distance_m": 19.8
+            }
+          },
+          {
+            "area_m2": 202800.0,
+            "max_depth_cm": 68.6,
+            "centroid_lon": -79.040513,
+            "centroid_lat": -8.116718,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "area_deportiva_376779173",
+              "name": "area_deportiva",
+              "category": "area_deportiva",
+              "distance_m": 26.4
+            }
+          },
+          {
+            "area_m2": 65900.0,
+            "max_depth_cm": 107.6,
+            "centroid_lon": -79.036647,
+            "centroid_lat": -8.110873,
+            "sector_from_p4": "NO",
+            "nearest_element": {
+              "id": "acc_osm_11090514811",
+              "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+              "category": "acceso",
+              "distance_m": 65.9
+            }
+          },
+          {
+            "area_m2": 14200.0,
+            "max_depth_cm": 49.0,
+            "centroid_lon": -79.043407,
+            "centroid_lat": -8.119394,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "acc_osm_9099956838",
+              "name": "Acceso (OSM)",
+              "category": "acceso",
+              "distance_m": 221.5
+            }
+          },
+          {
+            "area_m2": 11000.0,
+            "max_depth_cm": 52.3,
+            "centroid_lon": -79.043845,
+            "centroid_lat": -8.112348,
+            "sector_from_p4": "O",
+            "nearest_element": {
+              "id": "bld_osm_519450071",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 400.4
+            }
+          }
+        ]
+      },
+      "solo_lluvia_sin_ingreso": {
+        "peak_hour": 10,
+        "max_depth_cm": 10.2,
+        "peak_wet_area_m2": 24100.0,
+        "zones_ge_500m2": 5,
+        "zones_top": [
+          {
+            "area_m2": 2500.0,
+            "max_depth_cm": 5.6,
+            "centroid_lon": -79.038996,
+            "centroid_lat": -8.112567,
+            "sector_from_p4": "O",
+            "nearest_element": {
+              "id": "bld_osm_1195896218",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 16.0
+            }
+          },
+          {
+            "area_m2": 1300.0,
+            "max_depth_cm": 8.0,
+            "centroid_lon": -79.036265,
+            "centroid_lat": -8.113554,
+            "sector_from_p4": "S",
+            "nearest_element": {
+              "id": "bld_osm_376912903",
+              "name": "Edificio sin nombre (OSM)",
+              "category": "edificio",
+              "distance_m": 37.9
+            }
+          },
+          {
+            "area_m2": 900.0,
+            "max_depth_cm": 9.6,
+            "centroid_lon": -79.038721,
+            "centroid_lat": -8.113566,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376779194",
+              "name": "Auditorio Coopernico",
+              "category": "edificio",
+              "distance_m": 21.6
+            }
+          },
+          {
+            "area_m2": 700.0,
+            "max_depth_cm": 6.5,
+            "centroid_lon": -79.03973,
+            "centroid_lat": -8.11359,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "estacionamiento_1195896217",
+              "name": "Estacionamiento",
+              "category": "estacionamiento",
+              "distance_m": 29.9
+            }
+          },
+          {
+            "area_m2": 500.0,
+            "max_depth_cm": 5.3,
+            "centroid_lon": -79.038263,
+            "centroid_lat": -8.113164,
+            "sector_from_p4": "SO",
+            "nearest_element": {
+              "id": "bld_osm_376779196",
+              "name": "Facultad de Ciencias Físicas y Matematicas",
+              "category": "edificio",
+              "distance_m": 7.2
+            }
+          }
+        ]
+      }
+    }
+  },
+  "detail": {
+    "evento_2023_p4_medio": {
+      "cap_key": "0.5m",
+      "peak_hour": 9,
+      "max_depth_cm": 120.4,
+      "max_location": {
+        "lon": -79.03623,
+        "lat": -8.112079,
+        "raw_z_m": 24.6,
+        "nearest_element": {
+          "id": "estacionamiento_376912964",
+          "name": "Estacionamiento",
+          "category": "estacionamiento",
+          "distance_m": 49.6
+        },
+        "sector_from_p4": "SO",
+        "reported_zone": null
+      },
+      "mass_balance": {
+        "entrada_lluvia": 32925.287,
+        "entrada_ingreso": 2688.0,
+        "salida_drenaje": 16049.389,
+        "salida_borde": 2201.562,
+        "perdida_tejados_sin_vecino": 23.8,
+        "almacenada": 17338.536,
+        "residual": -0.0,
+        "residual_pct": -0.0
+      },
+      "groups": [
+        {
+          "cells": 531,
+          "area_m2": 53100.0,
+          "max_depth_cm": 16.1,
+          "mean_depth_cm": 3.1,
+          "centroid_lon": -79.041961,
+          "centroid_lat": -8.115412,
+          "raw_z_mean_m": 19.64,
+          "routing_z_mean_m": 19.72,
+          "nearest_element": {
+            "id": "bld_osm_376912938",
+            "name": "Coliseo del C.E.E. Rafael Narváez Cadenillas",
+            "category": "edificio",
+            "distance_m": 84.0
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 278,
+          "area_m2": 27800.0,
+          "max_depth_cm": 30.6,
+          "mean_depth_cm": 3.1,
+          "centroid_lon": -79.040431,
+          "centroid_lat": -8.117895,
+          "raw_z_mean_m": 18.59,
+          "routing_z_mean_m": 18.65,
+          "nearest_element": {
+            "id": "area_deportiva_1034573624",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 12.7
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 276,
+          "area_m2": 27600.0,
+          "max_depth_cm": 15.8,
+          "mean_depth_cm": 3.2,
+          "centroid_lon": -79.036915,
+          "centroid_lat": -8.115806,
+          "raw_z_mean_m": 22.76,
+          "routing_z_mean_m": 22.81,
+          "nearest_element": {
+            "id": "acc_osm_11090514813",
+            "name": "Puerta 2 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 43.4
+          },
+          "sector_from_p4": "S"
+        },
+        {
+          "cells": 250,
+          "area_m2": 25000.0,
+          "max_depth_cm": 15.5,
+          "mean_depth_cm": 3.2,
+          "centroid_lon": -79.040602,
+          "centroid_lat": -8.110792,
+          "raw_z_mean_m": 25.43,
+          "routing_z_mean_m": 25.47,
+          "nearest_element": {
+            "id": "bld_osm_1195896219",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 219.3
+          },
+          "sector_from_p4": "O"
+        },
+        {
+          "cells": 238,
+          "area_m2": 23800.0,
+          "max_depth_cm": 60.7,
+          "mean_depth_cm": 5.2,
+          "centroid_lon": -79.036618,
+          "centroid_lat": -8.111284,
+          "raw_z_mean_m": 26.43,
+          "routing_z_mean_m": 26.5,
+          "nearest_element": {
+            "id": "bld_osm_376912929",
+            "name": "Centro de Idiomas - CIDUNT",
+            "category": "edificio",
+            "distance_m": 28.8
+          },
+          "sector_from_p4": "NO"
+        },
+        {
+          "cells": 176,
+          "area_m2": 17600.0,
+          "max_depth_cm": 17.2,
+          "mean_depth_cm": 3.8,
+          "centroid_lon": -79.038618,
+          "centroid_lat": -8.112677,
+          "raw_z_mean_m": 24.12,
+          "routing_z_mean_m": 24.19,
+          "nearest_element": {
+            "id": "bld_osm_376779189",
+            "name": "Escuela de Ciencias Biológicas",
+            "category": "edificio",
+            "distance_m": 20.8
+          },
+          "sector_from_p4": "O"
+        },
+        {
+          "cells": 151,
+          "area_m2": 15100.0,
+          "max_depth_cm": 24.3,
+          "mean_depth_cm": 3.8,
+          "centroid_lon": -79.035644,
+          "centroid_lat": -8.11338,
+          "raw_z_mean_m": 26.25,
+          "routing_z_mean_m": 26.3,
+          "nearest_element": {
+            "id": "bld_osm_376912912",
+            "name": "Biblioteca de Idiomas y Lingüística",
+            "category": "edificio",
+            "distance_m": 2.2
+          },
+          "sector_from_p4": "S"
+        },
+        {
+          "cells": 146,
+          "area_m2": 14600.0,
+          "max_depth_cm": 23.2,
+          "mean_depth_cm": 4.1,
+          "centroid_lon": -79.039733,
+          "centroid_lat": -8.115239,
+          "raw_z_mean_m": 20.83,
+          "routing_z_mean_m": 20.96,
+          "nearest_element": {
+            "id": "bld_osm_376912905",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 28.1
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 134,
+          "area_m2": 13400.0,
+          "max_depth_cm": 10.6,
+          "mean_depth_cm": 3.2,
+          "centroid_lon": -79.036722,
+          "centroid_lat": -8.117645,
+          "raw_z_mean_m": 22.49,
+          "routing_z_mean_m": 22.57,
+          "nearest_element": {
+            "id": "bld_osm_1195903809",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 218.6
+          },
+          "sector_from_p4": "S"
+        },
+        {
+          "cells": 114,
+          "area_m2": 11400.0,
+          "max_depth_cm": 14.7,
+          "mean_depth_cm": 3.7,
+          "centroid_lon": -79.037879,
+          "centroid_lat": -8.110203,
+          "raw_z_mean_m": 26.6,
+          "routing_z_mean_m": 26.7,
+          "nearest_element": {
+            "id": "bld_osm_376912923",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 22.4
+          },
+          "sector_from_p4": "NO"
+        }
+      ],
+      "zones_ge_500m2": 52
+    },
+    "extremo_p4_alto": {
+      "cap_key": "0.5m",
+      "peak_hour": 10,
+      "max_depth_cm": 203.3,
+      "max_location": {
+        "lon": -79.03623,
+        "lat": -8.112079,
+        "raw_z_m": 24.6,
+        "nearest_element": {
+          "id": "estacionamiento_376912964",
+          "name": "Estacionamiento",
+          "category": "estacionamiento",
+          "distance_m": 49.6
+        },
+        "sector_from_p4": "SO",
+        "reported_zone": null
+      },
+      "mass_balance": {
+        "entrada_lluvia": 65850.575,
+        "entrada_ingreso": 8400.0,
+        "salida_drenaje": 21611.068,
+        "salida_borde": 5660.775,
+        "perdida_tejados_sin_vecino": 47.6,
+        "almacenada": 46931.132,
+        "residual": -0.0,
+        "residual_pct": -0.0
+      },
+      "groups": [
+        {
+          "cells": 2413,
+          "area_m2": 241300.0,
+          "max_depth_cm": 53.4,
+          "mean_depth_cm": 6.6,
+          "centroid_lon": -79.038859,
+          "centroid_lat": -8.113173,
+          "raw_z_mean_m": 24.43,
+          "routing_z_mean_m": 24.49,
+          "nearest_element": {
+            "id": "bld_osm_425242290",
+            "name": "Facultad de Ingeniería Química",
+            "category": "edificio",
+            "distance_m": 19.8
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 2028,
+          "area_m2": 202800.0,
+          "max_depth_cm": 68.6,
+          "mean_depth_cm": 6.2,
+          "centroid_lon": -79.040513,
+          "centroid_lat": -8.116718,
+          "raw_z_mean_m": 20.33,
+          "routing_z_mean_m": 20.39,
+          "nearest_element": {
+            "id": "area_deportiva_376779173",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 26.4
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 659,
+          "area_m2": 65900.0,
+          "max_depth_cm": 107.6,
+          "mean_depth_cm": 8.4,
+          "centroid_lon": -79.036647,
+          "centroid_lat": -8.110873,
+          "raw_z_mean_m": 27.17,
+          "routing_z_mean_m": 27.22,
+          "nearest_element": {
+            "id": "acc_osm_11090514811",
+            "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+            "category": "acceso",
+            "distance_m": 65.9
+          },
+          "sector_from_p4": "NO"
+        },
+        {
+          "cells": 142,
+          "area_m2": 14200.0,
+          "max_depth_cm": 49.0,
+          "mean_depth_cm": 6.5,
+          "centroid_lon": -79.043407,
+          "centroid_lat": -8.119394,
+          "raw_z_mean_m": 19.05,
+          "routing_z_mean_m": 19.1,
+          "nearest_element": {
+            "id": "acc_osm_9099956838",
+            "name": "Acceso (OSM)",
+            "category": "acceso",
+            "distance_m": 221.5
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 110,
+          "area_m2": 11000.0,
+          "max_depth_cm": 52.3,
+          "mean_depth_cm": 7.0,
+          "centroid_lon": -79.043845,
+          "centroid_lat": -8.112348,
+          "raw_z_mean_m": 23.99,
+          "routing_z_mean_m": 24.03,
+          "nearest_element": {
+            "id": "bld_osm_519450071",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 400.4
+          },
+          "sector_from_p4": "O"
+        },
+        {
+          "cells": 103,
+          "area_m2": 10300.0,
+          "max_depth_cm": 21.1,
+          "mean_depth_cm": 6.0,
+          "centroid_lon": -79.044152,
+          "centroid_lat": -8.118169,
+          "raw_z_mean_m": 18.5,
+          "routing_z_mean_m": 18.58,
+          "nearest_element": {
+            "id": "acc_osm_11090514815",
+            "name": "Acceso (OSM)",
+            "category": "acceso",
+            "distance_m": 167.3
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 84,
+          "area_m2": 8400.0,
+          "max_depth_cm": 36.5,
+          "mean_depth_cm": 6.7,
+          "centroid_lon": -79.034938,
+          "centroid_lat": -8.10976,
+          "raw_z_mean_m": 30.17,
+          "routing_z_mean_m": 30.23,
+          "nearest_element": {
+            "id": "acc_osm_11090514811",
+            "name": "Acceso Av. Jesús de Nazareth (junto a CIDUNT)",
+            "category": "acceso",
+            "distance_m": 231.3
+          },
+          "sector_from_p4": "NE"
+        },
+        {
+          "cells": 63,
+          "area_m2": 6300.0,
+          "max_depth_cm": 23.5,
+          "mean_depth_cm": 5.3,
+          "centroid_lon": -79.036238,
+          "centroid_lat": -8.119831,
+          "raw_z_mean_m": 21.56,
+          "routing_z_mean_m": 21.59,
+          "nearest_element": {
+            "id": "acc_osm_11037474038",
+            "name": "Puerta 3 (ingreso adyacente)",
+            "category": "acceso",
+            "distance_m": 389.9
+          },
+          "sector_from_p4": "S"
+        },
+        {
+          "cells": 55,
+          "area_m2": 5500.0,
+          "max_depth_cm": 49.8,
+          "mean_depth_cm": 6.6,
+          "centroid_lon": -79.044308,
+          "centroid_lat": -8.11421,
+          "raw_z_mean_m": 22.4,
+          "routing_z_mean_m": 22.46,
+          "nearest_element": {
+            "id": "bld_osm_519450071",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 199.1
+          },
+          "sector_from_p4": "O"
+        },
+        {
+          "cells": 49,
+          "area_m2": 4900.0,
+          "max_depth_cm": 28.0,
+          "mean_depth_cm": 7.7,
+          "centroid_lon": -79.034606,
+          "centroid_lat": -8.112223,
+          "raw_z_mean_m": 27.79,
+          "routing_z_mean_m": 27.89,
+          "nearest_element": {
+            "id": "area_deportiva_475412974",
+            "name": "area_deportiva",
+            "category": "area_deportiva",
+            "distance_m": 68.8
+          },
+          "sector_from_p4": "E"
+        }
+      ],
+      "zones_ge_500m2": 19
+    },
+    "solo_lluvia_sin_ingreso": {
+      "cap_key": "0.5m",
+      "peak_hour": 10,
+      "max_depth_cm": 10.2,
+      "max_location": {
+        "lon": -79.038771,
+        "lat": -8.113526,
+        "raw_z_m": 22.6,
+        "nearest_element": {
+          "id": "bld_osm_376779194",
+          "name": "Auditorio Coopernico",
+          "category": "edificio",
+          "distance_m": 22.2
+        },
+        "sector_from_p4": "SO",
+        "reported_zone": null
+      },
+      "mass_balance": {
+        "entrada_lluvia": 32925.287,
+        "entrada_ingreso": 0.0,
+        "salida_drenaje": 32901.488,
+        "salida_borde": 0.0,
+        "perdida_tejados_sin_vecino": 23.8,
+        "almacenada": 0.0,
+        "residual": -0.0,
+        "residual_pct": -0.0
+      },
+      "groups": [
+        {
+          "cells": 25,
+          "area_m2": 2500.0,
+          "max_depth_cm": 5.6,
+          "mean_depth_cm": 2.1,
+          "centroid_lon": -79.038996,
+          "centroid_lat": -8.112567,
+          "raw_z_mean_m": 22.58,
+          "routing_z_mean_m": 22.81,
+          "nearest_element": {
+            "id": "bld_osm_1195896218",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 16.0
+          },
+          "sector_from_p4": "O"
+        },
+        {
+          "cells": 13,
+          "area_m2": 1300.0,
+          "max_depth_cm": 8.0,
+          "mean_depth_cm": 2.9,
+          "centroid_lon": -79.036265,
+          "centroid_lat": -8.113554,
+          "raw_z_mean_m": 24.71,
+          "routing_z_mean_m": 24.81,
+          "nearest_element": {
+            "id": "bld_osm_376912903",
+            "name": "Edificio sin nombre (OSM)",
+            "category": "edificio",
+            "distance_m": 37.9
+          },
+          "sector_from_p4": "S"
+        },
+        {
+          "cells": 9,
+          "area_m2": 900.0,
+          "max_depth_cm": 9.6,
+          "mean_depth_cm": 4.2,
+          "centroid_lon": -79.038721,
+          "centroid_lat": -8.113566,
+          "raw_z_mean_m": 22.95,
+          "routing_z_mean_m": 23.2,
+          "nearest_element": {
+            "id": "bld_osm_376779194",
+            "name": "Auditorio Coopernico",
+            "category": "edificio",
+            "distance_m": 21.6
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 7,
+          "area_m2": 700.0,
+          "max_depth_cm": 6.5,
+          "mean_depth_cm": 4.0,
+          "centroid_lon": -79.03973,
+          "centroid_lat": -8.11359,
+          "raw_z_mean_m": 21.55,
+          "routing_z_mean_m": 21.65,
+          "nearest_element": {
+            "id": "estacionamiento_1195896217",
+            "name": "Estacionamiento",
+            "category": "estacionamiento",
+            "distance_m": 29.9
+          },
+          "sector_from_p4": "SO"
+        },
+        {
+          "cells": 5,
+          "area_m2": 500.0,
+          "max_depth_cm": 5.3,
+          "mean_depth_cm": 2.9,
+          "centroid_lon": -79.038263,
+          "centroid_lat": -8.113164,
+          "raw_z_mean_m": 24.6,
+          "routing_z_mean_m": 24.78,
+          "nearest_element": {
+            "id": "bld_osm_376779196",
+            "name": "Facultad de Ciencias Físicas y Matematicas",
+            "category": "edificio",
+            "distance_m": 7.2
+          },
+          "sector_from_p4": "SO"
+        }
+      ],
+      "zones_ge_500m2": 5
+    }
+  }
+}

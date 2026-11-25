@@ -811,7 +811,7 @@ def simulate_core(
         ),
         "Las celdas de edificio están bloqueadas: el agua no las atraviesa y el escurrimiento "
         "de sus tejados se reparte a las celdas abiertas vecinas.",
-        "Umbrales de profundidad (1 cm visible; leve 1-5 cm, moderada 5-15 cm, alta ≥15 cm): "
+        "Umbrales de profundidad (2 cm visible; leve 2-5 cm, moderada 5-15 cm, alta ≥15 cm): "
         "SUPUESTOS de comunicación visual, no clasifican riesgo de nada.",
         "El estado de drenaje 'pendiente_deficiente' es una HIPÓTESIS NO VERIFICADA de la obra "
         "de vías y se expone solo como opción.",

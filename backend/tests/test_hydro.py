@@ -29,7 +29,7 @@ def _p4_projection(depth: np.ndarray) -> np.ndarray:
     p4_cells = grid.inlets["p4"]
     rows_idx, cols_idx = np.divmod(p4_cells, grid.nx)
     pr, pc = float(rows_idx.mean()), float(cols_idx.mean())
-    rows, cols = np.nonzero(depth >= 0.01)
+    rows, cols = np.nonzero(depth >= 0.02)
     dx = (cols - pc) * grid.cell_size_m          # este positivo
     dy = -(rows - pr) * grid.cell_size_m         # norte positivo
     az = math.radians(AZIMUT_P4_DEG)
@@ -150,11 +150,11 @@ def test_hydro_p4_reaches_southwest_without_crossing_buildings():
     p4_cells = grid.inlets["p4"]
     rows_idx, cols_idx = np.divmod(p4_cells, grid.nx)
     pr, pc = int(rows_idx.mean()), int(cols_idx.mean())
-    rows, cols = np.nonzero(depth >= 0.01)
+    rows, cols = np.nonzero(depth >= 0.02)
     southwest = (rows > pr) & (cols < pc)
     assert int(southwest.sum()) >= 10, "el agua no avanzó hacia el sur-oeste de P4"
     # y salió de las propias celdas de ingreso
-    assert int((depth >= 0.01).sum()) > p4_cells.size
+    assert int((depth >= 0.02).sum()) > p4_cells.size
 
 
 # --- 5. determinismo -----------------------------------------------------------

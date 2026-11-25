@@ -207,20 +207,20 @@
       "justification": "Las celdas del borde exterior de la cuadrícula son frontera abierta: la que llega drena hacia fuera del modelo."
     },
     "umbral_profundidad_visible_m": {
-      "value": 0.01,
+      "value": 0.02,
       "unit": "m",
       "range": [0.005, 0.05],
       "source": "SUPUESTO",
-      "justification": "Debajo de 1 cm no se dibuja la celda: un DEM de 30 m con error ±4 m no respalda láminas más finas."
+      "justification": "Debajo de 2 cm no se dibuja la celda: un DEM de 30 m con error ±4 m no respalda láminas más finas."
     }
   },
   "clases_profundidad_m": {
     "unit": "m",
     "_nota": "Umbrales de COMUNICACIÓN VISUAL de una simulación exploratoria; NO clasifican peligro, daño ni seguridad de ningún elemento.",
     "leve": {
-      "range": [0.01, 0.05],
+      "range": [0.02, 0.05],
       "source": "SUPUESTO",
-      "justification": "Lámina de 1 a 5 cm, umbral bajo de pasabilidad peatonal; sin estándar local ni aforos."
+      "justification": "Lámina de 2 a 5 cm, umbral visual minimo; sin estándar local ni aforos."
     },
     "moderada": {
       "range": [0.05, 0.15],

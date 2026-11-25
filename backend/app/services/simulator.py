@@ -3,7 +3,8 @@ import json
 from app.config import DATA_DIR
 from app.models import SimulationRequest, SimulationResponse
 from app.services.preventive_engine import evaluate_preventive_rules
-from app.services.spatial import SYNTH_REACH_M, analyze_spatial_exposure
+from app.services.conditions import HAZARD_ZONE_ID as CONDITIONS_ZONE_ID, resolve_conditions
+from app.services.spatial import SYNTH_REACH_M, analyze_conditions_exposure, analyze_spatial_exposure
 
 EVENTS_REFERENCE_PATH = DATA_DIR / "eventos_referencia.json"
 RAINFALL_SOURCE = (
@@ -99,7 +100,14 @@ def run_offline_simulation(req: SimulationRequest) -> SimulationResponse:
     historical = _historical_presets()
     presets, references = historical if historical else (PRESET_SCENARIOS, {})
     rainfall_reference = None
-    if req.scenario_id != "personalizado" and req.scenario_id in presets:
+    uses_conditions = req.hazard_zone_id == CONDITIONS_ZONE_ID
+    if req.external_conditions and not uses_conditions:
+        raise ValueError(
+            "external_conditions solo se usa con hazard_zone_id='condiciones_externas'."
+        )
+    resolved_conditions = resolve_conditions(req.external_conditions) if uses_conditions else None
+    # El escenario D nunca usa los presets de lluvia (que fijarían otra zona): la lluvia es la enviada.
+    if req.scenario_id != "personalizado" and req.scenario_id in presets and not uses_conditions:
         preset = presets[req.scenario_id]
         default_reach = SYNTH_REACH_M.get(req.hazard_zone_id)
         effective_reach = req.synthetic_reach_m if default_reach is not None else None
@@ -131,15 +139,23 @@ def run_offline_simulation(req: SimulationRequest) -> SimulationResponse:
             if req.synthetic_reach_m is not None
             else SYNTH_REACH_M.get(req.hazard_zone_id)
         )
-        effective_req = req.model_copy(update={"synthetic_reach_m": effective_reach})
+        effective_req = req.model_copy(update={
+            "synthetic_reach_m": effective_reach,
+            "external_conditions": resolved_conditions.active if uses_conditions else [],
+        })
 
     if rainfall_reference and rainfall_reference["is_historical_reanalysis"]:
         accumulated = rainfall_reference["max_rolling_24h_mm"]
     else:
         accumulated = round(effective_req.intensity_mm_h * effective_req.duration_hours * 0.75, 2)
-    spatial_result, hazard_feature, synthetic_geojson = analyze_spatial_exposure(
-        effective_req.hazard_zone_id, effective_req.synthetic_reach_m
-    )
+    if uses_conditions:
+        spatial_result, hazard_feature, synthetic_geojson = analyze_conditions_exposure(
+            effective_req.external_conditions, effective_req.synthetic_reach_m
+        )
+    else:
+        spatial_result, hazard_feature, synthetic_geojson = analyze_spatial_exposure(
+            effective_req.hazard_zone_id, effective_req.synthetic_reach_m
+        )
     effective_reach = (
         spatial_result.synthetic_exposure.reach_m
         if spatial_result.synthetic_exposure else None
@@ -154,12 +170,15 @@ def run_offline_simulation(req: SimulationRequest) -> SimulationResponse:
         spatial=spatial_result,
         is_synthetic=True,
         weather_meta=None,
+        external_rules=resolved_conditions.fired_rules if resolved_conditions else None,
     )
 
     sim_id = (
         f"SIM-{effective_req.scenario_id.upper()}-"
         f"{int(effective_req.intensity_mm_h)}MMH-{effective_req.duration_hours}H"
     )
+    if uses_conditions:
+        sim_id += "-COND-" + ("+".join(sorted(effective_req.external_conditions)).upper() or "NINGUNA")
 
     return SimulationResponse(
         simulation_id=sim_id,

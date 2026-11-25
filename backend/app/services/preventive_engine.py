@@ -25,6 +25,7 @@ def evaluate_preventive_rules(
     spatial: Optional[SpatialAnalysisResult],
     is_synthetic: bool,
     weather_meta: Optional[WeatherResponse] = None,
+    external_rules: Optional[list[dict]] = None,
 ) -> PreventiveEvaluation:
     """
     Motor de reglas transparentes y explicables (TRL 3-4).
@@ -122,6 +123,21 @@ def evaluate_preventive_rules(
             )
         )
 
+    # Regla 3b: Condiciones externas declaradas por el usuario (calle/quebrada, sí/no)
+    for ext in external_rules or []:
+        score += int(ext["puntaje"])
+        rules.append(
+            RuleTrigger(
+                rule_id=f"R-EXT-{ext['id']}",
+                description=ext["descripcion"],
+                observed_value="Declarado: " + "; ".join(ext["condiciones_nombres"]),
+                threshold_note=(
+                    "Condición declarada por el usuario (sí/no), no verificada por sensores; "
+                    f"puntaje experimental +{int(ext['puntaje'])}. No depende de la lluvia."
+                ),
+            )
+        )
+
     # Regla 4: Exposición espacial calculada con Shapely
     exposed_count = spatial.total_exposed_buildings if spatial else 0
     restricted_acc = spatial.total_restricted_accesses if spatial else 0
@@ -186,6 +202,11 @@ def evaluate_preventive_rules(
         )
     else:
         sources.append("Meteorología: Parámetros sintéticos ingresados en el simulador offline.")
+    if external_rules:
+        sources.append(
+            "Condiciones externas: declaradas por el usuario (sí/no) y reglas experimentales basadas en "
+            "prensa y testimonio no verificados (condiciones_externas.json)."
+        )
     sources.append("Geografía: GeoJSON referencial UNT + escenarios experimentales por mecanismo procesados con Shapely 2.x.")
 
     return PreventiveEvaluation(
@@ -210,7 +231,13 @@ def evaluate_preventive_rules(
             "Los umbrales de precipitación son experimentales de demostración (TRL 3-4) y requieren calibración hidrológica local.",
             "No existen sensores en tiempo real conectados en campus ni en las quebradas de Trujillo en este MVP.",
             "Las rutas y puntos de encuentro mostrados son referenciales y no garantizan seguridad operativa.",
-        ],
+        ] + (
+            [
+                "Las condiciones externas (calle inundada, quebrada activa) las declara el usuario: no hay "
+                "sensores en calles ni quebradas, y las reglas se basan en muy pocos eventos de prensa y testimonio.",
+            ]
+            if external_rules else []
+        ),
         legal_disclaimer=(
             "Cumplimiento Ley N.° 29664 (SINAGERD) y D.S. N.° 048-2011-PCM: "
             "este aviso es informativo/preventivo y no reemplaza las alertas ni decisiones de Defensa Civil UNT, SENAMHI, COEN o INDECI."

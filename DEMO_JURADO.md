@@ -32,7 +32,7 @@
 
 YAKU ALERT fue diseñado y verificado para seguir operando **100% sin internet externo**:
 
-1. **Si Open-Meteo falla o tarda:** El backend cambia automáticamente a `backend/app/data/weather_cache.json` y muestra el banner de respaldo con fecha y motivo. También se puede forzar en un clic pulsando el botón **`Pronóstico`** en la barra superior para pasar a modo **`Caché local`** (`docs/evidencias/11_modo_offline.png`).
+1. **Si Open-Meteo falla o tarda:** El backend cambia automáticamente a `backend/app/data/open_meteo_fallback.json` y muestra el banner de respaldo con fecha y motivo. También se puede forzar en un clic pulsando el botón **`Pronóstico`** en la barra superior para pasar a modo **`Caché local`** (`docs/evidencias/11_modo_offline.png`).
 2. **Si los tiles de OpenStreetMap/Satélite no cargan en Leaflet:** Abrir el control **`Capas`** del mapa y seleccionar **`Modo Vectorial`** (renderiza 100% con el GeoJSON local del campus sin descargar mapas externos).
 3. **Asistente YAKU, Simulador Shapely, Condiciones Manuales y Boletín:** Todos operan 100% en local (`localhost:8080` + `localhost:8000`) y no requieren internet.
 4. **Si el contenedor se detuviera:** Ejecutar `docker compose up -d` en la raíz del repositorio (toma ~5 segundos con las imágenes ya construidas localmente).

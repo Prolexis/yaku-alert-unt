@@ -23,7 +23,7 @@
 
 ---
 
-## 3. ¿Cómo se utiliza? (3 Vistas Principales)
+## 3. ¿Cómo se utiliza? (3 áreas funcionales principales; 6 vistas de navegación)
 1. **Vista 1 — Monitoreo:** Muestra el pronóstico horario (24–48 h), intensidad máxima (mm/h), acumulados, duración estimada, probabilidad y humedad. Permite activar el **Modo sin conexión (caché)** y verificar fuente, unidades, hora de actualización y limitaciones.
 2. **Vista 2 — Mapa de Escenarios:** Visualiza geometrías OSM referenciales, accesos y zonas separadas: **A** sectores bajos p15 experimental del DEM GLO-30 (~30 m); **B** puntos/franjas reportadas por testimonio o prensa; **C** relieve p30 más reportes. La influencia punteada **SINTÉTICA** se calcula aparte y sus exposiciones no se suman a las del escenario. Shapely mide intersecciones, no simula flujo hidráulico. La lluvia no modifica geometrías.
 3. **Vista 3 — Prevención y Respuesta:** Genera la **Ficha Preventiva Explicable**, detallando por separado el peligro, la exposición espacial, las reglas exactas activadas (`R-MET-*`, `R-ACU-*`, `R-ESP-*`), las orientaciones preventivas, las alternativas de continuidad académica UNT, el contexto informativo de quebradas de Trujillo y los límites legales/científicos.

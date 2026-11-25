@@ -64,7 +64,7 @@ YAKU ALERT/
 - [ ] **Backend FastAPI:** Endpoint `/api/weather` (Open-Meteo real con forzado IPv4 + fallback offline etiquetado), `/api/campus/layers` (GeoJSON UNT), `/api/preventive/evaluate` (motor explicable), `/api/simulate` (simulador offline determinista con Shapely), `/api/protocols` (orientaciones y continuidad).
 - [ ] **Análisis Espacial Real (Shapely):** Cálculo de intersección geométrica entre las zonas experimentales por mecanismo (relieve DEM y zonas reportadas) y edificios, accesos y puntos de encuentro del campus UNT.
 - [ ] **Motor Preventivo Explicable:** Reglas transparentes que distinguen **peligro**, **exposición** y **riesgo**, sin convertir probabilidad de lluvia en probabilidad de huaico ni presentar umbrales experimentales como validados científicamente.
-- [ ] **Frontend React + Tailwind + Leaflet:** 3 vistas principales:
+- [ ] **Frontend React + Tailwind + Leaflet:** 3 áreas funcionales principales, navegables mediante 6 vistas:
   1. *Monitoreo:* Pronóstico horario, precipitación, probabilidad, intensidad, acumulados, duración, humedad, fuente, unidades y timestamp.
   2. *Mapa de riesgo y escenarios:* Campus UNT en Leaflet, edificios, accesos, puntos de encuentro referenciales, rutas referenciales (no garantizadas) y zonas de simulación.
   3. *Prevención y respuesta:* Ficha preventiva explicable, avisos demostrativos, protocolos de consulta y alternativas de continuidad académica.
@@ -94,7 +94,7 @@ YAKU ALERT/
 | Fase 1 & 2: Arquitectura + MVP funcional completo | 13 nov 2026 | Desarrollo |
 | Fase 3: Suite de pruebas y verificación offline/móvil | 13 nov 2026 | QA / Seguridad |
 | Fase 4 & 5: 4 Entregables Stage-Gate 1 + Pitch 7 slides | 13 nov 2026 | Documentación |
-| Validación con usuarios reales UNT (encuestas/tareas reales) | 14–24 nov 2026 | Equipo (en campo) |
+| Validación con usuarios reales UNT (5–10 participantes, 5 tareas T1–T5) | a ejecutar antes del 27-nov-2026 (final) | Equipo (en campo) |
 | Capacitaciones virtuales obligatorias (7:00 p. m.) | 23–25 nov 2026 | Todo el equipo |
 | **Entrega oficial Stage-Gate 1 (Fase Virtual)** | **25 nov 2026, 11:59 p. m.** | Líder |
 | Mentoría presencial y ensayo (DITT - Independencia 186) | 26 nov 2026, 12:00 m | Todo el equipo |

@@ -23,7 +23,7 @@ Los estudiantes, docentes y personal administrativo de la Ciudad Universitaria U
 
 ### Value Proposition Canvas y FODA Simplificado
 - **Propuesta de valor:** Traducir datos meteorológicos reales y geometrías espaciales del campus en orientaciones preventivas explicables, transparentes y utilizables incluso sin internet.
-- **Fortalezas:** Software funcional verificado (`26/26` pruebas `pytest`), análisis geométrico real (Shapely), modo offline, cero datos personales (Ley N.° 29733), ética científica estricta.
+- **Fortalezas:** Software funcional verificado (`43/43` pruebas `pytest`: 26 en `test_api.py` y 17 en `test_conditions.py`), análisis geométrico real (Shapely), modo offline, cero datos personales (Ley N.° 29733), ética científica estricta.
 - **Oportunidades:** Articulación con DITT, OTI y Defensa Civil UNT; escalabilidad por GeoJSON a distritos de Trujillo.
 - **Debilidades:** Umbrales experimentales aún no calibrados hidrológicamente; validación presencial con usuarios en ejecución.
 - **Amenazas:** Falta de sensores locales en campus; dependencia de validación institucional para rutas operativas oficiales.
@@ -34,7 +34,7 @@ Los estudiantes, docentes y personal administrativo de la Ciudad Universitaria U
 
 Ciclo aplicado: **CONSTRUIR → MEDIR → APRENDER → MEJORAR**.
 
-- **Pruebas técnicas ejecutadas (verificadas):** 26 pruebas automatizadas (`pytest`), build de producción (`vite build`), Docker Compose (`healthy`), verificación offline y comparador de escenarios.
+- **Pruebas técnicas ejecutadas (verificadas):** 43 pruebas automatizadas (`pytest`): 26 en `test_api.py` y 17 en `test_conditions.py`, build de producción (`vite build`), Docker Compose (`healthy`), verificación offline y comparador de escenarios.
 - **Validación con usuarios reales (pendiente de registro en campo — sin inventar encuestas):**
   - **Tareas:** (1) Encontrar su facultad, (2) Consultar la lluvia prevista, (3) Interpretar el pronóstico, (4) Identificar una simulación, (5) Consultar elementos expuestos, (6) Encontrar una orientación y generar boletín.
   - **Métricas reales a registrar:** tiempo por tarea (s), errores, comprensión (1–5) y comentarios textuales.
@@ -45,7 +45,7 @@ Ciclo aplicado: **CONSTRUIR → MEDIR → APRENDER → MEJORAR**.
 
 | Prioridad | Tarea | Estado | Evidencia |
 |---|---|---|---|
-| **P0** | Preservar 6 vistas, 6 endpoints FastAPI, Shapely y modo offline | Completo | `26/26` `pytest` + `vite build` |
+| **P0** | Preservar 6 vistas, 7 endpoints FastAPI, Shapely y modo offline | Completo | `43/43` `pytest` + `vite build` |
 | **P0** | Flujo «Consulta tu facultad» (Dashboard → Mapa UNT) | Completo | `FacultyLookupCard.jsx` + `CampusMapView.jsx` |
 | **P0** | Mensajes preventivos (Qué/Dónde/Cuándo/Qué hacer/Quién informa) | Completo | `PreventiveMessageCard.jsx` + `PreventionView.jsx` |
 | **P1** | Boletín preventivo descargable e imprimible (100% offline) | Completo | `frontend/src/utils/bulletin.js` |

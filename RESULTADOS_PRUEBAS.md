@@ -11,7 +11,7 @@
 | Capa / Prueba | Herramienta / Comando | Resultado | Evidencia |
 |---|---|---|---|
 | **Build de producción Frontend** | `cd frontend; npm run build` | **APROBADO** | 1598 módulos transformados, sin errores de compilación. |
-| **Suite Backend (rigor + API + condiciones)** | `cd backend; python -m pytest -v` | **43 / 43 APROBADAS** | 26 pruebas en `test_api.py` + 17 en `test_conditions.py` (0 fallos). |
+| **Suite Backend (rigor + API + condiciones)** | `cd backend; python -m pytest -q` | **43 / 43 APROBADAS** | 26 pruebas en `test_api.py` + 17 en `test_conditions.py` (0 fallos). |
 | **Despliegue Docker Compose** | `docker compose up -d --build frontend` | **APROBADO** | `yaku-alert-backend` (`:8000`, healthy) y `yaku-alert-frontend` (`:8080`, operativo). |
 | **Endpoints principales y modo offline** | `curl.exe` contra `http://127.0.0.1:8080` | **5 / 5 HTTP 200** | `/`, `/api/health`, `/api/conditions`, `/api/weather?offline=true`, `/api/preventive/evaluate?offline=true&conditions=quebrada_san_ildefonso`. |
 | **Flujo E2E completo (10 pasos + responsive + offline)** | Playwright (`e2e_verify.mjs`) | **12 / 12 APROBADOS** | 0 errores de página (`pageerror`), 0 peticiones API fallidas, 11 capturas reales en `docs/evidencias/`. |
@@ -50,7 +50,7 @@
 |---|---|---|
 | Condiciones externas manuales no aparecen como mediciones reales | **CUMPLIDO** | `PreventionView.jsx` muestra explícitamente `"declaración manual sí/no"` y `"No provienen de sensores: marca una condición solo si existe reporte verificado en calles o quebradas."` (`08_prevencion_condiciones_manuales.png`). |
 | Simulaciones claramente identificadas | **CUMPLIDO** | Banner persistente `"MODO SIMULACIÓN — DATOS SINTÉTICOS: Escenario demostrativo; no representa una alerta real"`, badge `Simulación` en header y etiquetas `SINTÉTICO` en el mapa (`04_mapa_leaflet.png`). |
-| Porcentajes de exposición provienen de Shapely | **CUMPLIDO** | Cálculo geométrico en `backend/app/services/geospatial.py` verificado por `test_spatial_analysis_inside_and_outside_zones` y citado en `DÓNDE` como `Exposición espacial (Shapely)`. |
+| Porcentajes de exposición provienen de Shapely | **CUMPLIDO** | Cálculo geométrico en `backend/app/services/spatial.py` verificado por `test_spatial_analysis_inside_and_outside_zones` en `backend/tests/test_api.py` y citado en `DÓNDE` como `Exposición espacial (Shapely)`. |
 | No se declaran edificios seguros ni peligrosos | **CUMPLIDO** | El Asistente YAKU aclara explícitamente `"(esto no garantiza seguridad real)"` y la UI reporta intersección geométrica o `"Información no disponible"`. |
 | No se emiten alertas oficiales ficticias | **CUMPLIDO** | `QUIÉN INFORMA` declara `"Prototipo informativo YAKU ALERT — UNT (TRL 3–4). No sustituye avisos oficiales de SENAMHI, INDECI, COEN ni Defensa Civil UNT."` |
 | No se alteran cálculos meteorológicos ni GIS ni se afirma que la lluvia cambie polígonos | **CUMPLIDO** | `test_ui_and_docs_never_claim_rain_changes_hazard_polygons` (PASSED) y suite completa de 43 pruebas backend. |

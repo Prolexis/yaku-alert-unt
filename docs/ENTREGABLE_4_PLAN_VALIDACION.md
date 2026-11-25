@@ -6,6 +6,8 @@
 
 ## 1. Pruebas Técnicas Ejecutadas (Verificadas)
 
+**Total real:** 43 pruebas aprobadas por `python -m pytest -q`: 26 casos colectados en `backend/tests/test_api.py` y 17 casos colectados en `backend/tests/test_conditions.py`. La tabla siguiente es una muestra representativa de casos técnicos ejecutados.
+
 | Caso de Prueba | Objetivo | Resultado Real Observado | Evidencia |
 |---|---|---|---|
 | `test_health_and_security_headers` | Verificar salud de API y cabeceras HTTP de seguridad | **PASSED** (`nosniff`, `DENY`, `no-referrer`) | `backend/tests/test_api.py` |
@@ -20,18 +22,17 @@
 
 ---
 
-## 2. Protocolo de Validación con Usuarios UNT (Pendiente: 14–24 nov 2026)
+## 2. Protocolo de Validación con Usuarios UNT (Pendiente: a ejecutar antes del 27-nov-2026 (final))
 
 ### Población objetivo
-- **Muestra planificada:** 12 a 20 participantes de la comunidad UNT (estudiantes de distintas facultades, 2–3 docentes y 1–2 administrativos/brigadistas).
+- **Muestra planificada:** 5–10 participantes de la comunidad UNT.
 
-### Tareas de usabilidad y comprensión a evaluar (6 tareas reales)
-1. **Tarea 1 (Identificar lluvias):** En el Dashboard/Monitoreo, indicar en menos de 45 segundos si se pronostican lluvias significativas en las próximas 24 horas.
-2. **Tarea 2 (Encontrar instalación):** En el Mapa Interactivo, localizar una facultad o edificio específico usando el buscador y verificar si aparece en la zona simulada.
-3. **Tarea 3 (Distinguir datos):** Identificar claramente si la pantalla actual muestra datos reales (Open-Meteo), caché sin conexión o una simulación sintética.
-4. **Tarea 4 (Comprender ficha preventiva):** En Análisis Preventivo, explicar qué significa el resultado para el usuario y desplegar los detalles técnicos si se requiere.
-5. **Tarea 5 (Localizar orientaciones oficiales):** En Orientaciones y Continuidad, encontrar las medidas *Antes / Durante / Después* y los enlaces oficiales de SENAMHI / INDECI / UNT.
-6. **Tarea 6 (Verificar actualización):** Identificar la fuente y la fecha/hora exacta de la última actualización del pronóstico.
+### Tareas de usabilidad y comprensión a evaluar (T1–T5)
+1. **T1 (Pronóstico y límites):** Identificar si lloverá en las próximas 24 horas en la UNT y verificar si el dato es un pronóstico o una medición local.
+2. **T2 (Asistente YAKU + Mapa):** Abrir el Asistente YAKU, preguntar por el Comedor Universitario (o su facultad) y ubicarlo en Mapa UNT.
+3. **T3 (Simulación vs realidad):** Activar el Escenario C en Simulaciones y explicar con sus palabras si representa una alerta real o un escenario sintético.
+4. **T4 (Prevención y boletín):** Revisar la ficha en Prevención (QUÉ / DÓNDE / CUÁNDO / QUÉ HACER) y descargar el boletín preventivo.
+5. **T5 (Condiciones externas):** En modo `Pronóstico / Caché`, localizar las casillas de condiciones externas y explicar de dónde provienen esos datos (declaración manual vs sensores).
 
 ### Métricas reales a registrar durante las sesiones
 - Tasa de tareas completadas sin asistencia (%).

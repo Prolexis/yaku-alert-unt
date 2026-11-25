@@ -8,7 +8,7 @@ Plataforma web inteligente de monitoreo meteorológico, análisis espacial geogr
 ## Estructura del Proyecto
 
 - `backend/` — API REST en **FastAPI** + **Shapely 2.x** + cliente **Open-Meteo** (IPv4 + respaldo local offline) + suite `pytest`.
-- `frontend/` — Interfaz en **React + Vite + Tailwind CSS + Leaflet** con 3 vistas (*Monitoreo*, *Mapa y Escenarios*, *Prevención y Respuesta*).
+- `frontend/` — Interfaz en **React + Vite + Tailwind CSS + Leaflet** con 3 áreas funcionales y 6 vistas de navegación (*Dashboard*, *Monitoreo*, *Mapa UNT*, *Simulaciones*, *Prevención*, *Continuidad*).
 - `docs/` — Matriz de cumplimiento, Entregables Stage-Gate 1 (Ficha del Problema, Ficha Técnica, Plan de Validación) y Defensa de Jurado.
 - `scripts/calibrar_lluvia_historica.py` — Consulta lluvia horaria de eventos documentados en Open-Meteo Archive.
 - `pitch/` — Generador y presentación PowerPoint oficial (`YAKU_ALERT_UNT_PITCH.pptx`, 7 diapositivas).

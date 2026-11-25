@@ -11,7 +11,7 @@
 
 | Capa | Tecnología verificada | Archivos principales | Estado |
 |---|---|---|---|
-| **Backend API** | Python 3.11, FastAPI, Pydantic v2, Shapely 2.x, HTTPX (IPv4 forzado) | `backend/app/main.py`, `schemas.py`, `services/{weather,geospatial,preventive_engine,protocols,conditions}.py` | Operativo (7 endpoints REST) |
+| **Backend API** | Python 3.11, FastAPI, Pydantic v2, Shapely 2.x, HTTPX (IPv4 forzado) | `backend/app/main.py`, `schemas.py`, `services/{weather,spatial,preventive_engine,conditions}.py` | Operativo (7 endpoints REST) |
 | **Frontend SPA** | React 18, Vite 5, Tailwind CSS 3, Leaflet, Lucide Icons | `frontend/src/App.jsx`, 6 vistas en `components/`, `components/ui/`, `services/api.js`, `utils/{campusCatalog,bulletin,formatters}.js` | Operativo (6 vistas + Asistente YAKU) |
 | **Datos locales** | GeoJSON (OSM + capas curadas + escenarios DEM Copernicus GLO-30) y JSON locales | `backend/app/data/*.geojson`, `backend/app/data/*.json` | Operativo (con respaldo offline) |
 | **Despliegue** | Docker Compose (`yaku-alert-backend`, `yaku-alert-frontend`) | `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile` | Operativo y saludable |
@@ -42,10 +42,10 @@
 1. **Nombre:** Monitoreo meteorológico y caché de resiliencia
 2. **Objetivo:** Mostrar pronóstico de precipitación horaria (24 h / 48 h), acumulados, intensidad máxima y probabilidad para la Ciudad Universitaria UNT.
 3. **Usuario al que beneficia:** Estudiantes, docentes, trabajadores y comité universitario.
-4. **Cómo funciona:** Consulta la API pública Open-Meteo con transporte IPv4 explícito (`local_address="0.0.0.0"` para evitar timeouts IPv6 en Windows). Si falla la red o se activa `offline=true`, sirve `weather_cache.json` identificándolo claramente como caché local.
-5. **Archivos involucrados:** `backend/app/services/weather.py`, `backend/app/data/weather_cache.json`, `frontend/src/components/MonitoringView.jsx`, `frontend/src/components/DashboardView.jsx`
+4. **Cómo funciona:** Consulta la API pública Open-Meteo con transporte IPv4 explícito (`local_address="0.0.0.0"` para evitar timeouts IPv6 en Windows). Si falla la red o se activa `offline=true`, sirve `backend/app/data/open_meteo_fallback.json` identificándolo claramente como caché local.
+5. **Archivos involucrados:** `backend/app/services/weather.py`, `backend/app/data/open_meteo_fallback.json`, `frontend/src/components/MonitoringView.jsx`, `frontend/src/components/DashboardView.jsx`
 6. **Endpoint utilizado:** `GET /api/weather?offline={bool}`
-7. **Fuente de datos:** Open-Meteo (modelo numérico de pronóstico) + `weather_cache.json`.
+7. **Fuente de datos:** Open-Meteo (modelo numérico de pronóstico) + `open_meteo_fallback.json`.
 8. **Tipo de datos:** Reales (pronóstico externo) y almacenados (caché offline).
 9. **Estado:** Implementada.
 10. **Evidencia técnica:** Gráficas SVG interactivas de 24 h y 48 h, formato horario `America/Lima` (`utils/formatters.js`), avisos explícitos de "Pronóstico, no medición local".
@@ -66,7 +66,7 @@
 8. **Tipo de datos:** Reales (pronóstico), declarativos (condiciones externas) y referenciales (reglas).
 9. **Estado:** Implementada.
 10. **Evidencia técnica:** Matriz de reglas trazables (`rules_triggered`), mensajes estructurados (QUÉ / DÓNDE / CUÁNDO / QUÉ HACER / QUIÉN INFORMA) y separación estricta entre pronóstico y simulación.
-11. **Resultado de pruebas:** Cubierta por tests unitarios en `backend/tests/test_preventive_engine.py` y `test_conditions.py`.
+11. **Resultado de pruebas:** Cubierta por `test_live_preventive_evaluation_endpoint` y pruebas de condiciones en `backend/tests/test_api.py` y `backend/tests/test_conditions.py`.
 12. **Limitaciones:** Los umbrales son referenciales de prototipo y deben validarse con la Oficina de Defensa Civil / Gestión del Riesgo de la UNT.
 13. **Mejoras recomendadas:** Documentar calibración con autoridades UNT tras pruebas de campo.
 
@@ -94,13 +94,13 @@
 2. **Objetivo:** Visualizar perímetro del campus, edificios reales de OpenStreetMap, accesos, puntos de encuentro referenciales, rutas peatonales referenciales y capas de escenarios de exposición.
 3. **Usuario al que beneficia:** Toda la comunidad universitaria y visitantes.
 4. **Cómo funciona:** Sirve capas GeoJSON desde `/api/campus/layers` y las renderiza en Leaflet con 3 mapas base (OpenStreetMap, Satélite y Modo Vectorial offline-friendly), control de capas y cálculo real de intersección espacial en backend con Shapely 2.x.
-5. **Archivos involucrados:** `backend/app/services/geospatial.py`, `backend/app/data/{campus_unt,hazard_scenarios,meeting_points,reference_routes}.geojson`, `frontend/src/components/CampusMapView.jsx`
+5. **Archivos involucrados:** `backend/app/services/spatial.py`, `backend/app/data/{campus_unt,hazard_scenarios}.geojson`, `frontend/src/components/CampusMapView.jsx`
 6. **Endpoint utilizado:** `GET /api/campus/layers`
 7. **Fuente de datos:** OpenStreetMap (`campus_unt.geojson`), capas referenciales curadas y análisis topográfico experimental DEM Copernicus GLO-30 (`hazard_scenarios.geojson`).
 8. **Tipo de datos:** Reales (huellas OSM y DEM) + referenciales (puntos/rutas) + sintéticos (escenarios de peligro).
 9. **Estado:** Implementada.
 10. **Evidencia técnica:** Intersección geométrica real con `shapely.geometry` para edificios y accesos; foco animado sobre polígonos y puntos seleccionados.
-11. **Resultado de pruebas:** Verificada en `backend/tests/test_geospatial.py` y compilación frontend.
+11. **Resultado de pruebas:** Verificada por `test_spatial_analysis_inside_and_outside_zones` en `backend/tests/test_api.py` y compilación frontend.
 12. **Limitaciones:** Algunos pabellones en OSM carecen de etiqueta de nombre ("Sin identificar"); `Facultad de Medicina` está fuera del campus principal y `Estomatología` no está etiquetada en OSM dentro del perímetro.
 13. **Mejoras recomendadas:** Enriquecer nombres oficiales en OSM en colaboración con la oficina de infraestructura UNT.
 
@@ -128,13 +128,13 @@
 2. **Objetivo:** Evaluar escenarios de entrenamiento (`A: Lluvia intensa`, `B: Aniego urbano`, `C: Escenario severo tipo El Niño / Quebrada San Ildefonso` y `Personalizado`) calculando edificios y accesos interceptados con Shapely.
 3. **Usuario al que beneficia:** Comité de gestión de riesgos, autoridades, docentes y jurado.
 4. **Cómo funciona:** `POST /api/simulate` combina el nivel meteorológico evaluado con la geometría del escenario seleccionado (escenarios precalculados DEM / alcance sintético `synthetic_reach_m`). En `SimulatorView.jsx` incluye un comparador lado a lado A vs B vs C con tabla comparativa y aviso claro de que las geometrías son escenarios de entrenamiento y no pronósticos dinámicos de inundación.
-5. **Archivos involucrados:** `backend/app/main.py`, `backend/app/services/geospatial.py`, `backend/app/services/preventive_engine.py`, `frontend/src/components/SimulatorView.jsx`
+5. **Archivos involucrados:** `backend/app/main.py`, `backend/app/services/spatial.py`, `backend/app/services/preventive_engine.py`, `frontend/src/components/SimulatorView.jsx`
 6. **Endpoint utilizado:** `POST /api/simulate`
 7. **Fuente de datos:** `hazard_scenarios.geojson` (DEM Copernicus GLO-30 experimental), `campus_unt.geojson` y parámetros del escenario.
 8. **Tipo de datos:** Sintéticos / experimentales (claramente etiquetados en UI y API).
 9. **Estado:** Implementada.
 10. **Evidencia técnica:** Banner persistente de "SIMULACIÓN" en barra superior y vistas; cálculo real de intersecciones; test automatizado garantiza que ni la UI ni los documentos afirmen que cambiar la lluvia altera los polígonos de peligro.
-11. **Resultado de pruebas:** Cubierta por `backend/tests/test_api.py` y `test_scientific_rigor.py`.
+11. **Resultado de pruebas:** Cubierta por `backend/tests/test_api.py`, incluyendo `test_ui_and_docs_never_claim_rain_changes_hazard_polygons`.
 12. **Limitaciones:** No es un modelo hidráulico 2D (tipo HEC-RAS / IBER) ni reemplaza estudios oficiales de CENEPRED/ANA.
 13. **Mejoras recomendadas:** Incorporar capas oficiales de peligros de la Municipalidad Provincial de Trujillo / CENEPRED cuando se publiquen en formato abierto.
 

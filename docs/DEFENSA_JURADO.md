@@ -83,7 +83,7 @@ Consulta realizada el 24-nov-2026; son valores del reanálisis en el punto de co
     *Respuesta:* Detectamos en pruebas reales en Windows que `urllib`/IPv6 hacia Open-Meteo sufría timeouts en el handshake TLS, mientras que IPv4 respondía en <4 segundos. Lo resolvimos configurando `httpx.AsyncHTTPTransport(local_address="0.0.0.0")` más respaldo local automático.
 
 16. **¿Qué validaciones reales han hecho hasta hoy y qué falta?**  
-    *Respuesta:* Ejecutamos 9 pruebas automatizadas (`pytest`) cubriendo API real, modo offline, Shapely, reproducibilidad y seguridad. La validación presencial con 12–20 estudiantes/docentes UNT está planificada y protocolizada para ejecutarse del 14 al 24 de noviembre, sin inventar datos previos.
+    *Respuesta:* Ejecutamos 43 pruebas automatizadas (`pytest`): 26 casos en `backend/tests/test_api.py` y 17 en `backend/tests/test_conditions.py`, cubriendo API real, modo offline, Shapely, reproducibilidad y seguridad. La validación presencial con 5–10 participantes UNT sigue pendiente y está protocolizada con las tareas T1–T5 de `DEMO_JURADO.md`, sin inventar datos previos.
 
 17. **¿Cómo se sostiene económicamente después de la hackathon?**  
     *Respuesta:* Costo operativo casi nulo usando datos abiertos y software open-source, integrable en servidores institucionales de la UNT (DITT/OTI) y escalable mediante convenios con municipalidades distritales de La Libertad.

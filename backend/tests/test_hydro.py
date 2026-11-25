@@ -12,11 +12,14 @@ import numpy as np
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.models import HydroElementImpact, HydroRunResponse
 from app.services.hydro import (
     _triangular_hydrograph,
+    load_hydro_params,
     load_terrain_grid,
     simulate_core,
 )
+from app.services.preventive_engine import evaluate_hydro_rules
 
 client = TestClient(app)
 
@@ -69,6 +72,125 @@ def test_p4_hydrograph_is_triangular_and_starts_at_rainfall_peak():
     assert response.summary["mass_balance_m3"]["entrada_ingreso"] == 2800.0
 
 
+def _hydro_rule_run(elements, inflow_p4="ninguno"):
+    return HydroRunResponse(
+        run_id="HYDRO-TEST",
+        data_nature="SIMULACION_EXPLORATORIA_SIMPLIFICADA",
+        parameters={"inflow_p4": inflow_p4},
+        frames=[],
+        elements=elements,
+        summary={},
+        metadata={"source": "escenario de prueba"},
+        assumptions=[],
+        limitations=[],
+        avisos=[],
+    )
+
+
+def _impact(
+    name="Puerta 1 (Av. UNT)",
+    category="acceso",
+    max_depth_cm=0.0,
+    first_hour_affected=None,
+    first_hour_depth_cm=None,
+    hours_with_water_above_threshold=0,
+):
+    return HydroElementImpact(
+        id=name,
+        name=name,
+        category=category,
+        scope="huella",
+        max_depth_cm=max_depth_cm,
+        first_hour_affected=first_hour_affected,
+        first_hour_depth_cm=first_hour_depth_cm,
+        hours_with_water_above_threshold=hours_with_water_above_threshold,
+    )
+
+
+def test_r_hid_01_activates_at_access_depth_threshold_only():
+    threshold = load_hydro_params()["reglas_preventivas_hidro"]["R-HID-01"]["depth_cm"]["value"]
+    at_threshold = evaluate_hydro_rules(
+        _hydro_rule_run([_impact(max_depth_cm=threshold)])
+    )
+    below_threshold = evaluate_hydro_rules(
+        _hydro_rule_run([_impact(max_depth_cm=threshold - 0.1)])
+    )
+    assert "R-HID-01" in {rule.rule_id for rule in at_threshold}
+    assert "R-HID-01" not in {rule.rule_id for rule in below_threshold}
+
+
+def test_r_hid_02_activates_when_first_affected_hour_is_recorded():
+    threshold = load_hydro_params()["reglas_preventivas_hidro"]["R-HID-02"]["first_hour"]["value"]
+    triggered = evaluate_hydro_rules(
+        _hydro_rule_run([
+            _impact(first_hour_affected=threshold, first_hour_depth_cm=1.0)
+        ])
+    )
+    not_triggered = evaluate_hydro_rules(_hydro_rule_run([_impact()]))
+    assert "R-HID-02" in {rule.rule_id for rule in triggered}
+    assert "R-HID-02" not in {rule.rule_id for rule in not_triggered}
+
+
+def test_r_hid_03_activates_at_persistence_hours_threshold():
+    threshold = load_hydro_params()["reglas_preventivas_hidro"]["R-HID-03"]["hours"]["value"]
+    at_threshold = evaluate_hydro_rules(
+        _hydro_rule_run([
+            _impact(
+                category="edificio",
+                hours_with_water_above_threshold=threshold,
+            )
+        ])
+    )
+    below_threshold = evaluate_hydro_rules(
+        _hydro_rule_run([
+            _impact(
+                category="edificio",
+                hours_with_water_above_threshold=threshold - 1,
+            )
+        ])
+    )
+    assert "R-HID-03" in {rule.rule_id for rule in at_threshold}
+    assert "R-HID-03" not in {rule.rule_id for rule in below_threshold}
+
+
+def test_r_hid_04_activates_only_for_nonzero_p4_scenario():
+    active = evaluate_hydro_rules(_hydro_rule_run([], inflow_p4="medio"))
+    inactive = evaluate_hydro_rules(_hydro_rule_run([], inflow_p4="ninguno"))
+    assert "R-HID-04" in {rule.rule_id for rule in active}
+    assert "R-HID-04" not in {rule.rule_id for rule in inactive}
+
+
+def test_hydro_evaluate_returns_complete_sheet_for_2023_event_and_medium_p4():
+    preset = next(
+        item for item in client.get("/api/hydro/presets").json()["presets"]
+        if item["id"] == "evento_2023_03_10"
+    )
+    response = client.post("/api/hydro/evaluate", json={
+        "rainfall_mm_h": preset["rainfall_mm_h"],
+        "drainage_state": preset["defaults"]["drainage_state"],
+        "inflow_p4": "medio",
+        "secondary_inflow": False,
+    })
+    assert response.status_code == 200, response.text
+    data = response.json()
+    sheet = data["evaluation"]
+    assert set(sheet) == {
+        "what", "where", "when", "what_to_do", "who_informs", "rules_triggered",
+        "action_windows", "sources", "updated_at_utc", "uncertainty", "notice",
+    }
+    assert sheet["sources"] and sheet["updated_at_utc"] and sheet["uncertainty"]
+    assert "orientación experimental" in sheet["notice"]
+    assert "R-HID-04" in {rule["rule_id"] for rule in sheet["rules_triggered"]}
+    assert all(
+        window["affected_elements"] and window["recommendation"]
+        for window in sheet["action_windows"]
+    )
+    assert all(
+        "umbral no validado" in rule["threshold_note"]
+        for rule in sheet["rules_triggered"]
+    )
+
+
 # --- 1. conservación de masa ---------------------------------------------------
 def test_hydro_mass_balance_conserves_water():
     series = [0.0, 0.0, 4.0, 9.0, 7.0, 3.0] + [0.0] * 42
@@ -88,7 +210,6 @@ def test_hydro_mass_balance_conserves_water():
     assert entrada > 0.0  # la prueba tiene sentido solo si entró agua
 
 
-# --- 2. sin lluvia ni ingreso -> sin agua --------------------------------------
 def test_hydro_surface_losses_are_reported_and_conserve_mass():
     response, _ = simulate_core(
         [0.0, 10.0, 20.0, 5.0] + [0.0] * 44,
@@ -102,6 +223,7 @@ def test_hydro_surface_losses_are_reported_and_conserve_mass():
     assert abs(balance["residual"]) < 0.01
 
 
+# --- 2. sin lluvia ni ingreso -> sin agua --------------------------------------
 def test_hydro_no_rain_and_no_inflow_means_no_water():
     resp, depth = simulate_core([0.0] * 48, drainage_state="normal",
                                 inflow_p4="ninguno")
@@ -123,9 +245,15 @@ def test_hydro_never_retains_water_outside_campus_perimeter():
         grid=grid,
         hourly_out=hourly,
     )
+    from app.services.hydro import load_hydro_params
     outside = ~grid.campus_mask
-    assert not np.any(depth[outside] > 0.0)
-    assert all(not np.any(frame[outside] > 0.0) for frame in hourly)
+    radius = int(load_hydro_params()["radio_exclusion_salida_p4_celdas"]["value"])
+    near_p4 = np.zeros_like(outside)
+    for cell in grid.inlets["p4"]:
+        r, c = divmod(int(cell), grid.nx)
+        near_p4[max(0, r - radius):r + radius + 1, max(0, c - radius):c + radius + 1] = True
+    assert not np.any(depth[outside & ~near_p4] > 0.0)
+    assert all(not np.any(frame[outside & ~near_p4] > 0.0) for frame in hourly)
 
 
 # --- 3. monotonicidad: el agua de P4 baja hacia el suroeste --------------------
@@ -252,15 +380,18 @@ def test_reported_sinks_add_local_storage_and_conserve_mass():
 # --- frases prohibidas + campos obligatorios en las 3 respuestas ---------------
 def test_hydro_responses_never_use_prohibited_phrases():
 
-    run = client.post("/api/hydro/run", json={
+    payload = {
         "rainfall_mm_h": [0.0, 3.0, 8.0, 4.0] + [0.0] * 44,
         "drainage_state": "normal",
         "inflow_p4": "medio",
         "secondary_inflow": False,
-    })
+    }
+    run = client.post("/api/hydro/run", json=payload)
+    evaluated = client.post("/api/hydro/evaluate", json=payload)
     presets = client.get("/api/hydro/presets")
     forecast = client.get("/api/hydro/forecast?offline=true")
     assert run.status_code == 200, run.text
+    assert evaluated.status_code == 200, evaluated.text
     assert presets.status_code == 200, presets.text
     assert forecast.status_code == 200, forecast.text
 
@@ -273,7 +404,7 @@ def test_hydro_responses_never_use_prohibited_phrases():
     )
     word_prohibited = re.compile(r"\b(segur[oa]s?|peligros[oa]s?)\b", re.IGNORECASE)
 
-    for resp in (run, presets, forecast):
+    for resp in (run, evaluated, presets, forecast):
         text = resp.text.lower()
         for phrase in prohibited:
             assert phrase not in text, f"frase prohibida '{phrase}' en {resp.request.url}"
@@ -284,3 +415,8 @@ def test_hydro_responses_never_use_prohibited_phrases():
         assert data["data_nature"]
         assert data["assumptions"]
         assert data["limitations"]
+    for resp in (run, evaluated, forecast):
+        sheet = resp.json()["evaluation"]
+        assert sheet["sources"]
+        assert sheet["updated_at_utc"]
+        assert sheet["uncertainty"]

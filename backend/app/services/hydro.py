@@ -286,7 +286,8 @@ def load_hydro_params() -> dict[str, Any]:
         params = json.load(fh)
     # Sanidad mínima: todos los bloques que el motor necesita.
     for key in ("coeficientes_escorrentia", "capacidad_drenaje_mm_h",
-                "hidrograma_p4", "intercepcion_buzonetas",
+                "hidrograma_p4", "radio_exclusion_salida_p4_celdas",
+                "intercepcion_buzonetas",
                 "ingreso_secundario_fraccion", "almacenamiento_inicial_mm",
                 "infiltracion_mm_h", "propagacion",
                 "clases_profundidad_m", "hietograma_supuesto", "presets"):
@@ -597,6 +598,22 @@ def simulate_core(
 
     area = grid.area_m2
     p4_cells = grid.inlets.get("p4", np.empty(0, dtype=np.int64))
+    exclusion_radius_raw = float(
+        params["radio_exclusion_salida_p4_celdas"]["value"]
+    )
+    exclusion_radius_cells = int(exclusion_radius_raw)
+    if exclusion_radius_raw != exclusion_radius_cells or exclusion_radius_cells < 0:
+        raise ValueError("El radio de exclusion de salida de P4 debe ser un entero no negativo.")
+    p4_buffer_mask = np.zeros_like(grid.campus_mask)
+    for cell in p4_cells:
+        row, col = divmod(int(cell), grid.nx)
+        row_start = max(0, row - exclusion_radius_cells)
+        row_end = min(grid.ny, row + exclusion_radius_cells + 1)
+        col_start = max(0, col - exclusion_radius_cells)
+        col_end = min(grid.nx, col + exclusion_radius_cells + 1)
+        p4_buffer_mask[row_start:row_end, col_start:col_end] = True
+    outside_p4_buffer_mask = ~grid.campus_mask & p4_buffer_mask
+    outside_exit_mask = ~grid.campus_mask & ~p4_buffer_mask
     sec_cells = grid.inlets.get("secundario", np.empty(0, dtype=np.int64))
     if not secondary_inflow:
         sec_cells = np.empty(0, dtype=np.int64)
@@ -623,7 +640,7 @@ def simulate_core(
     runoff_c = grid.runoff_c
     blocked, open_mask = grid.blocked, grid.open_mask
     open_nbr_count = grid.open_nbr_count
-    outlet_mask = grid.outlet
+    outlet_mask = grid.outlet & ~outside_p4_buffer_mask
 
     mass_rain = mass_initial_storage = mass_infiltration = 0.0
     mass_inflow = mass_drain = mass_edge = mass_roof_lost = 0.0
@@ -637,6 +654,11 @@ def simulate_core(
     threshold_m = visible_m
     el_max = np.zeros(len(grid.elements), dtype=np.float64)
     el_first = np.zeros(len(grid.elements), dtype=np.int64)
+    el_first_depth = np.zeros(len(grid.elements), dtype=np.float64)
+    el_persistence_hours = np.zeros(len(grid.elements), dtype=np.int64)
+    persistence_threshold_m = (
+        float(params["reglas_preventivas_hidro"]["R-HID-03"]["depth_cm"]["value"]) / 100.0
+    )
     final_wet_area = 0.0
     class_ranges = {
         name: params["clases_profundidad_m"][name]["range"]
@@ -707,9 +729,9 @@ def simulate_core(
             mass_inflow += inflow_hour_m3 / n_sub
             mass_edge += _propagate(depth, grid.z_route, open_mask, outlet_mask,
                                     k, max_frac, edge_frac, area, storage=storage)
-            outside_depth = depth[~grid.campus_mask]
+            outside_depth = depth[outside_exit_mask]
             mass_edge += float(outside_depth.sum()) * area
-            depth[~grid.campus_mask] = 0.0
+            depth[outside_exit_mask] = 0.0
 
         for idx, element in enumerate(grid.elements):
             cells = element["cells"]
@@ -720,6 +742,9 @@ def simulate_core(
                 el_max[idx] = here
             if el_first[idx] == 0 and here >= threshold_m:
                 el_first[idx] = hour_idx
+                el_first_depth[idx] = here
+            if here >= persistence_threshold_m:
+                el_persistence_hours[idx] += 1
 
         wet = depth >= visible_m
         wet_area = float(wet.sum()) * area
@@ -751,6 +776,10 @@ def simulate_core(
             scope=element["scope"],
             max_depth_cm=round(float(el_max[idx]) * 100.0, 1),
             first_hour_affected=first if first > 0 else None,
+            first_hour_depth_cm=(
+                round(float(el_first_depth[idx]) * 100.0, 1) if first > 0 else None
+            ),
+            hours_with_water_above_threshold=int(el_persistence_hours[idx]),
         ))
 
     stored_m3 = float(depth.sum()) * area
@@ -768,6 +797,7 @@ def simulate_core(
         "p4_hydrograph_m3_h": p4_hourly_m3.tolist(),
         "p4_hydrograph_duration_h": duration_h,
         "p4_hydrograph_start_hour": rainfall_peak_index + 1,
+        "p4_exit_exclusion_cells": exclusion_radius_cells,
         "secondary_inflow": bool(secondary_inflow),
     })
 
@@ -797,6 +827,8 @@ def simulate_core(
         f"pico horario {p4_peak_m3_h:.1f} m³/h en {p4_cells.size} celdas; inicio h+"
         f"{rainfall_peak_index + 1} según el máximo de lluvia (h+1 si no llueve). SUPUESTO, "
         "escenario, no caudal medido.",
+        f"Las celdas externas dentro de {exclusion_radius_cells} celdas de P4 no son salida; "
+        "las demás celdas externas siguen contabilizadas como salida de borde. SUPUESTO.",
         f"Ingreso secundario por P1-P3 (Av. Juan Pablo II): "
         + (f"pico {sec_peak_m3_h:.1f} m³/h, fracción débil e incierto del total de P4."
            if secondary_inflow else "desactivado en esta corrida."),

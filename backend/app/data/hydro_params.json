@@ -31,6 +31,13 @@
     "source": "SUPUESTO",
     "justification": "Tope de subida por celda al rellenar microdepresiones para el enrutamiento. Valor ANTERIOR: null (sin tope, máx observado 2,63 m). Valor NUEVO: 0,5 m. Motivo: las 20 mayores subidas del relleno coinciden con los puntos reportados por el equipo (estacionamiento junto a CIDUNT, estadio, estacionamiento suroeste) y con el punto más bajo del campus; sin tope esas cuencas internas reales desaparecían y el agua se repartía en una lámina única. Con 0,5 m se conservan y el agua se empoza en ellas. El costo (máximos de 1,2 m en el evento 2023 y 2,0 m en el extremo hipotético) lo produce el ingreso externo sostenido y el drenaje obstruido declarados, no el tope. Ver datos_nuevos/analisis/DIAGNOSTICO_ACUMULACION.md."
   },
+  "radio_exclusion_salida_p4_celdas": {
+    "value": 3,
+    "unit": "celdas de malla (vecindad de 8)",
+    "range": [0, 5],
+    "source": "SUPUESTO",
+    "justification": "Retiene fuera del campus el entorno inmediato de P4 para no contabilizar como salida el ingreso de escenario."
+  },
   "almacenamiento_inicial_mm": {
     "unit": "mm",
     "_nota": "Abstracción inicial SUPUESTA por celda, se consume una vez por corrida antes de generar escorrentía; su volumen efectivo usa el coeficiente de escorrentía de la superficie.",
@@ -256,6 +263,46 @@
     "justification": "No existen registros horarios para los eventos de referencia: el acumulado diario sí es dato, pero la distribución horaria se SUPONE concentrada en 4 a 6 h con forma triangular.",
     "pesos_5h": [0.1, 0.22, 0.36, 0.22, 0.1],
     "pesos_6h": [0.08, 0.17, 0.25, 0.25, 0.17, 0.08]
+  },
+  "reglas_preventivas_hidro": {
+    "R-HID-01": {
+      "depth_cm": {
+        "value": 5,
+        "unit": "cm",
+        "source": "SUPUESTO",
+        "justification": "Umbral de comunicación experimental para mostrar accesos P1-P4 con lámina modelada."
+      }
+    },
+    "R-HID-02": {
+      "first_hour": {
+        "value": 1,
+        "unit": "hora desde el inicio del escenario",
+        "source": "SUPUESTO",
+        "justification": "Se activa cuando el modelo registra una primera hora de afectación dentro del horizonte."
+      }
+    },
+    "R-HID-03": {
+      "depth_cm": {
+        "value": 5,
+        "unit": "cm",
+        "source": "SUPUESTO",
+        "justification": "Umbral de lámina modelada para contar persistencia por elemento."
+      },
+      "hours": {
+        "value": 2,
+        "unit": "horas",
+        "source": "SUPUESTO",
+        "justification": "Duración acumulada experimental para mostrar persistencia en el mismo elemento."
+      }
+    },
+    "R-HID-04": {
+      "inactive_level": {
+        "value": "ninguno",
+        "unit": "nivel de escenario",
+        "source": "SUPUESTO",
+        "justification": "Cualquier nivel distinto de ninguno activa el ingreso externo experimental por P4."
+      }
+    }
   },
   "presets": [
     {

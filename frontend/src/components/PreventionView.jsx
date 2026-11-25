@@ -1,26 +1,16 @@
 import React, { useState } from "react";
-import { CheckCircle2, ChevronDown, AlertTriangle } from "lucide-react";
-import { humanPreventiveTitle } from "../utils/formatters";
-
-function humanExplanation(level) {
-  switch (level) {
-    case "INFORMATIVO":
-      return "Las condiciones evaluadas no superan los umbrales experimentales de lluvia. Mantén atención a los avisos oficiales.";
-    case "VIGILANCIA_PREVENTIVA":
-      return "La evaluación alcanza vigilancia preventiva por umbrales experimentales de lluvia y/o exposición espacial puntual. Evita sectores bajos y consulta avisos oficiales.";
-    case "ATENCION_PREVENTIVA":
-      return "Las reglas alcanzan atención preventiva por umbrales experimentales de lluvia y/o exposición espacial. Consulta alternativas académicas y avisos oficiales.";
-    case "PREPARACION_CRITICA":
-      return "Las reglas alcanzan preparación crítica bajo los parámetros evaluados; esto no representa una inundación observada ni una alerta real. Sigue las indicaciones de Defensa Civil UNT.";
-    default:
-      return "Evaluación preventiva informativa basada en reglas transparentes.";
-  }
-}
+import { ChevronDown, AlertTriangle } from "lucide-react";
+import PreventiveMessageCard from "./ui/PreventiveMessageCard";
 
 export default function PreventionView({
   evaluation,
+  weather,
+  simResult,
   evalSourceMode,
   onChangeEvalSource,
+  conditionsCatalog,
+  declaredConditions = [],
+  onToggleCondition,
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
 
@@ -29,10 +19,10 @@ export default function PreventionView({
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-[#101828] dark:text-white">
-            Análisis Preventivo
+            Análisis Preventivo y Avisos
           </h2>
           <p className="mt-1 text-sm text-[#475467] dark:text-slate-400">
-            Ficha explicable sobre qué significa el estado actual y qué datos lo respaldan.
+            Mensaje accionable (qué, dónde, cuándo, qué hacer y quién informa) con boletín descargable.
           </p>
         </div>
 
@@ -68,83 +58,88 @@ export default function PreventionView({
         </div>
       </div>
 
+      {/* Condiciones externas declarables (conectadas a GET /api/conditions) */}
+      {evalSourceMode === "live" && conditionsCatalog?.conditions?.length > 0 && (
+        <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-[#101828] dark:text-white">
+                Condiciones externas observadas (declaración manual sí/no)
+              </h3>
+              <p className="mt-0.5 text-xs text-[#475467] dark:text-slate-400">
+                No provienen de sensores: marca una condición solo si existe reporte verificado en calles o quebradas.
+              </p>
+            </div>
+            {declaredConditions.length > 0 && (
+              <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                {declaredConditions.length} activa(s)
+              </span>
+            )}
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-3">
+            {conditionsCatalog.conditions.map((cond) => {
+              const checked = declaredConditions.includes(cond.id);
+              return (
+                <label
+                  key={cond.id}
+                  className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-xs transition ${
+                    checked
+                      ? "border-[#2563EB] bg-blue-50/60 dark:border-blue-500 dark:bg-blue-950/30"
+                      : "border-[#E2E8F0] bg-[#F7F9FC] dark:border-slate-800 dark:bg-slate-900/50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggleCondition && onToggleCondition(cond.id)}
+                    className="mt-0.5 rounded accent-[#2563EB]"
+                  />
+                  <div>
+                    <div className="font-semibold text-[#101828] dark:text-white">{cond.name}</div>
+                    <div className="mt-0.5 text-[11px] text-[#475467] dark:text-slate-400">
+                      {cond.description}
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {!evaluation ? (
         <div className="rounded-xl border border-[#E2E8F0] bg-white p-8 text-center text-sm text-[#475467] dark:border-slate-800 dark:bg-[#0B1F33]">
           Sin evaluación disponible.
         </div>
       ) : (
         <div className="space-y-5">
-          {/* 1. Qué significa el resultado */}
-          <section
-            className="rounded-xl border border-l-4 border-[#E2E8F0] bg-white p-6 dark:border-slate-800 dark:bg-[#0B1F33]"
-            style={{ borderLeftColor: evaluation.level_color }}
-          >
-            <div className="text-xs font-medium text-[#475467] dark:text-slate-400">
-              1. Qué significa el resultado
-            </div>
-            <h3 className="mt-1 text-2xl font-bold text-[#101828] dark:text-white">
-              {humanPreventiveTitle(evaluation.preventive_level, evaluation.is_synthetic)}
+          {/* Mensaje preventivo estructurado + Boletín descargable/imprimible */}
+          <PreventiveMessageCard
+            evaluation={evaluation}
+            weather={weather}
+            simResult={simResult}
+          />
+
+          {/* Fuentes y limitaciones */}
+          <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-[#101828] dark:text-white">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              Fuentes, incertidumbre y límites
             </h3>
-            <p className="mt-2 text-[15px] leading-relaxed text-[#475467] dark:text-slate-300">
-              {humanExplanation(evaluation.preventive_level)}
+            <div className="mt-3 space-y-1.5 text-xs text-[#475467] dark:text-slate-400">
+              {evaluation.sources_and_timestamps.map((src, i) => (
+                <div key={i}>• {src}</div>
+              ))}
+              {evaluation.uncertainty_and_limits.map((u, i) => (
+                <div key={`u-${i}`}>• {u}</div>
+              ))}
+            </div>
+            <p className="mt-3 border-t border-[#E2E8F0] pt-2.5 text-xs font-medium text-[#101828] dark:border-slate-800 dark:text-slate-200">
+              {evaluation.legal_disclaimer}
             </p>
           </section>
 
-          {/* 2 y 3. Qué datos se utilizaron y qué instalaciones aparecen */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
-              <div className="text-xs font-semibold text-[#2563EB]">2. Qué datos se utilizaron</div>
-              <p className="mt-2 text-sm leading-relaxed text-[#101828] dark:text-slate-200">
-                {evaluation.hazard_assessment}
-              </p>
-            </section>
-
-            <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
-              <div className="text-xs font-semibold text-[#2563EB]">
-                3. Qué instalaciones aparecen en el escenario
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-[#101828] dark:text-slate-200">
-                {evaluation.exposure_assessment}
-              </p>
-            </section>
-          </div>
-
-          {/* 4 y 5. Orientaciones y Limitaciones */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
-              <h3 className="text-base font-semibold text-[#101828] dark:text-white">
-                4. Qué orientaciones consultar
-              </h3>
-              <ul className="mt-3 space-y-2 text-sm text-[#475467] dark:text-slate-300">
-                {evaluation.guidance.map((g, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    <span>{g}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
-              <h3 className="flex items-center gap-2 text-base font-semibold text-[#101828] dark:text-white">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                5. Fuentes y limitaciones
-              </h3>
-              <div className="mt-3 space-y-1.5 text-xs text-[#475467] dark:text-slate-400">
-                {evaluation.sources_and_timestamps.map((src, i) => (
-                  <div key={i}>• {src}</div>
-                ))}
-                {evaluation.uncertainty_and_limits.map((u, i) => (
-                  <div key={`u-${i}`}>• {u}</div>
-                ))}
-              </div>
-              <p className="mt-3 border-t border-[#E2E8F0] pt-2.5 text-xs font-medium text-[#101828] dark:border-slate-800 dark:text-slate-200">
-                {evaluation.legal_disclaimer}
-              </p>
-            </section>
-          </div>
-
-          {/* 6. Reglas técnicas desplegables */}
+          {/* Reglas técnicas desplegables */}
           <section className="rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33]">
             <button
               type="button"
@@ -153,7 +148,7 @@ export default function PreventionView({
               className="flex w-full items-center justify-between px-5 py-4 text-left"
             >
               <span className="text-sm font-semibold text-[#101828] dark:text-white">
-                6. Reglas técnicas activadas ({evaluation.rules_triggered.length}) · Código interno:{" "}
+                Reglas técnicas activadas ({evaluation.rules_triggered.length}) · Código interno:{" "}
                 <span className="font-mono text-xs text-[#475467]">{evaluation.preventive_level}</span>
               </span>
               <ChevronDown

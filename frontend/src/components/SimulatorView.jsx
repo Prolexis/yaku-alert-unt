@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Play, RotateCcw, ArrowRight, Clock, Building2, Info } from "lucide-react";
-import { humanPreventiveTitle } from "../utils/formatters";
+import { Play, RotateCcw, ArrowRight, Clock, Building2, Info, GitCompare } from "lucide-react";
+import { humanPreventiveTitle, normalizeText } from "../utils/formatters";
+import { runSimulation } from "../services/api";
 
 const DEFAULT_RESET_PARAMS = {
   scenario_id: "lluvia_intensa_fen",
@@ -32,6 +33,29 @@ export default function SimulatorView({
   const debounceRef = useRef(null);
   const [buildingSearch, setBuildingSearch] = useState("");
   const [demInfoOpen, setDemInfoOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareRows, setCompareRows] = useState([]);
+  const [compareLoading, setCompareLoading] = useState(false);
+
+  const handleLoadComparison = async () => {
+    const nextOpen = !compareOpen;
+    setCompareOpen(nextOpen);
+    if (!nextOpen || compareRows.length > 0) return;
+    setCompareLoading(true);
+    try {
+      const scenarios = [
+        { scenario_id: "lluvia_moderada", intensity_mm_h: 12, duration_hours: 3, drainage_obstructed: false, antecedent_soil_saturated: false, hazard_zone_id: "lluvia_moderada" },
+        { scenario_id: "lluvia_intensa_fen", intensity_mm_h: 28, duration_hours: 4, drainage_obstructed: true, antecedent_soil_saturated: false, hazard_zone_id: "lluvia_intensa_fen", synthetic_reach_m: 40 },
+        { scenario_id: "escenario_extremo_fen", intensity_mm_h: 45, duration_hours: 6, drainage_obstructed: true, antecedent_soil_saturated: true, hazard_zone_id: "escenario_extremo_fen", synthetic_reach_m: 80 },
+      ];
+      const results = await Promise.all(scenarios.map((s) => runSimulation(s)));
+      setCompareRows(results);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCompareLoading(false);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -103,7 +127,7 @@ export default function SimulatorView({
     .filter((b) => b.inside_hazard_zone)
     .filter((b) =>
       buildingSearch.trim()
-        ? b.name.toLowerCase().includes(buildingSearch.trim().toLowerCase())
+        ? normalizeText(displayBuildingName(b)).includes(normalizeText(buildingSearch.trim()))
         : true
     )
     .sort((a, b) => b.overlap_pct - a.overlap_pct);
@@ -526,6 +550,68 @@ export default function SimulatorView({
           </div>
         </section>
       )}
+      {/* Comparador de escenarios A / B / C */}
+      <section className="rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33]">
+        <button
+          type="button"
+          onClick={handleLoadComparison}
+          aria-expanded={compareOpen}
+          className="flex w-full items-center justify-between px-5 py-4 text-left"
+        >
+          <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#101828] dark:text-white">
+            <GitCompare className="h-4 w-4 text-[#2563EB]" />
+            Comparar escenarios experimentales (A vs B vs C)
+          </span>
+          <span className="text-xs font-medium text-[#2563EB]">
+            {compareOpen ? "Ocultar" : "Abrir comparador"}
+          </span>
+        </button>
+
+        {compareOpen && (
+          <div className="border-t border-[#E2E8F0] p-5 dark:border-slate-800">
+            {compareLoading ? (
+              <p className="text-xs text-[#475467]">Calculando comparación offline con Shapely...</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#F7F9FC] text-[#475467] dark:bg-slate-900 dark:text-slate-400">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Escenario</th>
+                      <th className="px-3 py-2 font-semibold">Intensidad</th>
+                      <th className="px-3 py-2 font-semibold">Duración</th>
+                      <th className="px-3 py-2 font-semibold">Acumulado</th>
+                      <th className="px-3 py-2 font-semibold">Edificios</th>
+                      <th className="px-3 py-2 font-semibold">Accesos</th>
+                      <th className="px-3 py-2 font-semibold">Resultado experimental</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-800">
+                    {compareRows.map((row) => (
+                      <tr key={row.simulation_id}>
+                        <td className="px-3 py-2.5 font-semibold text-[#101828] dark:text-white">
+                          {row.spatial_analysis.hazard_zone_name}
+                        </td>
+                        <td className="px-3 py-2.5 tabular-nums">{row.parameters.intensity_mm_h} mm/h</td>
+                        <td className="px-3 py-2.5 tabular-nums">{row.parameters.duration_hours} h</td>
+                        <td className="px-3 py-2.5 tabular-nums">{row.simulated_accumulated_mm} mm</td>
+                        <td className="px-3 py-2.5 font-bold tabular-nums">
+                          {row.spatial_analysis.total_exposed_buildings}
+                        </td>
+                        <td className="px-3 py-2.5 font-bold tabular-nums">
+                          {row.spatial_analysis.total_restricted_accesses}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {humanPreventiveTitle(row.preventive_evaluation.preventive_level, true)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

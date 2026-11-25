@@ -20,8 +20,14 @@ export function fetchCampusLayers() {
   return requestJson("/campus/layers");
 }
 
-export function fetchLiveEvaluation(offline = false) {
-  return requestJson(`/preventive/evaluate?offline=${offline ? "true" : "false"}`);
+export function fetchLiveEvaluation(offline = false, conditions = []) {
+  const params = new URLSearchParams({ offline: offline ? "true" : "false" });
+  conditions.forEach((c) => params.append("conditions", c));
+  return requestJson(`/preventive/evaluate?${params.toString()}`);
+}
+
+export function fetchConditionsCatalog() {
+  return requestJson("/conditions");
 }
 
 export function runSimulation(payload) {

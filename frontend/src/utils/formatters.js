@@ -1,3 +1,10 @@
+export function normalizeText(str) {
+  return String(str ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 export function formatLimaTime(isoString) {
   if (!isoString) return { local: "Sincronizando...", utc: "" };
   // Extract ISO part if string includes "(usando caché local verificada)"

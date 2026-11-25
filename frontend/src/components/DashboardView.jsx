@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ArrowRight, Map as MapIcon, BookOpen, Sliders, AlertCircle, Info } from "lucide-react";
 import PrecipitationChart from "./ui/PrecipitationChart";
 import SkeletonCard from "./ui/SkeletonCard";
+import FacultyLookupCard from "./ui/FacultyLookupCard";
 import { formatLimaTime, humanPreventiveTitle } from "../utils/formatters";
 
 function buildWeatherPhrase(summary) {
@@ -22,6 +23,9 @@ export default function DashboardView({
   weatherLoading,
   weatherError,
   liveEvaluation,
+  campusLayers,
+  simResult,
+  onLocateInMap,
   onNavigate,
   onRefresh,
 }) {
@@ -102,7 +106,15 @@ export default function DashboardView({
         )}
       </section>
 
-      {/* 2. Indicadores principales compactos */}
+      {/* 2. Explora tu campus */}
+      <FacultyLookupCard
+        campusLayers={campusLayers}
+        simResult={simResult}
+        onLocateInMap={onLocateInMap}
+        onNavigate={onNavigate}
+      />
+
+      {/* 3. Indicadores principales compactos */}
       {summary && (
         <section
           aria-label="Indicadores principales"

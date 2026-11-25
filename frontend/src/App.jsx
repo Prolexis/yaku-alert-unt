@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   fetchCampusLayers,
+  fetchConditionsCatalog,
   fetchLiveEvaluation,
   fetchProtocols,
   fetchWeather,
@@ -10,6 +11,7 @@ import Sidebar from "./components/ui/Sidebar";
 import TopHeader from "./components/ui/TopHeader";
 import DataStatusBanner from "./components/ui/DataStatusBanner";
 import HelpModal from "./components/ui/HelpModal";
+import YakuAssistantDrawer from "./components/ui/YakuAssistantDrawer";
 import DashboardView from "./components/DashboardView";
 import MonitoringView from "./components/MonitoringView";
 import CampusMapView from "./components/CampusMapView";
@@ -48,6 +50,8 @@ export default function App() {
 
   const [campusLayers, setCampusLayers] = useState(null);
   const [protocols, setProtocols] = useState(null);
+  const [conditionsCatalog, setConditionsCatalog] = useState(null);
+  const [declaredConditions, setDeclaredConditions] = useState([]);
   const [liveEvaluation, setLiveEvaluation] = useState(null);
 
   const [simParams, setSimParams] = useState(DEFAULT_SIM_PARAMS);
@@ -55,18 +59,24 @@ export default function App() {
   const [simLoading, setSimLoading] = useState(false);
   const [simError, setSimError] = useState("");
   const [lastSimAt, setLastSimAt] = useState("");
+  const [focusedBuildingId, setFocusedBuildingId] = useState("");
+
+  const handleLocateBuildingInMap = (buildingId) => {
+    setFocusedBuildingId(buildingId);
+    setActiveView("map");
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
-  const loadWeatherAndLiveEval = async (offlineFlag) => {
+  const loadWeatherAndLiveEval = async (offlineFlag, conds = declaredConditions) => {
     setWeatherLoading(true);
     setWeatherError("");
     try {
       const [wData, eData] = await Promise.all([
         fetchWeather(offlineFlag),
-        fetchLiveEvaluation(offlineFlag),
+        fetchLiveEvaluation(offlineFlag, conds),
       ]);
       setWeather(wData);
       setLiveEvaluation(eData);
@@ -75,6 +85,14 @@ export default function App() {
     } finally {
       setWeatherLoading(false);
     }
+  };
+
+  const handleToggleDeclaredCondition = (condId) => {
+    const next = declaredConditions.includes(condId)
+      ? declaredConditions.filter((id) => id !== condId)
+      : [...declaredConditions, condId];
+    setDeclaredConditions(next);
+    fetchLiveEvaluation(forceOffline, next).then(setLiveEvaluation).catch(console.error);
   };
 
   const handleRunSimulation = async (paramsToRun) => {
@@ -121,6 +139,7 @@ export default function App() {
     };
     fetchCampusLayers().then(setCampusLayers).catch(onFail);
     fetchProtocols().then(setProtocols).catch(onFail);
+    fetchConditionsCatalog().then(setConditionsCatalog).catch(console.error);
     runSimulation(DEFAULT_SIM_PARAMS).then(setSimResult).catch(onFail);
   }, []);
 
@@ -185,7 +204,9 @@ export default function App() {
               weatherLoading={weatherLoading}
               weatherError={weatherError}
               liveEvaluation={liveEvaluation}
+              campusLayers={campusLayers}
               simResult={simResult}
+              onLocateInMap={handleLocateBuildingInMap}
               onNavigate={setActiveView}
               onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
             />
@@ -208,6 +229,8 @@ export default function App() {
               simParams={simParams}
               onChangeSimParams={setSimParams}
               simResult={simResult}
+              focusedBuildingId={focusedBuildingId}
+              onSelectBuilding={setFocusedBuildingId}
               onRunSimulation={handleRunSimulation}
               onNavigate={setActiveView}
             />
@@ -216,8 +239,13 @@ export default function App() {
           {activeView === "prevention" && (
             <PreventionView
               evaluation={currentEvaluation}
+              weather={weather}
+              simResult={simResult}
               evalSourceMode={evalSourceMode}
               onChangeEvalSource={setEvalSourceMode}
+              conditionsCatalog={conditionsCatalog}
+              declaredConditions={declaredConditions}
+              onToggleCondition={handleToggleDeclaredCondition}
             />
           )}
 
@@ -246,6 +274,15 @@ export default function App() {
       </div>
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <YakuAssistantDrawer
+        weather={weather}
+        campusLayers={campusLayers}
+        simResult={simResult}
+        liveEvaluation={liveEvaluation}
+        onLocateInMap={handleLocateBuildingInMap}
+        onNavigate={setActiveView}
+        onRunQuickSim={() => handleRunSimulation(DEFAULT_SIM_PARAMS)}
+      />
     </div>
   );
 }

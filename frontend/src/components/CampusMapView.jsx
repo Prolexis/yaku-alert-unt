@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { Layers, MapPin, ShieldAlert, Building2, Navigation, ArrowRight, WifiOff } from "lucide-react";
+import { normalizeText } from "../utils/formatters";
+import { buildCampusCatalog, CAMPUS_CATEGORIES } from "../utils/campusCatalog";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -48,6 +50,8 @@ export default function CampusMapView({
   simParams,
   onChangeSimParams,
   simResult,
+  focusedBuildingId,
+  onSelectBuilding,
   onRunSimulation,
   onNavigate,
 }) {
@@ -55,6 +59,7 @@ export default function CampusMapView({
   const mapInstanceRef = useRef(null);
   const baseGroupRef = useRef(null);
   const overlayGroupRef = useRef(null);
+  const focusLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const tileErrorsRef = useRef(0);
   const fittedRef = useRef(false);
@@ -66,8 +71,14 @@ export default function CampusMapView({
   const [legendOpen, setLegendOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [buildingFilter, setBuildingFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [onlyExposedFilter, setOnlyExposedFilter] = useState(false);
   const [techInfoOpen, setTechInfoOpen] = useState(false);
+
+  const campusCatalog = useMemo(
+    () => buildCampusCatalog(campusLayers, simResult),
+    [campusLayers, simResult]
+  );
   const [visibleLayers, setVisibleLayers] = useState({
     edificios: true,
     accesos: true,
@@ -105,6 +116,65 @@ export default function CampusMapView({
       tileLayerRef.current = null;
     };
   }, []);
+
+  // Enfocar instalación seleccionada desde "Explora tu campus" o lista lateral (Polygon o Point)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !campusLayers) return;
+    if (focusLayerRef.current) {
+      map.removeLayer(focusLayerRef.current);
+      focusLayerRef.current = null;
+    }
+    if (!focusedBuildingId) return;
+    const feat = (campusLayers.campus?.features || []).find(
+      (f) => f.properties?.id === focusedBuildingId
+    );
+    if (!feat) return;
+
+    const catalogItem = campusCatalog.find((c) => c.id === focusedBuildingId);
+    const title = catalogItem?.displayLabel || displayBuildingName(feat.properties);
+    const subtitle = catalogItem
+      ? `${catalogItem.typeLabel} · ${catalogItem.verificationStatus}`
+      : "Instalación seleccionada";
+
+    if (feat.geometry?.type === "Point") {
+      const [lon, lat] = feat.geometry.coordinates;
+      const marker = L.circleMarker([lat, lon], {
+        radius: 11,
+        color: "#1D4ED8",
+        weight: 3,
+        fillColor: "#2563EB",
+        fillOpacity: 0.35,
+      })
+        .bindPopup(
+          `<div><strong>${esc(title)}</strong><br/><span class="text-[11px]">${esc(subtitle)}</span>${sourceLine(
+            feat.properties
+          )}</div>`,
+          { className: "yaku-popup" }
+        )
+        .addTo(map);
+      focusLayerRef.current = marker;
+      map.setView([lat, lon], 18);
+      marker.openPopup();
+    } else {
+      const layer = L.geoJSON(feat, {
+        style: { color: "#1D4ED8", weight: 4, fillColor: "#2563EB", fillOpacity: 0.25 },
+      })
+        .bindPopup(
+          `<div><strong>${esc(title)}</strong><br/><span class="text-[11px]">${esc(subtitle)}</span>${sourceLine(
+            feat.properties
+          )}</div>`,
+          { className: "yaku-popup" }
+        )
+        .addTo(map);
+      focusLayerRef.current = layer;
+      const bounds = layer.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [80, 80], maxZoom: 18 });
+        layer.openPopup();
+      }
+    }
+  }, [focusedBuildingId, campusLayers, campusCatalog]);
 
   // Mapa base seleccionable; si los mosaicos fallan (sin internet) se informa y quedan las capas vectoriales
   useEffect(() => {
@@ -609,11 +679,11 @@ export default function CampusMapView({
                   </div>
                 </div>
 
-                {/* Búsqueda y filtro */}
+                {/* Búsqueda universal y filtro por tipo */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-semibold text-[#101828] dark:text-white">
-                      Instalaciones
+                      Explora tu campus
                     </span>
                     <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[#475467] dark:text-slate-300">
                       <input
@@ -622,51 +692,80 @@ export default function CampusMapView({
                         onChange={(e) => setOnlyExposedFilter(e.target.checked)}
                         className="rounded accent-[#2563EB]"
                       />
-                      Solo expuestos
+                      Solo en zona
                     </label>
                   </div>
+                  <select
+                    aria-label="Filtrar instalaciones del mapa por tipo"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-2.5 py-1.5 text-xs text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+                  >
+                    {CAMPUS_CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="search"
                     value={buildingFilter}
                     onChange={(e) => setBuildingFilter(e.target.value)}
-                    placeholder="Buscar facultad o edificio..."
-                    aria-label="Buscar facultad o edificio"
+                    placeholder="Buscar facultad, biblioteca, puerta, cancha..."
+                    aria-label="Buscar instalación en el mapa"
                     className="w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 py-2 text-xs text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
                   />
 
                   <div className="max-h-52 space-y-1.5 overflow-y-auto pr-1">
-                    {[...simResult.spatial_analysis.exposed_buildings]
-                      .filter((b) => (onlyExposedFilter ? isExposedLevel(b.exposure_level) : true))
-                      .filter((b) => isExposedLevel(b.exposure_level) || !isUnnamed(b.name))
-                      .filter((b) =>
+                    {campusCatalog
+                      .filter((item) => (categoryFilter === "all" ? true : item.typeId === categoryFilter))
+                      .filter((item) =>
+                        onlyExposedFilter ? Boolean(item.exposure?.inside_hazard_zone) : true
+                      )
+                      .filter((item) =>
                         buildingFilter.trim()
-                          ? b.name.toLowerCase().includes(buildingFilter.trim().toLowerCase())
+                          ? item.searchText.includes(normalizeText(buildingFilter.trim()))
                           : true
                       )
-                      .sort((a, b) => b.overlap_pct - a.overlap_pct)
-                      .map((b) => (
-                        <div
-                          key={b.id}
-                          className="flex items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2 text-xs dark:border-slate-800"
+                      .slice(0, 60)
+                      .map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => onSelectBuilding && onSelectBuilding(item.id)}
+                          className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-xs transition hover:border-[#2563EB] ${
+                            focusedBuildingId === item.id
+                              ? "border-[#2563EB] bg-blue-50/70 dark:bg-blue-950/30"
+                              : "border-[#E2E8F0] dark:border-slate-800"
+                          }`}
                         >
-                          <span className="truncate font-medium text-[#101828] dark:text-slate-200">
-                            {displayBuildingName(b)}
-                          </span>
+                          <div className="min-w-0">
+                            <div className="truncate font-medium text-[#101828] dark:text-slate-200">
+                              {item.displayLabel}
+                            </div>
+                            <div className="text-[10px] text-[#475467] dark:text-slate-400">
+                              {item.typeLabel} · {item.verificationStatus}
+                            </div>
+                          </div>
                           <span className="shrink-0 tabular-nums text-[#475467] dark:text-slate-400">
-                            {isExposedLevel(b.exposure_level) ? (
-                              <span
-                                className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
-                                style={{ background: LEVELS[b.exposure_level].color }}
-                              >
-                                {LEVELS[b.exposure_level].label}
-                              </span>
-                            ) : b.exposure_level === "marginal" ? (
-                              "Contacto marginal"
+                            {item.exposure ? (
+                              isExposedLevel(item.exposure.exposure_level) ? (
+                                <span
+                                  className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                  style={{ background: LEVELS[item.exposure.exposure_level].color }}
+                                >
+                                  {LEVELS[item.exposure.exposure_level].label}
+                                </span>
+                              ) : item.exposure.inside_hazard_zone ? (
+                                "En zona"
+                              ) : (
+                                "Fuera"
+                              )
                             ) : (
-                              "Fuera"
+                              "N/D"
                             )}
                           </span>
-                        </div>
+                        </button>
                       ))}
                   </div>
                 </div>

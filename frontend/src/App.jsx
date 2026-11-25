@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   fetchCampusLayers,
+  fetchConditions,
   fetchLiveEvaluation,
   fetchProtocols,
   fetchWeather,
@@ -25,6 +26,7 @@ const DEFAULT_SIM_PARAMS = {
   antecedent_soil_saturated: false,
   hazard_zone_id: "lluvia_intensa_fen",
   synthetic_reach_m: 40,
+  external_conditions: [],
 };
 
 export default function App() {
@@ -48,6 +50,8 @@ export default function App() {
 
   const [campusLayers, setCampusLayers] = useState(null);
   const [protocols, setProtocols] = useState(null);
+  // Catálogo de condiciones externas (escenario D). Si el backend es anterior y no lo tiene, queda null y D se oculta.
+  const [conditionsCatalog, setConditionsCatalog] = useState(null);
   const [liveEvaluation, setLiveEvaluation] = useState(null);
 
   const [simParams, setSimParams] = useState(DEFAULT_SIM_PARAMS);
@@ -121,6 +125,9 @@ export default function App() {
     };
     fetchCampusLayers().then(setCampusLayers).catch(onFail);
     fetchProtocols().then(setProtocols).catch(onFail);
+    fetchConditions()
+      .then(setConditionsCatalog)
+      .catch((err) => console.warn("Condiciones externas no disponibles:", err));
     runSimulation(DEFAULT_SIM_PARAMS).then(setSimResult).catch(onFail);
   }, []);
 
@@ -205,6 +212,7 @@ export default function App() {
           {activeView === "map" && (
             <CampusMapView
               campusLayers={campusLayers}
+              conditionsCatalog={conditionsCatalog}
               simParams={simParams}
               onChangeSimParams={setSimParams}
               simResult={simResult}
@@ -223,6 +231,7 @@ export default function App() {
 
           {activeView === "simulator" && (
             <SimulatorView
+              conditionsCatalog={conditionsCatalog}
               simParams={simParams}
               onChangeSimParams={setSimParams}
               simResult={simResult}

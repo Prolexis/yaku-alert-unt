@@ -12,7 +12,11 @@ import numpy as np
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.hydro import load_terrain_grid, simulate_core
+from app.services.hydro import (
+    _triangular_hydrograph,
+    load_terrain_grid,
+    simulate_core,
+)
 
 client = TestClient(app)
 
@@ -35,6 +39,34 @@ def _p4_projection(depth: np.ndarray) -> np.ndarray:
 def _p4_only_run(inflow_p4: str = "alto"):
     """Corrida de 48 h SIN lluvia: todo el agua viene de la Puerta 4."""
     return simulate_core([0.0] * 48, drainage_state="normal", inflow_p4=inflow_p4)
+
+
+def test_p4_hydrograph_is_triangular_and_starts_at_rainfall_peak():
+    hydrograph = _triangular_hydrograph(
+        total_volume_m3=2800.0,
+        duration_h=4,
+        start_hour_index=2,
+        hours=8,
+    )
+    assert np.allclose(hydrograph, [0.0, 0.0, 350.0, 1050.0, 1050.0, 350.0, 0.0, 0.0])
+    assert float(hydrograph.sum()) == 2800.0
+
+    rainfall = [0.0, 5.0, 20.0, 5.0] + [0.0] * 44
+    response, _ = simulate_core(
+        rainfall,
+        drainage_state="normal",
+        inflow_p4="alto",
+    )
+    no_inflow, _ = simulate_core(
+        rainfall,
+        drainage_state="normal",
+        inflow_p4="ninguno",
+    )
+    assert response.frames[0].wet_area_m2 == no_inflow.frames[0].wet_area_m2
+    assert response.frames[1].wet_area_m2 == no_inflow.frames[1].wet_area_m2
+    assert response.frames[2].wet_area_m2 > no_inflow.frames[2].wet_area_m2
+    assert response.parameters["inflow_p4_m3_h_total"] == 1050.0
+    assert response.summary["mass_balance_m3"]["entrada_ingreso"] == 2800.0
 
 
 # --- 1. conservación de masa ---------------------------------------------------

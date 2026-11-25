@@ -286,7 +286,7 @@ def load_hydro_params() -> dict[str, Any]:
         params = json.load(fh)
     # Sanidad mínima: todos los bloques que el motor necesita.
     for key in ("coeficientes_escorrentia", "capacidad_drenaje_mm_h",
-                "ingreso_p4_m3_h_por_celda", "intercepcion_buzonetas",
+                "hidrograma_p4", "intercepcion_buzonetas",
                 "ingreso_secundario_fraccion", "almacenamiento_inicial_mm",
                 "infiltracion_mm_h", "propagacion",
                 "clases_profundidad_m", "hietograma_supuesto", "presets"):
@@ -458,6 +458,30 @@ def run_hydro_simulation(
     )[0]
 
 
+def _triangular_hydrograph(
+    total_volume_m3: float,
+    duration_h: int,
+    start_hour_index: int,
+    hours: int,
+) -> np.ndarray:
+    """Return hourly volume rates for a normalized triangular event."""
+    if duration_h < 2:
+        raise ValueError("La duración del hidrograma P4 debe ser de al menos 2 horas.")
+    if total_volume_m3 <= 0.0:
+        return np.zeros(hours, dtype=np.float64)
+
+    midpoints = (np.arange(duration_h, dtype=np.float64) + 0.5) / duration_h
+    weights = 1.0 - np.abs(2.0 * midpoints - 1.0)
+    weights /= weights.sum()
+    result = np.zeros(hours, dtype=np.float64)
+    event_end = min(start_hour_index + duration_h, hours)
+    if start_hour_index < hours:
+        result[start_hour_index:event_end] = (
+            total_volume_m3 * weights[:event_end - start_hour_index]
+        )
+    return result
+
+
 def simulate_core(
     rainfall_mm_h: Sequence[float],
     drainage_state: str = "normal",
@@ -484,7 +508,8 @@ def simulate_core(
 
     if drainage_state not in params["capacidad_drenaje_mm_h"]:
         raise ValueError(f"Estado de drenaje desconocido: {drainage_state}")
-    if inflow_p4 not in params["ingreso_p4_m3_h_por_celda"]:
+    hydrograph_cfg = params["hidrograma_p4"]
+    if inflow_p4 not in hydrograph_cfg["volumen_total_m3"]:
         raise ValueError(f"Nivel de ingreso desconocido: {inflow_p4}")
 
     series = [float(v) for v in rainfall_mm_h]
@@ -492,6 +517,17 @@ def simulate_core(
         raise ValueError("La serie de lluvia no puede estar vacía.")
     if any(v < 0.0 for v in series):
         raise ValueError("La lluvia no puede ser negativa.")
+
+    duration_cfg = hydrograph_cfg["duracion_h"]
+    duration_raw = float(duration_cfg["value"])
+    duration_h = int(duration_raw)
+    duration_min, duration_max = duration_cfg["range"]
+    if (
+        duration_raw != duration_h
+        or duration_h < int(duration_min)
+        or duration_h > int(duration_max)
+    ):
+        raise ValueError("La duracion del hidrograma P4 debe ser entera y estar entre 3 y 6 horas.")
 
     prop = params["propagacion"]
     n_sub = int(prop["subpasos_por_hora"]["value"])
@@ -565,12 +601,21 @@ def simulate_core(
     if not secondary_inflow:
         sec_cells = np.empty(0, dtype=np.int64)
 
-    level_m3_h = float(params["ingreso_p4_m3_h_por_celda"][inflow_p4]["value"])
     intercepted = float(params["intercepcion_buzonetas"]["value"])
-    p4_per_cell = level_m3_h * (1.0 - intercepted)
-    p4_total = p4_per_cell * p4_cells.size
-    sec_total = p4_total * float(params["ingreso_secundario_fraccion"]["value"])
-    sec_per_cell = (sec_total / sec_cells.size) if sec_cells.size else 0.0
+    p4_volume_gross = float(
+        hydrograph_cfg["volumen_total_m3"][inflow_p4]["value"]
+    )
+    rainfall_peak_index = int(np.argmax(series)) if max(series) > 0.0 else 0
+    p4_hourly_m3 = _triangular_hydrograph(
+        p4_volume_gross * (1.0 - intercepted) if p4_cells.size else 0.0,
+        duration_h,
+        rainfall_peak_index,
+        len(series),
+    )
+    p4_peak_m3_h = float(p4_hourly_m3.max())
+    p4_volume_delivered_m3 = float(p4_hourly_m3.sum())
+    secondary_fraction = float(params["ingreso_secundario_fraccion"]["value"])
+    sec_peak_m3_h = p4_peak_m3_h * secondary_fraction
 
     depth = np.zeros((grid.ny, grid.nx), dtype=np.float64)
     depth_flat = depth.reshape(-1)
@@ -619,9 +664,19 @@ def simulate_core(
         input_add = runoff * open_mask + roof_add       # 0 en celdas bloqueadas
         input_sub = input_add / n_sub
 
-        p4_step = (p4_per_cell / n_sub / area) if p4_cells.size and p4_per_cell > 0 else 0.0
-        sec_step = (sec_per_cell / n_sub / area) if sec_cells.size and sec_per_cell > 0 else 0.0
-        inflow_hour_m3 = p4_per_cell * p4_cells.size + sec_per_cell * sec_cells.size
+        p4_hour_m3 = float(p4_hourly_m3[hour_idx - 1])
+        p4_step = (
+            p4_hour_m3 / p4_cells.size / n_sub / area
+            if p4_cells.size and p4_hour_m3 > 0.0 else 0.0
+        )
+        sec_hour_m3 = p4_hour_m3 * secondary_fraction
+        sec_step = (
+            sec_hour_m3 / sec_cells.size / n_sub / area
+            if sec_cells.size and sec_hour_m3 > 0.0 else 0.0
+        )
+        inflow_hour_m3 = p4_hour_m3 + (
+            sec_hour_m3 if sec_cells.size else 0.0
+        )
 
         for _ in range(n_sub):
             depth += input_sub
@@ -710,6 +765,9 @@ def simulate_core(
         "rainfall_mm_h": series,
         "drainage_state": drainage_state,
         "inflow_p4": inflow_p4,
+        "p4_hydrograph_m3_h": p4_hourly_m3.tolist(),
+        "p4_hydrograph_duration_h": duration_h,
+        "p4_hydrograph_start_hour": rainfall_peak_index + 1,
         "secondary_inflow": bool(secondary_inflow),
     })
 
@@ -734,11 +792,13 @@ def simulate_core(
         f"de {drain_mm_h:g} mm/h SUPUESTA solo en vías y estacionamientos.",
         "El almacenamiento inicial por superficie y la infiltración de áreas verdes son "
         "SUPUESTOS; no hay mediciones locales. Las clases mixtas no reciben infiltración.",
-        f"Ingreso por la Puerta 4 en nivel '{inflow_p4}': {p4_total:.1f} m³/h repartidos en "
-        f"{p4_cells.size} celdas de ingreso (ya descontada la fracción de las buzonetas). "
-        "Es un parámetro experimental graduable, nunca un caudal medido de la quebrada.",
+        f"Hidrograma triangular P4 '{inflow_p4}': volumen configurado {p4_volume_gross:.1f} m³ "
+        f"antes de buzonetas, {p4_volume_delivered_m3:.1f} m³ netos en el horizonte, "
+        f"pico horario {p4_peak_m3_h:.1f} m³/h en {p4_cells.size} celdas; inicio h+"
+        f"{rainfall_peak_index + 1} según el máximo de lluvia (h+1 si no llueve). SUPUESTO, "
+        "escenario, no caudal medido.",
         f"Ingreso secundario por P1-P3 (Av. Juan Pablo II): "
-        + (f"{sec_total:.1f} m³/h, fracción débil e incierto del total de P4."
+        + (f"pico {sec_peak_m3_h:.1f} m³/h, fracción débil e incierto del total de P4."
            if secondary_inflow else "desactivado en esta corrida."),
         (
             "Sumideros locales reportados ACTIVOS (use_reported_sinks=true, SUPUESTO): "
@@ -795,10 +855,13 @@ def simulate_core(
             "drainage_state": drainage_state,
             "drainage_capacity_mm_h": drain_mm_h,
             "inflow_p4": inflow_p4,
-            "inflow_p4_m3_h_total": round(p4_total, 2),
+            "inflow_p4_m3_h_total": round(p4_peak_m3_h, 2),
             "inflow_p4_cells": int(p4_cells.size),
             "secondary_inflow": bool(secondary_inflow and sec_cells.size > 0),
-            "secondary_inflow_m3_h_total": round(sec_total, 2) if secondary_inflow else 0.0,
+            "secondary_inflow_m3_h_total": (
+                round(sec_peak_m3_h, 2)
+                if secondary_inflow and sec_cells.size else 0.0
+            ),
             "secondary_inflow_cells": int(sec_cells.size),
             "substeps_per_hour": n_sub,
             "visible_threshold_cm": round(visible_m * 100.0, 1),

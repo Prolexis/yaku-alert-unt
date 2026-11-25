@@ -122,36 +122,45 @@
       "justification": "HIPÓTESIS NO VERIFICADA de pendientes de drenaje deficientes en la obra de vías; se expone solo como estado opcional marcado como hipótesis."
     }
   },
-  "ingreso_p4_m3_h_por_celda": {
-    "unit": "m³/h por celda de ingreso",
-    "_nota": "Ingreso externo por la Puerta 4 (Av. Jesús de Nazareth). NO ES EL CAUDAL DE LA QUEBRADA SAN ILDEFONSO: es un parámetro experimental graduable (ninguno/bajo/medio/alto) porque los caudales publicados son discrepantes.",
-    "ninguno": {
-      "value": 0.0,
-      "unit": "m³/h por celda de ingreso",
-      "range": [0.0, 0.0],
+  "hidrograma_p4": {
+    "_nota": "Hidrograma triangular de ingreso externo por Puerta 4, SUPUESTO exploratorio (no caudal medido). Volúmenes configurados antes de descontar la intercepción supuesta de buzonetas.",
+    "duracion_h": {
+      "value": 4,
+      "unit": "h",
+      "range": [3, 6],
       "source": "SUPUESTO",
-      "justification": "Sin ingreso externo: solo actúa la lluvia sobre la cuadrícula."
+      "justification": "Duración de pulso exploratorio, configurable entre 3 y 6 horas; sin aforos locales."
     },
-    "bajo": {
-      "value": 6.0,
-      "unit": "m³/h por celda de ingreso",
-      "range": [0.0, 300.0],
-      "source": "SUPUESTO",
-      "justification": "Nivel BAJO de ingreso experimental por celda; no corresponde a ningún caudal medido de la quebrada."
-    },
-    "medio": {
-      "value": 20.0,
-      "unit": "m³/h por celda de ingreso",
-      "range": [0.0, 300.0],
-      "source": "SUPUESTO",
-      "justification": "Nivel MEDIO de ingreso experimental por celda; no corresponde a ningún caudal medido de la quebrada."
-    },
-    "alto": {
-      "value": 50.0,
-      "unit": "m³/h por celda de ingreso",
-      "range": [0.0, 300.0],
-      "source": "SUPUESTO",
-      "justification": "Nivel ALTO de ingreso experimental por celda; no corresponde a ningún caudal medido de la quebrada."
+    "volumen_total_m3": {
+      "unit": "m³ por evento",
+      "ninguno": {
+        "value": 0.0,
+        "unit": "m³ por evento",
+        "range": [0.0, 0.0],
+        "source": "SUPUESTO",
+        "justification": "Sin ingreso externo: solo actúa la lluvia sobre la cuadrícula."
+      },
+      "bajo": {
+        "value": 800.0,
+        "unit": "m³ por evento",
+        "range": [0.0, 5000.0],
+        "source": "SUPUESTO",
+        "justification": "Volumen exploratorio bajo, sin aforo ni asociación a un caudal medido."
+      },
+      "medio": {
+        "value": 2000.0,
+        "unit": "m³ por evento",
+        "range": [0.0, 10000.0],
+        "source": "SUPUESTO",
+        "justification": "Volumen exploratorio medio, sin aforo ni asociación a un caudal medido."
+      },
+      "alto": {
+        "value": 4000.0,
+        "unit": "m³ por evento",
+        "range": [0.0, 20000.0],
+        "source": "SUPUESTO",
+        "justification": "Orden de magnitud supuesto: con 30 % de intercepción y 4 h, el volumen neto de 2800 m³ produce un pico triangular teórico de 1400 m³/h; NO es un caudal medido."
+      }
     }
   },
   "intercepcion_buzonetas": {

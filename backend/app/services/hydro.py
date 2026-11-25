@@ -34,7 +34,8 @@ from typing import Any, Sequence
 
 import numpy as np
 import shapely
-from shapely.geometry import mapping
+from shapely.geometry import mapping, shape
+from shapely.ops import unary_union
 
 from app.config import DATA_DIR
 from app.models import (
@@ -47,6 +48,7 @@ from app.models import (
 
 TERRAIN_PATH = DATA_DIR / "terrain_grid.json"
 HYDRO_PARAMS_PATH = DATA_DIR / "hydro_params.json"
+CAMPUS_PATH = DATA_DIR / "campus_unt.geojson"
 
 DEPTH_CLASS_ORDER = ("leve", "moderada", "alta")
 ELEVATION_MIN_M = -1.0  # cota mínima admitida al cargar el DEM (control de sanidad)
@@ -78,6 +80,21 @@ def _open_neighbor_count(open_mask: np.ndarray,
     for s_src, s_nbr in slices:
         count[s_nbr] += open_mask[s_src].astype(np.int16)
     return count
+
+
+@lru_cache(maxsize=1)
+def _load_campus_perimeter():
+    with CAMPUS_PATH.open("r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    perimeters = [
+        shape(feature["geometry"])
+        for feature in data.get("features", [])
+        if feature.get("properties", {}).get("category") == "perimetro_campus"
+        and feature.get("geometry")
+    ]
+    if not perimeters:
+        raise ValueError("campus_unt.geojson no contiene un perímetro del campus.")
+    return unary_union(perimeters)
 
 
 def _distribute_roof(roof: np.ndarray, blocked: np.ndarray, open_mask: np.ndarray,
@@ -167,6 +184,12 @@ class TerrainGrid:
         self.metadata = raw["metadata"]
         self.bounds = [float(v) for v in raw.get("bounds", [])]
         self.classes = list(raw["surface_classes"])
+        x = self.origin_lon + (np.arange(self.nx) + 0.5) * self.dx_deg
+        y = self.origin_lat - (np.arange(self.ny) + 0.5) * self.dy_deg
+        x_grid, y_grid = np.meshgrid(x, y)
+        self.campus_mask = shapely.contains_xy(
+            _load_campus_perimeter(), x_grid, y_grid
+        )
 
         self.z = np.asarray(raw["elevation_m"], dtype=np.float64).reshape(self.ny, self.nx)
         if not np.isfinite(self.z).all() or float(self.z.min()) < ELEVATION_MIN_M:
@@ -539,7 +562,9 @@ def simulate_core(
     }
 
     for hour_idx, rain_mm in enumerate(series, start=1):
-        runoff = (rain_mm / 1000.0) * runoff_c          # m de lámina generada
+        runoff = (
+            (rain_mm / 1000.0) * runoff_c * grid.campus_mask
+        )                                               # sin lluvia fuera del campus
         mass_rain += float(runoff.sum()) * area
 
         roof = runoff * blocked
@@ -571,6 +596,9 @@ def simulate_core(
             mass_inflow += inflow_hour_m3 / n_sub
             mass_edge += _propagate(depth, grid.z_route, open_mask, outlet_mask,
                                     k, max_frac, edge_frac, area, storage=storage)
+            outside_depth = depth[~grid.campus_mask]
+            mass_edge += float(outside_depth.sum()) * area
+            depth[~grid.campus_mask] = 0.0
 
         for idx, element in enumerate(grid.elements):
             cells = element["cells"]

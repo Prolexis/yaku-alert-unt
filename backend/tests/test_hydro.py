@@ -61,6 +61,22 @@ def test_hydro_no_rain_and_no_inflow_means_no_water():
     assert mb["entrada_lluvia"] == 0.0 and mb["entrada_ingreso"] == 0.0
 
 
+def test_hydro_never_retains_water_outside_campus_perimeter():
+    grid = load_terrain_grid()
+    hourly = []
+    _, depth = simulate_core(
+        [0.0, 0.0, 8.0, 15.0, 4.0] + [0.0] * 43,
+        drainage_state="pendiente_deficiente",
+        inflow_p4="alto",
+        secondary_inflow=True,
+        grid=grid,
+        hourly_out=hourly,
+    )
+    outside = ~grid.campus_mask
+    assert not np.any(depth[outside] > 0.0)
+    assert all(not np.any(frame[outside] > 0.0) for frame in hourly)
+
+
 # --- 3. monotonicidad: el agua de P4 baja hacia el suroeste --------------------
 def test_hydro_flow_moves_downslope_from_p4_to_southwest():
     _, depth = _p4_only_run()

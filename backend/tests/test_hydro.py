@@ -44,13 +44,32 @@ def test_hydro_mass_balance_conserves_water():
                             inflow_p4="medio", secondary_inflow=True)
     mb = resp.summary["mass_balance_m3"]
     entrada = mb["entrada_lluvia"] + mb["entrada_ingreso"]
-    salida = mb["salida_drenaje"] + mb["salida_borde"] + mb["perdida_tejados_sin_vecino"]
+    salida = (
+        mb["perdida_almacenamiento_inicial"]
+        + mb["salida_infiltracion"]
+        + mb["salida_drenaje"]
+        + mb["salida_borde"]
+        + mb["perdida_tejados_sin_vecino"]
+    )
     assert abs(entrada - salida - mb["almacenada"]) < 0.01
     assert abs(mb["residual"]) < 0.01
     assert entrada > 0.0  # la prueba tiene sentido solo si entró agua
 
 
 # --- 2. sin lluvia ni ingreso -> sin agua --------------------------------------
+def test_hydro_surface_losses_are_reported_and_conserve_mass():
+    response, _ = simulate_core(
+        [0.0, 10.0, 20.0, 5.0] + [0.0] * 44,
+        drainage_state="normal",
+        inflow_p4="ninguno",
+    )
+    balance = response.summary["mass_balance_m3"]
+    assert balance["perdida_almacenamiento_inicial"] > 0.0
+    assert balance["salida_infiltracion"] > 0.0
+    assert balance["salida_drenaje"] > 0.0
+    assert abs(balance["residual"]) < 0.01
+
+
 def test_hydro_no_rain_and_no_inflow_means_no_water():
     resp, depth = simulate_core([0.0] * 48, drainage_state="normal",
                                 inflow_p4="ninguno")

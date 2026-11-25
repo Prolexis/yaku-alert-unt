@@ -287,7 +287,8 @@ def load_hydro_params() -> dict[str, Any]:
     # Sanidad mínima: todos los bloques que el motor necesita.
     for key in ("coeficientes_escorrentia", "capacidad_drenaje_mm_h",
                 "ingreso_p4_m3_h_por_celda", "intercepcion_buzonetas",
-                "ingreso_secundario_fraccion", "propagacion",
+                "ingreso_secundario_fraccion", "almacenamiento_inicial_mm",
+                "infiltracion_mm_h", "propagacion",
                 "clases_profundidad_m", "hietograma_supuesto", "presets"):
         if key not in params:
             raise ValueError(f"hydro_params.json falta la clave '{key}'.")
@@ -501,6 +502,41 @@ def simulate_core(
 
     drain_mm_h = float(params["capacidad_drenaje_mm_h"][drainage_state]["value"])
     drain_sub = (drain_mm_h / 1000.0) / n_sub
+    missing_storage = [
+        name for name in grid.classes
+        if name not in params["almacenamiento_inicial_mm"]
+    ]
+    missing_infiltration = [
+        name for name in grid.classes
+        if name not in params["infiltracion_mm_h"]
+    ]
+    if missing_storage or missing_infiltration:
+        missing = sorted(set(missing_storage + missing_infiltration))
+        raise ValueError(
+            "hydro_params.json no define almacenamiento/infiltración para: "
+            + ", ".join(missing)
+        )
+    initial_storage_m = np.array(
+        [float(params["almacenamiento_inicial_mm"][name]["value"]) / 1000.0
+         for name in grid.classes],
+        dtype=np.float64,
+    )[grid.class_idx]
+    initial_storage_remaining = initial_storage_m.copy()
+    infiltration_sub = (
+        np.array(
+            [float(params["infiltracion_mm_h"][name]["value"]) / 1000.0 / n_sub
+             for name in grid.classes],
+            dtype=np.float64,
+        )[grid.class_idx]
+        * grid.campus_mask
+    )
+    drainage_classes = {
+        grid.classes.index(name)
+        for name in ("via", "estacionamiento")
+        if name in grid.classes
+    }
+    drainage_mask = np.isin(grid.class_idx, list(drainage_classes))
+    drainage_mask &= grid.campus_mask & grid.open_mask
 
     # --- sumideros locales reportados (opcionales, apagados por defecto) ------
     storage: np.ndarray | None = None
@@ -544,7 +580,8 @@ def simulate_core(
     open_nbr_count = grid.open_nbr_count
     outlet_mask = grid.outlet
 
-    mass_rain = mass_inflow = mass_drain = mass_edge = mass_roof_lost = 0.0
+    mass_rain = mass_initial_storage = mass_infiltration = 0.0
+    mass_inflow = mass_drain = mass_edge = mass_roof_lost = 0.0
 
     frames: list[HydroFrame] = []
     max_depth_seen = 0.0
@@ -562,10 +599,17 @@ def simulate_core(
     }
 
     for hour_idx, rain_mm in enumerate(series, start=1):
-        runoff = (
-            (rain_mm / 1000.0) * runoff_c * grid.campus_mask
-        )                                               # sin lluvia fuera del campus
-        mass_rain += float(runoff.sum()) * area
+        rain_depth = (rain_mm / 1000.0) * grid.campus_mask
+        effective_rain = rain_depth * runoff_c
+        initial_storage_fill = np.minimum(
+            rain_depth, initial_storage_remaining
+        )
+        initial_storage_remaining -= initial_storage_fill
+        mass_rain += float(effective_rain.sum()) * area
+        mass_initial_storage += float(
+            (initial_storage_fill * runoff_c).sum()
+        ) * area
+        runoff = (rain_depth - initial_storage_fill) * runoff_c
 
         roof = runoff * blocked
         stranded = blocked & (open_nbr_count == 0)
@@ -581,12 +625,24 @@ def simulate_core(
 
         for _ in range(n_sub):
             depth += input_sub
+            if infiltration_sub.any():
+                if storage is None:
+                    infiltrated = np.minimum(depth, infiltration_sub)
+                else:
+                    infiltrated = np.minimum(
+                        np.maximum(depth - storage, 0.0), infiltration_sub
+                    )
+                depth -= infiltrated
+                mass_infiltration += float(infiltrated.sum()) * area
             if drain_sub > 0.0:
                 if storage is None:
-                    removed = np.minimum(depth, drain_sub)
+                    removed = np.minimum(depth, drain_sub) * drainage_mask
                 else:
                     # los sumideros conservan su lámina hasta la capacidad declarada
-                    removed = np.minimum(np.maximum(depth - storage, 0.0), drain_sub)
+                    removed = (
+                        np.minimum(np.maximum(depth - storage, 0.0), drain_sub)
+                        * drainage_mask
+                    )
                 depth -= removed
                 mass_drain += float(removed.sum()) * area
             if p4_step:
@@ -644,7 +700,10 @@ def simulate_core(
 
     stored_m3 = float(depth.sum()) * area
     entrada = mass_rain + mass_inflow
-    salida = mass_drain + mass_edge + mass_roof_lost
+    salida = (
+        mass_initial_storage + mass_infiltration + mass_drain
+        + mass_edge + mass_roof_lost
+    )
     residual = entrada - salida - stored_m3
 
     run_id = _stable_run_id({
@@ -671,8 +730,10 @@ def simulate_core(
         "Las profundidades que muestra esta respuesta son estimaciones exploratorias de una "
         "capa de agua modelada, no mediciones ni niveles de inundación observados.",
         f"Coeficientes de escorrentía SUPUESTOS dentro de los rangos de la norma OS.060 "
-        f"(verificar versión vigente de la norma); estado de drenaje '{drainage_state}' con "
-        f"capacidad de {drain_mm_h:g} mm/h SUPUESTA, sin aforos en el campus.",
+        f"(verificar versión vigente de la norma); drenaje '{drainage_state}' con capacidad "
+        f"de {drain_mm_h:g} mm/h SUPUESTA solo en vías y estacionamientos.",
+        "El almacenamiento inicial por superficie y la infiltración de áreas verdes son "
+        "SUPUESTOS; no hay mediciones locales. Las clases mixtas no reciben infiltración.",
         f"Ingreso por la Puerta 4 en nivel '{inflow_p4}': {p4_total:.1f} m³/h repartidos en "
         f"{p4_cells.size} celdas de ingreso (ya descontada la fracción de las buzonetas). "
         "Es un parámetro experimental graduable, nunca un caudal medido de la quebrada.",
@@ -758,6 +819,8 @@ def simulate_core(
             "mass_balance_m3": {
                 "entrada_lluvia": round(mass_rain, 3),
                 "entrada_ingreso": round(mass_inflow, 3),
+                "perdida_almacenamiento_inicial": round(mass_initial_storage, 3),
+                "salida_infiltracion": round(mass_infiltration, 3),
                 "salida_drenaje": round(mass_drain, 3),
                 "salida_borde": round(mass_edge, 3),
                 "perdida_tejados_sin_vecino": round(mass_roof_lost, 3),

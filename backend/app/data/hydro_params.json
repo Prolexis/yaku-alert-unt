@@ -31,6 +31,26 @@
     "source": "SUPUESTO",
     "justification": "Tope de subida por celda al rellenar microdepresiones para el enrutamiento. Valor ANTERIOR: null (sin tope, máx observado 2,63 m). Valor NUEVO: 0,5 m. Motivo: las 20 mayores subidas del relleno coinciden con los puntos reportados por el equipo (estacionamiento junto a CIDUNT, estadio, estacionamiento suroeste) y con el punto más bajo del campus; sin tope esas cuencas internas reales desaparecían y el agua se repartía en una lámina única. Con 0,5 m se conservan y el agua se empoza en ellas. El costo (máximos de 1,2 m en el evento 2023 y 2,0 m en el extremo hipotético) lo produce el ingreso externo sostenido y el drenaje obstruido declarados, no el tope. Ver datos_nuevos/analisis/DIAGNOSTICO_ACUMULACION.md."
   },
+  "almacenamiento_inicial_mm": {
+    "unit": "mm",
+    "_nota": "Abstracción inicial SUPUESTA por celda, se consume una vez por corrida antes de generar escorrentía; su volumen efectivo usa el coeficiente de escorrentía de la superficie.",
+    "edificio": {"value": 1.0, "unit": "mm", "range": [0.0, 3.0], "source": "SUPUESTO", "justification": "Retención inicial de techo asumida, sin medición local."},
+    "via": {"value": 2.0, "unit": "mm", "range": [0.0, 5.0], "source": "SUPUESTO", "justification": "Almacenamiento inicial de pavimento asumido, sin medición local."},
+    "estacionamiento": {"value": 2.0, "unit": "mm", "range": [0.0, 5.0], "source": "SUPUESTO", "justification": "Almacenamiento inicial de pavimento asumido, sin medición local."},
+    "area_deportiva": {"value": 2.0, "unit": "mm", "range": [0.0, 5.0], "source": "SUPUESTO", "justification": "Superficie mixta sin dato de composición; abstracción inicial supuesta."},
+    "area_verde": {"value": 5.0, "unit": "mm", "range": [0.0, 15.0], "source": "SUPUESTO", "justification": "Almacenamiento inicial de área verde supuesto, sin medición local."},
+    "otro": {"value": 2.0, "unit": "mm", "range": [0.0, 5.0], "source": "SUPUESTO", "justification": "Clase mixta sin dato de composición; abstracción inicial supuesta."}
+  },
+  "infiltracion_mm_h": {
+    "unit": "mm/h",
+    "_nota": "Infiltración SUPUESTA solo en áreas verdes; la malla no identifica una clase de suelo separada y las clases mixtas no se tratan como permeables.",
+    "edificio": {"value": 0.0, "unit": "mm/h", "range": [0.0, 0.0], "source": "SUPUESTO", "justification": "Sin infiltración en edificios."},
+    "via": {"value": 0.0, "unit": "mm/h", "range": [0.0, 0.0], "source": "SUPUESTO", "justification": "Sin infiltración en vías pavimentadas."},
+    "estacionamiento": {"value": 0.0, "unit": "mm/h", "range": [0.0, 0.0], "source": "SUPUESTO", "justification": "Sin infiltración en estacionamientos pavimentados."},
+    "area_deportiva": {"value": 0.0, "unit": "mm/h", "range": [0.0, 0.0], "source": "SUPUESTO", "justification": "Superficie mixta sin permeabilidad verificada."},
+    "area_verde": {"value": 5.0, "unit": "mm/h", "range": [0.0, 15.0], "source": "SUPUESTO", "justification": "Tasa exploratoria de infiltración, sin ensayos locales de suelo."},
+    "otro": {"value": 0.0, "unit": "mm/h", "range": [0.0, 0.0], "source": "SUPUESTO", "justification": "Clase mixta sin suelo identificable; no se presume permeabilidad."}
+  },
   "coeficientes_escorrentia": {
     "unit": "-",
     "_nota": "Valor medio del rango de la norma OS.060, marcado SUPUESTO. VERIFICAR VERSIÓN VIGENTE DE LA NORMA.",
@@ -79,7 +99,7 @@
   },
   "capacidad_drenaje_mm_h": {
     "unit": "mm/h",
-    "_nota": "Capacidad de remoción de lámina por el drenaje del campus. No hay aforos ni inspección: los tres estados son SUPUESTOS.",
+    "_nota": "Capacidad SUPUESTA de remoción de lámina aplicada solo a celdas abiertas de vías y estacionamientos. No hay aforos ni inspección.",
     "normal": {
       "value": 8.0,
       "unit": "mm/h",

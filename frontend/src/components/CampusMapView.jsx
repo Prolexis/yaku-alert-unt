@@ -3,6 +3,14 @@ import L from "leaflet";
 import { Layers, MapPin, ShieldAlert, Building2, Navigation, ArrowRight, WifiOff } from "lucide-react";
 import { normalizeText } from "../utils/formatters";
 import { buildCampusCatalog, CAMPUS_CATEGORIES } from "../utils/campusCatalog";
+import ExternalConditionsPanel from "./ui/ExternalConditionsPanel";
+import {
+  CONDITIONS_ZONE_ID,
+  conditionsModeParams,
+  isConditionsMode,
+  safeHttpsUrl,
+  toggledConditionParams,
+} from "../utils/conditions";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -47,6 +55,7 @@ const sourceLine = (props) =>
 
 export default function CampusMapView({
   campusLayers,
+  conditionsCatalog,
   simParams,
   onChangeSimParams,
   simResult,
@@ -89,6 +98,7 @@ export default function CampusMapView({
     deportes: true,
     reportes: true,
     influencia_sintetica: true,
+    vigilar: true,
   });
 
   // Inicializa el mapa (sin mapa base: se maneja aparte para poder cambiarlo y degradar sin internet)
@@ -267,6 +277,9 @@ export default function CampusMapView({
     const exposureById = new Map(
       (simResult?.spatial_analysis?.exposed_buildings || []).map((b) => [b.id, b])
     );
+    const watchById = new Map(
+      (simResult?.spatial_analysis?.watch_buildings || []).map((w) => [w.id, w])
+    );
     const restrictedAccessIds = new Set(
       (simResult?.spatial_analysis?.restricted_accesses || [])
         .filter((a) => a.inside_hazard_zone)
@@ -370,7 +383,8 @@ export default function CampusMapView({
         const lv = exp?.exposure_level;
         const isExposed = isExposedLevel(lv);
         const unnamed = isUnnamed(name);
-        const style = isExposed
+        const watched = visibleLayers.vigilar ? watchById.get(id) : undefined;
+        const baseStyle = isExposed
           ? {
               color: LEVELS[lv].color,
               weight: LEVELS[lv].weight,
@@ -380,6 +394,11 @@ export default function CampusMapView({
           : unnamed
           ? { color: "#64748B", weight: 1, fillColor: "#94A3B8", fillOpacity: 0.4 }
           : { color: "#2563EB", weight: 1.5, fillColor: "#3B82F6", fillOpacity: 0.3 };
+        // Edificio con agua en un evento previo: contorno punteado propio, sin agrandar el polígono.
+        const style = watched
+          ? { ...baseStyle, color: "#C026D3", weight: 3, dashArray: "5 3", fillColor: isExposed ? baseStyle.fillColor : "#E879F9", fillOpacity: Math.max(baseStyle.fillOpacity, 0.4) }
+          : baseStyle;
+        const watchedLink = watched ? safeHttpsUrl(watched.source) : null;
         const layer = L.geoJSON(feat, { style })
           .bindPopup(
             `<div>
@@ -391,6 +410,17 @@ export default function CampusMapView({
                   ? `Contacto marginal (${exp.overlap_pct}% de la huella)`
                   : "Fuera de la zona analizada"
               }</span>
+              ${
+                watched
+                  ? `<div class="mt-1 text-[11px] font-semibold text-fuchsia-700">Vigilar: agua reportada el ${esc(
+                      watched.event_date || "s/f"
+                    )} (prensa, por confirmar; confianza ${esc(watched.confidence)})${
+                      watchedLink
+                        ? ` · <a href="${esc(watchedLink)}" target="_blank" rel="noopener noreferrer" class="underline">fuente</a>`
+                        : ""
+                    }</div>`
+                  : ""
+              }
               ${sourceLine(feat.properties)}
             </div>`,
             { className: "yaku-popup" }
@@ -442,7 +472,21 @@ export default function CampusMapView({
     });
   }, [campusLayers, simResult, visibleLayers]);
 
+  const toggleCondition = (conditionId) => {
+    const next = toggledConditionParams(simParams, conditionId);
+    onChangeSimParams(next);
+    onRunSimulation(next);
+  };
+
   const selectQuickScenario = (scenarioId) => {
+    if (scenarioId === CONDITIONS_ZONE_ID) {
+      const next = isConditionsMode(simParams)
+        ? simParams
+        : conditionsModeParams();
+      onChangeSimParams(next);
+      onRunSimulation(next);
+      return;
+    }
     const presets = {
       lluvia_moderada: {
         scenario_id: "lluvia_moderada",
@@ -474,8 +518,8 @@ export default function CampusMapView({
     };
     const next = presets[scenarioId];
     if (next) {
-      onChangeSimParams(next);
-      onRunSimulation(next);
+      onChangeSimParams({ ...next, external_conditions: [] });
+      onRunSimulation({ ...next, external_conditions: [] });
     }
   };
 
@@ -497,6 +541,7 @@ export default function CampusMapView({
               { id: "lluvia_moderada", label: "A · Relieve" },
               { id: "lluvia_intensa_fen", label: "B · Ingreso reportado" },
               { id: "escenario_extremo_fen", label: "C · Combinado" },
+              ...(conditionsCatalog ? [{ id: CONDITIONS_ZONE_ID, label: "D · Condiciones" }] : []),
             ].map((sc) => (
               <button
                 key={sc.id}
@@ -516,8 +561,8 @@ export default function CampusMapView({
           </div>
           <p className="max-w-md text-[11px] leading-snug text-[#475467] dark:text-slate-400">
             A: sectores de cota relativamente baja (DEM de 30 m). B: zonas reportadas por
-            testimonio y prensa. C: ambos. La capa punteada SINTÉTICA usa alcance configurable,
-            independiente de la lluvia. Canaletas nuevas de la UNT: no modeladas (sin datos).
+            testimonio y prensa. C: ambos. D: zonas armadas con las condiciones externas que usted
+            declara (sí/no). La capa punteada SINTÉTICA no cambia con la lluvia. Canaletas nuevas de la UNT: no modeladas (sin datos).
           </p>
         </div>
       </div>
@@ -574,10 +619,11 @@ export default function CampusMapView({
                   </div>
                   <div className="space-y-1.5 text-[#101828] dark:text-slate-200">
                     {[
-                      { key: "peligro", label: "Zona analizada (A/B/C)" },
+                      { key: "peligro", label: "Zona analizada (A/B/C/D)" },
                       { key: "edificios", label: "Edificios UNT" },
                       { key: "reportes", label: "Zonas reportadas" },
                       { key: "influencia_sintetica", label: "Influencia SINTÉTICA" },
+                      { key: "vigilar", label: "Edificios a vigilar (D)" },
                       { key: "senderos", label: "Vías y senderos" },
                       { key: "deportes", label: "Áreas verdes" },
                       { key: "accesos", label: "Accesos" },
@@ -643,6 +689,9 @@ export default function CampusMapView({
                 <span className="flex items-center gap-1.5">
                   <span className="inline-block w-3 border-t-2 border-dotted border-cyan-600" /> SINTÉTICO
                 </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-2.5 w-3 rounded-sm border-2 border-dashed border-fuchsia-600" /> A vigilar (evento previo)
+                </span>
               </div>
             </div>
           </div>
@@ -659,6 +708,14 @@ export default function CampusMapView({
                 {simResult?.spatial_analysis?.hazard_zone_name || "Seleccione un escenario"}
               </h3>
             </div>
+
+            {isConditionsMode(simParams) && conditionsCatalog && (
+              <ExternalConditionsPanel
+                catalog={conditionsCatalog}
+                active={simParams.external_conditions || []}
+                onToggle={toggleCondition}
+              />
+            )}
 
             {simResult && (
               <>
@@ -791,10 +848,27 @@ export default function CampusMapView({
                     </div>
                   ))}
                   <p className="text-[10px] leading-relaxed text-[#64748B] dark:text-slate-400">
-                    En B y C son zonas reportadas por testimonio; no confirman cierre.
+                    En B, C y D son zonas reportadas por testimonio; no confirman cierre.
                   </p>
                 </div>
               </>
+            )}
+
+            {simResult?.spatial_analysis?.watch_buildings?.length > 0 && (
+              <section className="space-y-1.5 rounded-lg border border-dashed border-fuchsia-500/60 bg-fuchsia-50/60 p-3 dark:bg-fuchsia-950/20">
+                <div className="text-xs font-bold text-fuchsia-900 dark:text-fuchsia-200">
+                  Edificios a vigilar ({simResult.spatial_analysis.watch_buildings.length})
+                </div>
+                <p className="text-[10px] leading-relaxed text-fuchsia-900 dark:text-fuchsia-200">
+                  Agua reportada en un evento previo (prensa, por confirmar). No suman a «Exposición ≥5%».
+                </p>
+                {simResult.spatial_analysis.watch_buildings.map((w) => (
+                  <div key={w.id} className="flex justify-between gap-2 text-[11px]">
+                    <span className="truncate">{w.name}</span>
+                    <span className="shrink-0 tabular-nums">{w.event_date || "s/f"}</span>
+                  </div>
+                ))}
+              </section>
             )}
 
             {simResult?.spatial_analysis?.synthetic_exposure && (

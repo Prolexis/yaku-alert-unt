@@ -30,6 +30,8 @@ export function fetchConditionsCatalog() {
   return requestJson("/conditions");
 }
 
+export const fetchConditions = fetchConditionsCatalog;
+
 export function runSimulation(payload) {
   return requestJson("/simulate", {
     method: "POST",

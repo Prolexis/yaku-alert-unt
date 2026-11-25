@@ -2,6 +2,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { Play, RotateCcw, ArrowRight, Clock, Building2, Info, GitCompare } from "lucide-react";
 import { humanPreventiveTitle, normalizeText } from "../utils/formatters";
 import { runSimulation } from "../services/api";
+import ExternalConditionsPanel from "./ui/ExternalConditionsPanel";
+import {
+  CONDITIONS_ZONE_ID,
+  conditionsModeParams,
+  isConditionsMode,
+  safeHttpsUrl,
+  toggledConditionParams,
+  zoneChangeParams,
+} from "../utils/conditions";
 
 const DEFAULT_RESET_PARAMS = {
   scenario_id: "lluvia_intensa_fen",
@@ -11,6 +20,7 @@ const DEFAULT_RESET_PARAMS = {
   antecedent_soil_saturated: false,
   hazard_zone_id: "lluvia_intensa_fen",
   synthetic_reach_m: 40,
+  external_conditions: [],
 };
 
 const isUnnamed = (name) => /^Edificio sin nombre/.test(name || "");
@@ -21,6 +31,7 @@ const displayBuildingName = (building) => {
 };
 
 export default function SimulatorView({
+  conditionsCatalog,
   simParams,
   onChangeSimParams,
   simResult,
@@ -75,7 +86,14 @@ export default function SimulatorView({
     }
   };
 
+  const toggleCondition = (conditionId) => updateAndRun(toggledConditionParams(simParams, conditionId), 0);
+  const changeZone = (zoneId) => updateAndRun(zoneChangeParams(simParams, zoneId), 0);
+
   const applyPreset = (scenarioId) => {
+    if (scenarioId === CONDITIONS_ZONE_ID) {
+      updateAndRun(conditionsModeParams(), 0);
+      return;
+    }
     const presets = {
       lluvia_moderada: {
         scenario_id: "lluvia_moderada",
@@ -106,7 +124,7 @@ export default function SimulatorView({
       },
     };
     if (presets[scenarioId]) {
-      updateAndRun(presets[scenarioId], 0);
+      updateAndRun({ ...presets[scenarioId], external_conditions: [] }, 0);
     } else {
       onChangeSimParams({ ...simParams, scenario_id: "personalizado" });
     }
@@ -141,7 +159,7 @@ export default function SimulatorView({
             Centro Interactivo de Simulación
           </h2>
           <p className="mt-1 text-sm text-[#475467] dark:text-slate-400">
-            Ensaya niveles preventivos según lluvia y drenaje. La lluvia no modifica los polígonos;
+            Ensaya niveles preventivos según lluvia, drenaje y condiciones externas declaradas. La lluvia no modifica los polígonos;
             el alcance de la influencia SINTÉTICA tampoco depende de los mm/h.
           </p>
         </div>
@@ -168,13 +186,16 @@ export default function SimulatorView({
             </label>
             <select
               id="sim-preset"
-              value={simParams.scenario_id}
+              value={isConditionsMode(simParams) ? CONDITIONS_ZONE_ID : simParams.scenario_id}
               onChange={(e) => applyPreset(e.target.value)}
               className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 text-sm font-medium text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
               <option value="lluvia_moderada">Escenario A — Relieve · {rainfallPresetLabel}</option>
               <option value="lluvia_intensa_fen">B — Ingreso reportado · {rainfallPresetLabel}</option>
               <option value="escenario_extremo_fen">C — Combinado · {rainfallPresetLabel}</option>
+              {conditionsCatalog && (
+                <option value={CONDITIONS_ZONE_ID}>D — Condiciones externas declaradas (sin lluvia)</option>
+              )}
               <option value="personalizado">Personalizado</option>
             </select>
             <p className="text-[11px] leading-relaxed text-[#475467] dark:text-slate-400">
@@ -256,17 +277,18 @@ export default function SimulatorView({
             <select
               id="sim-zone"
               value={simParams.hazard_zone_id}
-              onChange={(e) =>
-                updateAndRun({ ...simParams, scenario_id: "personalizado", hazard_zone_id: e.target.value }, 0)
-              }
+              onChange={(e) => changeZone(e.target.value)}
               className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 text-sm font-medium text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             >
               <option value="lluvia_moderada">Zona A — Acumulación por relieve (DEM)</option>
               <option value="lluvia_intensa_fen">Zona B — Ingreso por avenidas y puertas (reportado)</option>
               <option value="escenario_extremo_fen">Zona C — Combinado (relieve + reportado)</option>
+              {conditionsCatalog && (
+                <option value={CONDITIONS_ZONE_ID}>Zona D — Condiciones externas declaradas (sí/no)</option>
+              )}
             </select>
 
-            {simParams.hazard_zone_id !== "lluvia_moderada" && (
+            {simParams.hazard_zone_id !== "lluvia_moderada" && !isConditionsMode(simParams) && (
               <div className="space-y-2 rounded-lg border border-dashed border-cyan-500/60 bg-cyan-50/50 p-3 dark:bg-cyan-950/20">
                 <div className="flex justify-between gap-2 text-sm">
                   <label htmlFor="sim-synthetic-reach" className="font-medium text-[#101828] dark:text-slate-200">
@@ -297,6 +319,23 @@ export default function SimulatorView({
                 <p className="text-[11px] leading-relaxed text-[#475467] dark:text-slate-400">
                   Supuesto sin base de campo; calibrar con datos de la UNT. El alcance es independiente
                   de la lluvia.
+                </p>
+              </div>
+            )}
+
+            {isConditionsMode(simParams) && conditionsCatalog && (
+              <div className="space-y-2">
+                <ExternalConditionsPanel
+                  catalog={conditionsCatalog}
+                  active={simParams.external_conditions || []}
+                  onToggle={toggleCondition}
+                  disabled={simLoading}
+                />
+                <p className="text-[11px] leading-relaxed text-[#475467] dark:text-slate-400">
+                  {simResult?.synthetic_reach_m_effective
+                    ? `Influencia SINTÉTICA definida por las reglas activas: ${simResult.synthetic_reach_m_effective} m (parámetro de demostración ajustado con pocos eventos; no cambia con la lluvia).`
+                    : "Con las condiciones activas no hay influencia SINTÉTICA."}{" "}
+                  La lluvia (por defecto 0 mm/h en este escenario) solo suma puntos al nivel preventivo.
                 </p>
               </div>
             )}
@@ -429,6 +468,25 @@ export default function SimulatorView({
                 <div className="rounded-lg bg-[#F7F9FC] p-4 text-sm text-[#101828] dark:bg-slate-900/70 dark:text-slate-200">
                   {simResult.preventive_evaluation.guidance[0]}
                 </div>
+
+                {isConditionsMode(simResult.parameters) && (
+                  <div className="rounded-lg border border-fuchsia-300/70 bg-fuchsia-50/60 p-3 text-xs text-fuchsia-950 dark:border-fuchsia-900/60 dark:bg-fuchsia-950/20 dark:text-fuchsia-100">
+                    <p className="font-semibold">
+                      Condiciones declaradas por el usuario (no verificadas):{" "}
+                      {(simResult.parameters.external_conditions || []).length === 0
+                        ? "ninguna activa."
+                        : (simResult.parameters.external_conditions || [])
+                            .map(
+                              (id) =>
+                                conditionsCatalog?.conditions?.find((c) => c.id === id)?.name || id
+                            )
+                            .join("; ")}
+                    </p>
+                    <p className="mt-1">
+                      Reglas experimentales basadas en prensa y testimonio; no hay sensores en calles ni quebradas.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-3 border-t border-[#E2E8F0] pt-4 dark:border-slate-800">
@@ -510,6 +568,45 @@ export default function SimulatorView({
             </div>
           </div>
         </div>
+      )}
+
+      {simResult?.spatial_analysis?.watch_buildings?.length > 0 && (
+        <section className="rounded-xl border border-dashed border-fuchsia-500/60 bg-fuchsia-50/60 p-5 dark:bg-fuchsia-950/20">
+          <h3 className="text-sm font-bold text-fuchsia-900 dark:text-fuchsia-200">
+            Edificios a vigilar ({simResult.spatial_analysis.watch_buildings.length})
+          </h3>
+          <p className="mt-1 text-xs text-fuchsia-900 dark:text-fuchsia-200">
+            Tuvieron agua en un evento previo según prensa (por confirmar). Se listan aunque queden fuera de la
+            zona dibujada y no se suman al conteo de edificios expuestos.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {simResult.spatial_analysis.watch_buildings.map((building) => {
+              const link = safeHttpsUrl(building.source);
+              return (
+                <div
+                  key={building.id}
+                  className="rounded border border-fuchsia-200/70 px-3 py-2 text-xs dark:border-fuchsia-900/70"
+                >
+                  <div className="flex justify-between gap-2">
+                    <span className="truncate font-medium">{displayBuildingName(building)}</span>
+                    <span className="shrink-0 tabular-nums">{building.event_date || "s/f"}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-[#475467] dark:text-slate-400">
+                    Confianza {building.confidence}
+                    {link && (
+                      <>
+                        {" · "}
+                        <a href={link} target="_blank" rel="noopener noreferrer" className="underline">
+                          fuente
+                        </a>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
       {simResult?.spatial_analysis?.synthetic_exposure && (

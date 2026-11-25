@@ -1,0 +1,84 @@
+{
+  "metadata": {
+    "version": "0.1",
+    "nature": "reglas_experimentales_basadas_en_prensa_y_testimonio",
+    "disclaimer": "Las condiciones las declara el usuario (sí/no); no provienen de sensores en calles ni quebradas. Las reglas se escribieron a partir de prensa y testimonios no verificados y de un número muy pequeño de eventos: son una orientación experimental, no una predicción ni un estudio hidrológico.",
+    "notes": [
+      "No se activa ninguna condición a partir de la lluvia pronosticada: una condición es una observación declarada.",
+      "El alcance reach_m de las reglas es un parámetro de demostración ajustado con muy pocos puntos de evidencia (ver evidencia_inundacion.json)."
+    ]
+  },
+  "conditions": [
+    {
+      "id": "av_jesus_nazareth",
+      "name": "Av. Jesús de Nazareth inundada",
+      "type": "calle",
+      "description": "El frente de la Ciudad Universitaria sobre la Av. Jesús de Nazareth tiene agua acumulada.",
+      "evidence": [
+        "https://andina.pe/agencia/noticia-trujillo-soporto-lluvia-intensa-inundo-calles-y-avenidas-1058795.aspx",
+        "https://diariocorreo.pe/edicion/la-libertad/trujillo-asi-luce-mural-de-la-unt-fotos-y-video-744816/",
+        "https://elbuho.pe/?p=379990"
+      ]
+    },
+    {
+      "id": "av_juan_pablo_ii",
+      "name": "Av. Juan Pablo II inundada",
+      "type": "calle",
+      "description": "El frente del campus sobre la Av. Juan Pablo II tiene agua acumulada.",
+      "evidence": [
+        "https://larepublica.pe/sociedad/2020/03/15/trujillo-se-recuerda-huaico-que-afecto-la-ciudad-lrnd"
+      ]
+    },
+    {
+      "id": "quebrada_san_ildefonso",
+      "name": "Quebrada San Ildefonso activada",
+      "type": "quebrada",
+      "description": "Aviso de activación o desborde de la quebrada San Ildefonso (contexto externo al campus).",
+      "evidence": [
+        "https://www.infobae.com/peru/2025/03/29/trujillo-en-emergencia-por-lluvias-impactantes-imagenes-y-videos-de-las-inundaciones-que-deja-la-activacion-de-quebradas-en-la-libertad/"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "jdn",
+      "descripcion": "Av. Jesús de Nazareth inundada: frente del campus y Puerta 4 comprometidos",
+      "si": ["av_jesus_nazareth"],
+      "zonas": ["rep_av_jesus_nazareth", "rep_puerta4"],
+      "reach_m": 0,
+      "vigilar": [],
+      "puntaje": 1,
+      "nota": "Zonas tomadas de las zonas reportadas de campus_unt.geojson (prensa y testimonio no verificados)."
+    },
+    {
+      "id": "jpii",
+      "descripcion": "Av. Juan Pablo II inundada: frente del campus y estacionamiento junto a Derecho",
+      "si": ["av_juan_pablo_ii"],
+      "zonas": ["rep_av_juan_pablo", "rep_estac_derecho"],
+      "reach_m": 0,
+      "vigilar": [],
+      "puntaje": 2,
+      "nota": "Puntaje 2 (no 1) porque esta zona no toca ningún acceso y, sin exposición espacial, quedaría por debajo de la avenida Jesús de Nazareth. Asociar el estacionamiento de Derecho con esta avenida es una suposición del testimonio del equipo."
+    },
+    {
+      "id": "quebrada",
+      "descripcion": "Quebrada San Ildefonso activada: aporte externo de agua (sin zona propia en el campus)",
+      "si": ["quebrada_san_ildefonso"],
+      "zonas": [],
+      "reach_m": 0,
+      "vigilar": [],
+      "puntaje": 2,
+      "nota": "Sin evidencia para trazar una zona por sí sola: solo eleva el nivel preventivo."
+    },
+    {
+      "id": "jdn_quebrada",
+      "descripcion": "Av. Jesús de Nazareth inundada con quebrada activa: ingreso de agua al interior del campus (patrón de marzo de 2025)",
+      "si": ["av_jesus_nazareth", "quebrada_san_ildefonso"],
+      "zonas": ["rep_av_jesus_nazareth", "rep_puerta4", "rep_estac_cidunt"],
+      "reach_m": 120,
+      "vigilar": ["ev01_educacion_2025", "ev02_economia_2025", "ev03_farmacia_2025"],
+      "puntaje": 2,
+      "nota": "reach_m=120 es un parámetro de demostración ajustado con 3 puntos de evidencia. Los edificios 'vigilar' tuvieron agua en marzo de 2025 según prensa (por confirmar)."
+    }
+  ]
+}

@@ -65,7 +65,13 @@ def health_check() -> dict:
         "status": "ok",
         "service": "YAKU ALERT — UNT",
         "trl": "TRL 3-4 (Prototipo evaluado en entorno simulado)",
-        "privacy": "Sin recopilación de datos personales (Ley N.° 29733)",
+        "normative_framework": [
+            "Ley N.° 29664 (Ley que crea el SINAGERD)",
+            "D.S. N.° 048-2011-PCM (Reglamento de la Ley N.° 29664)",
+            "D.S. N.° 115-2022-PCM (PLANAGERD 2022–2030)",
+            "Ley N.° 29733 (Ley de Protección de Datos Personales)",
+        ],
+        "privacy": "Sin recopilación de datos personales ni geolocalización GPS (Ley N.° 29733)",
     }
 
 

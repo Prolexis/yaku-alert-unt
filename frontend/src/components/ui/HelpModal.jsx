@@ -51,13 +51,22 @@ export default function HelpModal({ open, onClose }) {
             </div>
             <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[#64748B] dark:text-slate-300">
               <li>
-                <strong>Ley N.° 29664 (SINAGERD) y D.S. N.° 048-2011-PCM:</strong> Apoyo informativo y
+                <strong>Ley N.° 29664 (Ley que crea el SINAGERD):</strong> Apoyo informativo y
                 preparación preventiva; no reemplaza alertas oficiales de SENAMHI, COEN, INDECI ni
                 Defensa Civil UNT.
               </li>
               <li>
-                <strong>Ley N.° 29733 (Datos Personales):</strong> No recopila registro, DNI, correo ni
-                ubicación GPS del usuario.
+                <strong>D.S. N.° 048-2011-PCM (Reglamento de la Ley N.° 29664):</strong> Alineamiento
+                con los procesos de estimación, prevención y preparación ante lluvias intensas.
+              </li>
+              <li>
+                <strong>D.S. N.° 115-2022-PCM (PLANAGERD 2022–2030):</strong> Contribución a la
+                gestión prospectiva y reactiva institucional y a la continuidad académica y
+                administrativa universitaria.
+              </li>
+              <li>
+                <strong>Ley N.° 29733 (Ley de Protección de Datos Personales):</strong> No recopila
+                registro, PII, DNI, correo ni ubicación GPS del usuario.
               </li>
             </ul>
           </div>

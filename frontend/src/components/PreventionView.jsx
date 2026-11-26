@@ -121,6 +121,7 @@ export default function PreventionView({
             weather={weather}
             simResult={simResult}
             hydroResult={hydroResult}
+            userRole={userRole}
           />
 
           {/* Fuentes y limitaciones */}

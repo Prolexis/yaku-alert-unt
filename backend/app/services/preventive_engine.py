@@ -248,8 +248,9 @@ def evaluate_preventive_rules(
             if external_rules else []
         ),
         legal_disclaimer=(
-            "Cumplimiento Ley N.° 29664 (SINAGERD) y D.S. N.° 048-2011-PCM: "
-            "este aviso es informativo/preventivo y no reemplaza las alertas ni decisiones de Defensa Civil UNT, SENAMHI, COEN o INDECI."
+            "Cumplimiento Ley N.° 29664 (SINAGERD), D.S. N.° 048-2011-PCM y D.S. N.° 115-2022-PCM "
+            "(PLANAGERD 2022–2030): este aviso es informativo/preventivo y no reemplaza las alertas "
+            "ni decisiones de Defensa Civil UNT, SENAMHI, COEN o INDECI."
         ),
     )
 

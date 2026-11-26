@@ -1,40 +1,61 @@
 import React, { useState } from "react";
-import { CheckCircle2, ExternalLink, Clock, Mountain } from "lucide-react";
+import {
+  CheckCircle2,
+  ExternalLink,
+  Clock,
+  Mountain,
+  GraduationCap,
+  Briefcase,
+} from "lucide-react";
 
-const PHASES = [
-  {
-    id: "antes",
+const FALLBACK_PHASES = {
+  antes: {
     title: "Antes",
-    items: [
-      "Consulta el pronóstico diario y avisos de SENAMHI.",
-      "Ubica el punto de encuentro referencial cercano a tu pabellón.",
-      "Protege equipos electrónicos si trabajas en primer nivel.",
+    academic: [
+      "Consultar el pronóstico diario y avisos oficiales de SENAMHI antes de iniciar la jornada lectiva.",
+      "Ubicar el punto de encuentro y la ruta referencial cercana a tu pabellón o laboratorio.",
+      "Mantener aulas virtuales UNT actualizadas y listas para transición rápida a modalidad remota.",
+    ],
+    administrative: [
+      "Resguardar expedientes físicos, archivos documentarios y equipos de cómputo en oficinas de planta baja o zonas con exposición hídrica.",
+      "Verificar la operatividad de la Mesa de Partes virtual UNT y canales digitales de atención.",
+      "Identificar trámites críticos y asignar responsables de respaldo remoto.",
     ],
   },
-  {
-    id: "durante",
+  durante: {
     title: "Durante",
-    items: [
-      "Evita cruzar zonas anegadas o instalaciones eléctricas húmedas.",
-      "Permanece en pisos superiores si hay anegamiento exterior, siguiendo indicaciones oficiales.",
-      "Sigue únicamente comunicados oficiales de Defensa Civil UNT e INDECI.",
+    academic: [
+      "Migrar clases teóricas a modalidad virtual (aula virtual UNT) si existe disposición institucional.",
+      "Reprogramar prácticas de laboratorio y evaluaciones presenciales sin penalización para estudiantes.",
+      "Evitar cruzar zonas anegadas o instalaciones eléctricas húmedas y permanecer en pisos superiores si hay anegamiento exterior.",
+    ],
+    administrative: [
+      "Activar la Mesa de Partes virtual UNT como canal preferente de ingreso y seguimiento documentario.",
+      "Habilitar trabajo remoto temporal para oficinas en planta baja o sectores con exposición hídrica.",
+      "Priorizar únicamente trámites críticos y suspender traslados físicos de legajos entre pabellones.",
     ],
   },
-  {
-    id: "despues",
+  despues: {
     title: "Después",
-    items: [
-      "No ingreses a aulas con filtraciones eléctricas hasta su revisión.",
-      "Confirma la reanudación de actividades en canales de tu facultad.",
-      "Reporta accesos o drenajes obstruidos al personal de seguridad.",
+    academic: [
+      "No ingresar a aulas ni laboratorios con filtraciones o tableros húmedos hasta la inspección técnica.",
+      "Confirmar la reanudación de clases y el nuevo cronograma de laboratorios en los canales oficiales de cada facultad.",
+      "Reportar accesos o drenajes obstruidos al personal de vigilancia y mantenimiento.",
+    ],
+    administrative: [
+      "Inspeccionar oficinas de planta baja, archivos físicos y equipos de cómputo/laboratorios antes de reconectar energía eléctrica.",
+      "Sincronizar los expedientes recibidos por Mesa de Partes virtual y reanudar gradualmente la atención presencial.",
+      "Documentar incidencias de infraestructura para el reporte a Defensa Civil UNT.",
     ],
   },
-];
+};
 
 export default function ContinuityView({ protocols }) {
   const [activeTab, setActiveTab] = useState("phases");
   const levels = protocols?.preventive_levels || [];
   const basins = protocols?.trujillo_basins_context || [];
+  const phasesMap = protocols?.continuity_phases || FALLBACK_PHASES;
+  const phaseOrder = ["antes", "durante", "despues"];
 
   return (
     <div className="space-y-6">
@@ -44,7 +65,7 @@ export default function ContinuityView({ protocols }) {
             Orientaciones y Continuidad
           </h2>
           <p className="mt-1 text-sm text-[#475467] dark:text-slate-400">
-            Guía breve para la comunidad universitaria y enlaces oficiales.
+            Guía de continuidad académica y administrativa por fase y nivel preventivo, más canales oficiales.
           </p>
         </div>
 
@@ -55,7 +76,7 @@ export default function ContinuityView({ protocols }) {
         >
           {[
             { id: "phases", label: "Antes / Durante / Después" },
-            { id: "academic", label: "Continuidad académica" },
+            { id: "levels", label: "Continuidad por nivel" },
             { id: "official", label: "Canales oficiales" },
           ].map((tab) => (
             <button
@@ -77,31 +98,64 @@ export default function ContinuityView({ protocols }) {
       </div>
 
       {activeTab === "phases" && (
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {PHASES.map((phase) => (
-            <div
-              key={phase.id}
-              className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]"
-            >
-              <h3 className="text-lg font-bold text-[#101828] dark:text-white">{phase.title}</h3>
-              <ul className="mt-3 space-y-2.5 text-sm text-[#475467] dark:text-slate-300">
-                {phase.items.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <section className="space-y-4">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+            Orientaciones referenciales (TRL 3–4) alineadas al PLANAGERD 2022–2030. Su aplicación operativa requiere autorización oficial de la UNT.
+          </p>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {phaseOrder.map((phaseKey) => {
+              const phase = phasesMap[phaseKey] || FALLBACK_PHASES[phaseKey];
+              return (
+                <div
+                  key={phaseKey}
+                  className="flex flex-col gap-4 rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]"
+                >
+                  <h3 className="text-lg font-bold text-[#101828] dark:text-white">
+                    {phase.title}
+                  </h3>
+
+                  {/* Bloque Académico */}
+                  <div className="rounded-lg bg-[#F7F9FC] p-3.5 dark:bg-slate-900/60">
+                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#2563EB] dark:text-blue-400">
+                      <GraduationCap className="h-4 w-4" />
+                      <span>Actividades académicas</span>
+                    </div>
+                    <ul className="mt-2.5 space-y-2 text-xs leading-relaxed text-[#475467] dark:text-slate-300">
+                      {(phase.academic || []).map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Bloque Administrativo */}
+                  <div className="rounded-lg bg-[#F7F9FC] p-3.5 dark:bg-slate-900/60">
+                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-400">
+                      <Briefcase className="h-4 w-4" />
+                      <span>Actividades administrativas</span>
+                    </div>
+                    <ul className="mt-2.5 space-y-2 text-xs leading-relaxed text-[#475467] dark:text-slate-300">
+                      {(phase.administrative || []).map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 
-      {activeTab === "academic" && (
+      {activeTab === "levels" && (
         <section className="space-y-4">
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-            Nota: Estas alternativas son referenciales. No representan decisiones oficiales si no son
-            autorizadas por la UNT.
+            Nota: Estas pautas de continuidad académica y administrativa son referenciales. No representan decisiones oficiales si no son autorizadas por la UNT.
           </p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {levels.map((lvl) => (
@@ -118,14 +172,40 @@ export default function ContinuityView({ protocols }) {
                     {lvl.label}
                   </h3>
                 </div>
-                <ul className="mt-3 space-y-2 text-sm text-[#475467] dark:text-slate-300">
-                  {lvl.continuity.map((c, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" />
-                      <span>{c}</span>
-                    </li>
-                  ))}
-                </ul>
+
+                <div className="mt-3.5 space-y-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[#2563EB] dark:text-blue-400">
+                      <GraduationCap className="h-3.5 w-3.5" />
+                      <span>Continuidad académica</span>
+                    </div>
+                    <ul className="mt-1.5 space-y-1.5 text-xs leading-relaxed text-[#475467] dark:text-slate-300">
+                      {(lvl.continuity || []).map((c, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
+                          <span>{c}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {lvl.administrative_continuity?.length > 0 && (
+                    <div className="border-t border-[#E2E8F0] pt-3 dark:border-slate-800">
+                      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-400">
+                        <Briefcase className="h-3.5 w-3.5" />
+                        <span>Continuidad administrativa</span>
+                      </div>
+                      <ul className="mt-1.5 space-y-1.5 text-xs leading-relaxed text-[#475467] dark:text-slate-300">
+                        {lvl.administrative_continuity.map((c, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <Briefcase className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
+                            <span>{c}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>

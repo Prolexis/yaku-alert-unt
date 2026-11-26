@@ -69,7 +69,7 @@ export default function PrecipitationChart({ points = [], height = 250 }) {
             </div>
           </>
         ) : (
-          <span className="text-[11px] text-[#64748B] dark:text-slate-400">
+          <span className="text-xs text-[#64748B] dark:text-slate-400">
             Inspección horaria interactiva (cursor o teclado Tab)
           </span>
         )}
@@ -101,7 +101,7 @@ export default function PrecipitationChart({ points = [], height = 250 }) {
                   x={padL - 8}
                   y={y + 4}
                   textAnchor="end"
-                  className="fill-[#64748B] text-[11px] dark:fill-slate-400"
+                  className="fill-[#64748B] text-xs dark:fill-slate-400"
                 >
                   {mmLabel}
                 </text>
@@ -109,7 +109,7 @@ export default function PrecipitationChart({ points = [], height = 250 }) {
                   x={width - padR + 8}
                   y={y + 4}
                   textAnchor="start"
-                  className="fill-[#64748B] text-[11px] dark:fill-slate-400"
+                  className="fill-[#64748B] text-xs dark:fill-slate-400"
                 >
                   {pctLabel}%
                 </text>
@@ -118,14 +118,14 @@ export default function PrecipitationChart({ points = [], height = 250 }) {
           })}
 
           {/* Etiqueta unidad eje izquierdo */}
-          <text x={8} y={12} className="fill-[#64748B] text-[10px] font-semibold dark:fill-slate-400">
+          <text x={8} y={12} className="fill-[#64748B] text-xs font-semibold dark:fill-slate-400">
             mm/h
           </text>
           <text
             x={width - 8}
             y={12}
             textAnchor="end"
-            className="fill-[#64748B] text-[10px] font-semibold dark:fill-slate-400"
+            className="fill-[#64748B] text-xs font-semibold dark:fill-slate-400"
           >
             Prob.
           </text>
@@ -171,7 +171,7 @@ export default function PrecipitationChart({ points = [], height = 250 }) {
                     x={padL + i * barStep + barStep / 2}
                     y={height - 10}
                     textAnchor="middle"
-                    className="fill-[#64748B] text-[11px] dark:fill-slate-400"
+                    className="fill-[#64748B] text-xs dark:fill-slate-400"
                   >
                     {pt.time.slice(11, 16)}
                   </text>

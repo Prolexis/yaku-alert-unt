@@ -299,6 +299,7 @@ export default function App() {
               focusedBuildingId={focusedBuildingId}
               onSelectBuilding={setFocusedBuildingId}
               onNavigate={setActiveView}
+              offline={forceOffline || browserOffline}
             />
           )}
 
@@ -307,6 +308,7 @@ export default function App() {
               campusLayers={campusLayers}
               onPublicSimResult={setPublicSimResult}
               onNavigate={setActiveView}
+              offline={forceOffline || browserOffline}
             />
           )}
 
@@ -327,6 +329,7 @@ export default function App() {
               onSelectSensor={setSelectedSensorId}
               disconnectedSensors={disconnectedSensors}
               onToggleDisconnectSensor={handleToggleDisconnectSensor}
+              offline={forceOffline || browserOffline}
             />
           )}
 

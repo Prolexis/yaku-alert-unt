@@ -24,7 +24,12 @@ from app.services.preventive_engine import (
     load_protocols,
 )
 from app.services.simulator import run_offline_simulation
-from app.services.spatial import analyze_conditions_exposure, load_campus_geojson, load_hazards_geojson
+from app.services.spatial import (
+    analyze_conditions_exposure,
+    load_campus_geojson,
+    load_evacuation_geojson,
+    load_hazards_geojson,
+)
 from app.services.weather import fetch_weather_for_unt
 
 app = FastAPI(
@@ -79,7 +84,14 @@ def get_campus_layers() -> dict:
     return {
         "campus": load_campus_geojson(),
         "hazards": load_hazards_geojson(),
+        "evacuation": load_evacuation_geojson(),
     }
+
+
+@app.get("/api/campus/evacuation")
+def get_campus_evacuation() -> dict:
+    """Puntos seguros y rutas referenciales de evacuación dentro del campus UNT (TRL 3-4)."""
+    return load_evacuation_geojson()
 
 
 @app.get("/api/preventive/evaluate", response_model=PreventiveEvaluation)

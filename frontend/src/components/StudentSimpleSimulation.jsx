@@ -8,11 +8,66 @@ import {
   ShieldCheck,
   Loader2,
   Waves,
+  WifiOff,
   X,
 } from "lucide-react";
 import { fetchPublicSimulation } from "../services/api";
 
 const UNT_CENTER = [-8.11473, -79.03923];
+
+const BASEMAPS = {
+  calles: {
+    label: "Calles",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; colaboradores de OpenStreetMap",
+  },
+  satelite: {
+    label: "Satélite",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Imagery &copy; Esri",
+  },
+  vectorial: {
+    label: "Solo vectorial",
+    title: "Solo vectorial (sin internet)",
+  },
+};
+
+const EVACUATION_DISCLAIMER =
+  "Rutas y puntos referenciales (TRL 3–4). No reemplazan la señalización oficial de Defensa Civil UNT ni alertas de SENAMHI/COEN.";
+
+const esc = (s) =>
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[c]));
+
+function detectAffectedGates(elements = [], activeHour = null) {
+  const gates = new Set();
+  elements.forEach((el) => {
+    if (el.first_hour_affected === null || el.first_hour_affected === undefined) return;
+    if (activeHour !== null && el.first_hour_affected > activeHour) return;
+    const nm = String(el.name || "").toLowerCase();
+    const id = String(el.id || "").toLowerCase();
+    if (nm.includes("puerta 4") || id.includes("5052281066") || nm.includes("cidunt")) {
+      gates.add("P4");
+    }
+    if (
+      nm.includes("puerta 3") ||
+      id.includes("4454081424") ||
+      nm.includes("comedor") ||
+      nm.includes("enfermer")
+    ) {
+      gates.add("P3");
+    }
+    if (nm.includes("puerta 2") || id.includes("11037474034") || nm.includes("derecho")) {
+      gates.add("P2");
+    }
+  });
+  return gates;
+}
 
 const PUBLIC_SCENARIOS = [
   {
@@ -39,14 +94,26 @@ export default function StudentSimpleSimulation({
   campusLayers,
   onPublicSimResult,
   onNavigate,
+  offline = false,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const baseGroupRef = useRef(null);
   const waterGroupRef = useRef(null);
+  const evacuationGroupRef = useRef(null);
+  const tileLayerRef = useRef(null);
+  const tileErrorsRef = useRef(0);
+  const fittedRef = useRef(false);
   const waterLayersRef = useRef([]);
   const builtRunIdRef = useRef("");
 
+  const [basemap, setBasemap] = useState(
+    offline || (typeof navigator !== "undefined" && navigator.onLine === false)
+      ? "vectorial"
+      : "calles"
+  );
+  const [tilesFailed, setTilesFailed] = useState(false);
+  const [showEvacuation, setShowEvacuation] = useState(true);
   const [selectedPreset, setSelectedPreset] = useState("evento_2017_03");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -54,6 +121,13 @@ export default function StudentSimpleSimulation({
   const [hour, setHour] = useState(1);
   const [playing, setPlaying] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
+
+  // Blindaje offline: cambia automáticamente a Solo vectorial cuando no hay internet o se activa modo offline
+  useEffect(() => {
+    if (offline) {
+      setBasemap("vectorial");
+    }
+  }, [offline]);
 
   const frames = result?.frames || [];
   const currentFrame = frames[Math.min(Math.max(hour - 1, 0), Math.max(frames.length - 1, 0))] || null;
@@ -63,7 +137,12 @@ export default function StudentSimpleSimulation({
     [result]
   );
 
-  // Inicializa Leaflet una sola vez
+  const affectedGates = useMemo(
+    () => detectAffectedGates(result?.elements || [], result ? hour : null),
+    [result, hour]
+  );
+
+  // Inicializa Leaflet una sola vez (mapa base manejado aparte para soportar modo Solo vectorial offline)
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
     const map = L.map(mapContainerRef.current, {
@@ -73,14 +152,11 @@ export default function StudentSimpleSimulation({
       zoomControl: false,
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap",
-      maxZoom: 20,
-      maxNativeZoom: 19,
-    }).addTo(map);
+    map.attributionControl.addAttribution("Datos del campus &copy; OpenStreetMap (ODbL)");
 
     baseGroupRef.current = L.layerGroup().addTo(map);
     waterGroupRef.current = L.layerGroup().addTo(map);
+    evacuationGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
     return () => {
@@ -88,11 +164,43 @@ export default function StudentSimpleSimulation({
       mapInstanceRef.current = null;
       baseGroupRef.current = null;
       waterGroupRef.current = null;
+      evacuationGroupRef.current = null;
+      tileLayerRef.current = null;
       waterLayersRef.current = [];
     };
   }, []);
 
-  // Perímetro y edificios del campus (clickeables para ver resultado exploratorio)
+  // Mapa base seleccionable con degradación automática si fallan los mosaicos
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+    tileErrorsRef.current = 0;
+    setTilesFailed(false);
+    const cfg = BASEMAPS[basemap];
+    if (!cfg?.url) return;
+    const layer = L.tileLayer(cfg.url, {
+      attribution: cfg.attribution,
+      maxZoom: 20,
+      maxNativeZoom: 19,
+    });
+    layer.on("tileerror", () => {
+      tileErrorsRef.current += 1;
+      if (tileErrorsRef.current >= 4) setTilesFailed(true);
+    });
+    layer.on("tileload", () => {
+      tileErrorsRef.current = 0;
+      setTilesFailed(false);
+    });
+    layer.addTo(map);
+    layer.bringToBack();
+    tileLayerRef.current = layer;
+  }, [basemap]);
+
+  // Perímetro, vías, áreas verdes y edificios del campus (clickeables para ver resultado exploratorio)
   useEffect(() => {
     const map = mapInstanceRef.current;
     const group = baseGroupRef.current;
@@ -107,10 +215,40 @@ export default function StudentSimpleSimulation({
       .forEach((f) => {
         const lyr = L.geoJSON(f, {
           interactive: false,
-          style: { color: "#0B1F33", weight: 2, dashArray: "3 5", fill: false },
+          style: {
+            color: "#0B1F33",
+            weight: 2,
+            dashArray: "3 5",
+            fill: true,
+            fillColor: "#F8FAFC",
+            fillOpacity: 0.4,
+          },
         }).addTo(group);
-        const b = lyr.getBounds();
-        if (b.isValid()) map.fitBounds(b, { padding: [18, 18] });
+        if (!fittedRef.current) {
+          const b = lyr.getBounds();
+          if (b.isValid()) {
+            map.fitBounds(b, { padding: [18, 18] });
+            fittedRef.current = true;
+          }
+        }
+      });
+
+    features
+      .filter((f) => f.properties?.category === "via")
+      .forEach((f) => {
+        L.geoJSON(f, {
+          interactive: false,
+          style: { color: "#94A3B8", weight: 1.1, opacity: 0.7 },
+        }).addTo(group);
+      });
+
+    features
+      .filter((f) => f.properties?.category === "area_verde")
+      .forEach((f) => {
+        L.geoJSON(f, {
+          interactive: false,
+          style: { color: "#86EFAC", weight: 0.8, fillColor: "#DCFCE7", fillOpacity: 0.45 },
+        }).addTo(group);
       });
 
     features
@@ -139,6 +277,94 @@ export default function StudentSimpleSimulation({
         }).addTo(group);
       });
   }, [campusLayers, result]);
+
+  // Capa de puntos seguros y rutas referenciales de evacuación (resalta rutas alternas si hay acceso afectado)
+  useEffect(() => {
+    const group = evacuationGroupRef.current;
+    if (!group || !campusLayers) return;
+    group.clearLayers();
+    if (!showEvacuation) return;
+
+    const evacFeatures = campusLayers.evacuation?.features || [];
+    const safePointsById = new Map();
+    evacFeatures
+      .filter((f) => f.properties?.zone_type === "safe_point")
+      .forEach((f) => safePointsById.set(f.properties.id, f.properties));
+
+    evacFeatures
+      .filter((f) => f.properties?.zone_type === "evacuation_route")
+      .forEach((f) => {
+        const p = f.properties || {};
+        const dest = safePointsById.get(p.to_safe_point_id);
+        const destName = dest?.name || p.to_safe_point_id;
+        const gateCode = p.avoid_when_gate_affected;
+        const gateAffected = Boolean(gateCode && affectedGates.has(gateCode));
+
+        if (gateAffected) {
+          // Halo sutil para destacar la ruta alternativa cuando el acceso crítico presenta agua
+          L.geoJSON(f, {
+            interactive: false,
+            style: {
+              color: "#F59E0B",
+              weight: 7,
+              opacity: 0.38,
+            },
+          }).addTo(group);
+        }
+
+        L.geoJSON(f, {
+          style: {
+            color: gateAffected ? "#059669" : "#15803D",
+            weight: gateAffected ? 4.2 : 3,
+            dashArray: gateAffected ? "9 5" : "6 6",
+            opacity: 0.95,
+          },
+          onEachFeature: (_feat, lyr) => {
+            const alertLine = gateAffected
+              ? `<div class="rounded bg-amber-50 px-1.5 py-1 text-[11px] font-semibold text-amber-900 border border-amber-300">Evitar acceso afectado (${esc(gateCode)}) — priorizar esta ruta alternativa referencial.</div>`
+              : "";
+            lyr.bindPopup(
+              `<div class="space-y-1 max-w-[235px]">
+                <div class="text-[10px] font-bold uppercase text-emerald-700">${
+                  gateAffected ? "Ruta alternativa destacada (escenario)" : "Ruta referencial de evacuación"
+                }</div>
+                <div class="font-bold text-slate-900">${esc(p.from_zone)} → ${esc(destName)}</div>
+                ${alertLine}
+                <div class="text-[11px] text-slate-700">${esc(p.recommendation || "")}</div>
+                <div class="text-[10px] text-slate-500">Distancia aprox.: ~${esc(p.distance_m_approx)} m</div>
+                <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_DISCLAIMER)}</div>
+              </div>`,
+              { className: "yaku-popup" }
+            );
+          },
+        }).addTo(group);
+      });
+
+    evacFeatures
+      .filter((f) => f.properties?.zone_type === "safe_point")
+      .forEach((f) => {
+        const p = f.properties || {};
+        const [lon, lat] = f.geometry.coordinates;
+        const icon = L.divIcon({
+          className: "yaku-safe-point-marker",
+          html: `<div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:#16A34A;color:#ffffff;font:700 12px/1 system-ui,sans-serif;border:2.5px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.32);">S</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        L.marker([lat, lon], { icon, zIndexOffset: 500 })
+          .bindTooltip(`${esc(p.name)} (referencial)`, { direction: "top", offset: [0, -10] })
+          .bindPopup(
+            `<div class="space-y-1 max-w-[235px]">
+              <div class="text-[10px] font-bold uppercase text-emerald-700">Punto seguro referencial</div>
+              <div class="font-bold text-slate-900">${esc(p.name)}</div>
+              <div class="text-[11px] text-slate-700">${esc(p.rationale || "")}</div>
+              <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_DISCLAIMER)}</div>
+            </div>`,
+            { className: "yaku-popup" }
+          )
+          .addTo(group);
+      });
+  }, [campusLayers, showEvacuation, affectedGates]);
 
   // Pre-construir capas de agua por hora para animar sin parpadeos ni recargas
   useEffect(() => {
@@ -320,17 +546,79 @@ export default function StudentSimpleSimulation({
               className="h-[420px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[500px]"
             />
 
-            {/* Leyenda sencilla con unidades */}
-            <div className="absolute bottom-3 left-3 z-[400] flex flex-wrap gap-3 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-[11px] text-[#101828] backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-slate-200">
-              {Object.entries(WATER_STYLES).map(([k, st]) => (
-                <span key={k} className="flex items-center gap-1.5">
-                  <span
-                    className="h-2.5 w-2.5 rounded-sm border border-slate-400/50"
-                    style={{ background: st.fillColor }}
-                  />
-                  {st.label}
-                </span>
-              ))}
+            {(basemap === "vectorial" || tilesFailed) && (
+              <div className="absolute left-3 top-3 z-[400] flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50/95 px-2.5 py-1.5 text-xs font-medium text-amber-900">
+                <WifiOff className="h-3.5 w-3.5 shrink-0" />
+                <span>Solo vectorial (sin internet). Capas locales activas.</span>
+              </div>
+            )}
+
+            {/* Controles de mapa: Puntos seguros / rutas + selector de mapa base */}
+            <div className="absolute right-3 top-3 z-[400] flex flex-wrap items-center justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => setShowEvacuation((v) => !v)}
+                aria-pressed={showEvacuation}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+                  showEvacuation
+                    ? "border-emerald-600 bg-emerald-600 text-white"
+                    : "border-[#E2E8F0] bg-white/95 text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                }`}
+              >
+                Puntos seguros y rutas ref.
+              </button>
+              <div
+                role="group"
+                aria-label="Mapa base"
+                className="inline-flex rounded-lg border border-[#E2E8F0] bg-white/95 p-0.5 backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95"
+              >
+                {Object.entries(BASEMAPS).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    title={cfg.title || cfg.label}
+                    onClick={() => setBasemap(key)}
+                    aria-pressed={basemap === key}
+                    className={`rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+                      basemap === key
+                        ? "bg-[#2563EB] text-white"
+                        : "text-[#475467] dark:text-slate-300"
+                    }`}
+                  >
+                    {cfg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Leyenda sencilla con unidades y rutas referenciales */}
+            <div className="absolute bottom-3 left-3 z-[400] max-w-[85%] space-y-1 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-[11px] text-[#101828] backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-slate-200">
+              <div className="flex flex-wrap gap-3">
+                {Object.entries(WATER_STYLES).map(([k, st]) => (
+                  <span key={k} className="flex items-center gap-1.5">
+                    <span
+                      className="h-2.5 w-2.5 rounded-sm border border-slate-400/50"
+                      style={{ background: st.fillColor }}
+                    />
+                    {st.label}
+                  </span>
+                ))}
+                {showEvacuation && (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> Punto seguro ref.
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta ref.
+                    </span>
+                  </>
+                )}
+              </div>
+              {showEvacuation && affectedGates.size > 0 && (
+                <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                  Accesos con acumulación en h+{hour}: {Array.from(affectedGates).join(", ")} — evita esos accesos y sigue las rutas resaltadas en verde/ámbar.
+                </div>
+              )}
             </div>
           </div>
 
@@ -462,6 +750,10 @@ export default function StudentSimpleSimulation({
               )}
             </section>
           )}
+
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F7F9FC] p-3 text-xs leading-relaxed text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+            {EVACUATION_DISCLAIMER}
+          </div>
         </div>
       </div>
     </div>

@@ -161,7 +161,7 @@ export default function DashboardView({
               unit="%"
             />
             <div className="py-3">
-              <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
+              <div className="text-xs font-medium text-[#475467] dark:text-slate-400">
                 Estado informativo
               </div>
               <div className="mt-1 flex items-center gap-2">
@@ -178,7 +178,7 @@ export default function DashboardView({
               <button
                 type="button"
                 onClick={() => onNavigate("prevention")}
-                className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#2563EB] hover:underline dark:text-blue-400"
+                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:underline dark:text-blue-400"
               >
                 Ver ficha explicable <ArrowRight className="h-3 w-3" />
               </button>
@@ -205,7 +205,7 @@ export default function DashboardView({
           icon={<Sliders className="h-4 w-4 text-[#2563EB]" />}
           title="Explorar simulaciones"
           desc="Ensaya escenarios experimentales sin conexión."
-          onClick={() => onNavigate(userRole === "admin" ? "simulator" : "student_sim")}
+          onClick={() => onNavigate(userRole === "admin" ? "hydro" : "student_sim")}
         />
       </section>
     </div>
@@ -216,11 +216,11 @@ function CompactKpiRow({ label, value, unit, note }) {
   return (
     <div className="py-3">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
+        <span className="text-xs font-medium text-[#475467] dark:text-slate-400">
           {label}
         </span>
         {note && (
-          <span className="text-[11px] text-[#64748B] dark:text-slate-400">
+          <span className="text-xs text-[#64748B] dark:text-slate-400">
             {note}
           </span>
         )}

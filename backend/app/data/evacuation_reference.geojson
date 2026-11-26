@@ -1,0 +1,211 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "campus": "Ciudad Universitaria — UNT",
+    "data_nature": "evacuacion_referencial_trl3_4",
+    "reference_only": true,
+    "disclaimer": "Rutas y puntos referenciales (TRL 3–4). No reemplazan la señalización oficial de Defensa Civil UNT ni alertas de SENAMHI/COEN."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sp_explanada_sociales",
+        "name": "Explanada Ciencias Sociales (cota alta NE)",
+        "zone_type": "safe_point",
+        "sector": "Noreste · Ciencias Sociales",
+        "elevation_m_approx": 27.8,
+        "rationale": "Cota elevada (~27,8 m s.n.m.) en sector noreste, alejada de las depresiones del sector suroeste y fuera del corredor de ingreso por Puerta 4.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.03515, -8.1127]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sp_parque_max_diaz",
+        "name": "Parque Max Díaz (sector Educación / Sociales)",
+        "zone_type": "safe_point",
+        "sector": "Noreste · Educación y Sociales",
+        "elevation_m_approx": 27.8,
+        "rationale": "Área verde abierta de cota alta (~27,8 m s.n.m.) entre Sociales y Educación, con menor exposición hídrica modelada.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.03583, -8.11254]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sp_parque_economia",
+        "name": "Parque Economía (sector central-este)",
+        "zone_type": "safe_point",
+        "sector": "Centro-Este · Economía",
+        "elevation_m_approx": 26.5,
+        "rationale": "Espacio abierto en cota media-alta (~26,5 m s.n.m.), de acceso directo desde pabellones centrales y alejado de los puntos bajos de Derecho y Comedor.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.03671, -8.11273]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sp_parque_ciencia_amistad",
+        "name": "Parque de la Ciencia y la Amistad (sector Biológicas)",
+        "zone_type": "safe_point",
+        "sector": "Centro-Norte · Ciencias Biológicas",
+        "elevation_m_approx": 25.6,
+        "rationale": "Área abierta elevada (~25,6 m s.n.m.) en el sector norte-central, útil como punto de reunión referencial para Ingeniería y Ciencias Físicas.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.03773, -8.11254]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sp_alameda_farmaceutica",
+        "name": "Alameda Farmacéutica (sector norte)",
+        "zone_type": "safe_point",
+        "sector": "Norte · Farmacia y Bioquímica",
+        "elevation_m_approx": 25.6,
+        "rationale": "Zona abierta de cota alta (~25,6 m s.n.m.) en el extremo norte junto a Farmacia, alejada de la escorrentía dirigida hacia el suroeste.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.03745, -8.11092]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "route_p4_cidunt_to_sociales",
+        "name": "Desvío Puerta 4 / CIDUNT → Explanada Sociales",
+        "zone_type": "evacuation_route",
+        "from_zone": "Puerta 4 y sector CIDUNT",
+        "to_safe_point_id": "sp_explanada_sociales",
+        "avoid_when_gate_affected": "P4",
+        "distance_m_approx": 160,
+        "recommendation": "Si hay ingreso de agua por Puerta 4 (Av. Jesús de Nazareth) o empozamiento en CIDUNT, evita bajar hacia el suroeste y asciende hacia Explanada Sociales.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.03618, -8.11172],
+          [-79.03568, -8.1121],
+          [-79.03532, -8.11245],
+          [-79.03515, -8.1127]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "route_comedor_biblio_to_economia",
+        "name": "Comedor / Biblioteca Central → Parque Economía",
+        "zone_type": "evacuation_route",
+        "from_zone": "Comedor Universitario y Biblioteca Central",
+        "to_safe_point_id": "sp_parque_economia",
+        "avoid_when_gate_affected": "P3",
+        "distance_m_approx": 450,
+        "recommendation": "Asciende en dirección noreste desde Comedor y Biblioteca hacia Parque Economía, evitando el sector bajo de Puerta 3 y el estacionamiento de Derecho.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.03915, -8.11595],
+          [-79.03855, -8.11525],
+          [-79.03785, -8.1144],
+          [-79.0373, -8.11355],
+          [-79.03671, -8.11273]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "route_p3_enfermeria_to_max_diaz",
+        "name": "Puerta 3 / Enfermería → Parque Max Díaz",
+        "zone_type": "evacuation_route",
+        "from_zone": "Puerta 3, Enfermería y Oficina de Admisión",
+        "to_safe_point_id": "sp_parque_max_diaz",
+        "avoid_when_gate_affected": "P3",
+        "distance_m_approx": 630,
+        "recommendation": "Ante acumulación en Puerta 3 o Av. Juan Pablo II, evita salir por Puerta 3 y sube por el corredor interior hacia Educación y Parque Max Díaz.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.03885, -8.11735],
+          [-79.0381, -8.1162],
+          [-79.03735, -8.11515],
+          [-79.03635, -8.1139],
+          [-79.03595, -8.11315],
+          [-79.03583, -8.11254]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "route_ingenieria_baja_to_ciencia",
+        "name": "Pabellones Ingeniería (zona baja) → Parque de la Ciencia",
+        "zone_type": "evacuation_route",
+        "from_zone": "Ingeniería Industrial, Materiales y Mecatrónica",
+        "to_safe_point_id": "sp_parque_ciencia_amistad",
+        "avoid_when_gate_affected": "P4",
+        "distance_m_approx": 400,
+        "recommendation": "Desplázate hacia el noreste rumbo al Parque de la Ciencia y la Amistad, evitando las zonas bajas cercanas al Estadio UNT.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.04025, -8.11515],
+          [-79.03965, -8.11445],
+          [-79.03895, -8.1137],
+          [-79.0383, -8.11305],
+          [-79.03773, -8.11254]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "route_derecho_p2_to_economia",
+        "name": "Derecho / Puerta 2 → Parque Economía",
+        "zone_type": "evacuation_route",
+        "from_zone": "Facultad de Derecho y Puerta 2",
+        "to_safe_point_id": "sp_parque_economia",
+        "avoid_when_gate_affected": "P2",
+        "distance_m_approx": 315,
+        "recommendation": "Rodea el estacionamiento de Derecho por el borde este y asciende hacia Parque Economía, evitando cruzar empozamientos en Puerta 2.",
+        "reference_only": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.0372, -8.1154],
+          [-79.0367, -8.11475],
+          [-79.03645, -8.11405],
+          [-79.03655, -8.11335],
+          [-79.03671, -8.11273]
+        ]
+      }
+    }
+  ]
+}

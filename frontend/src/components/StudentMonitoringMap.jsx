@@ -27,8 +27,14 @@ const BASEMAPS = {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attribution: "Imagery &copy; Esri",
   },
-  vectorial: { label: "Offline" },
+  vectorial: {
+    label: "Solo vectorial",
+    title: "Solo vectorial (sin internet)",
+  },
 };
+
+const EVACUATION_DISCLAIMER =
+  "Rutas y puntos referenciales (TRL 3–4). No reemplazan la señalización oficial de Defensa Civil UNT ni alertas de SENAMHI/COEN.";
 
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({
@@ -46,23 +52,35 @@ export default function StudentMonitoringMap({
   focusedBuildingId = "",
   onSelectBuilding,
   onNavigate,
+  offline = false,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const baseGroupRef = useRef(null);
   const attentionGroupRef = useRef(null);
+  const evacuationGroupRef = useRef(null);
   const focusLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const tileErrorsRef = useRef(0);
   const fittedRef = useRef(false);
 
   const [basemap, setBasemap] = useState(
-    typeof navigator !== "undefined" && navigator.onLine === false ? "vectorial" : "calles"
+    offline || (typeof navigator !== "undefined" && navigator.onLine === false)
+      ? "vectorial"
+      : "calles"
   );
   const [tilesFailed, setTilesFailed] = useState(false);
   const [showAttentionZones, setShowAttentionZones] = useState(true);
+  const [showEvacuation, setShowEvacuation] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedCard, setSelectedCard] = useState(null);
+
+  // Blindaje offline: al activarse modo sin conexión, cambia automáticamente a Solo vectorial
+  useEffect(() => {
+    if (offline) {
+      setBasemap("vectorial");
+    }
+  }, [offline]);
 
   const catalog = useMemo(() => buildCampusCatalog(campusLayers, null), [campusLayers]);
 
@@ -88,6 +106,7 @@ export default function StudentMonitoringMap({
     map.attributionControl.addAttribution("Datos del campus &copy; OpenStreetMap (ODbL)");
     baseGroupRef.current = L.layerGroup().addTo(map);
     attentionGroupRef.current = L.layerGroup().addTo(map);
+    evacuationGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
     return () => {
@@ -95,6 +114,7 @@ export default function StudentMonitoringMap({
       mapInstanceRef.current = null;
       baseGroupRef.current = null;
       attentionGroupRef.current = null;
+      evacuationGroupRef.current = null;
       focusLayerRef.current = null;
       tileLayerRef.current = null;
     };
@@ -159,6 +179,32 @@ export default function StudentMonitoringMap({
         }
       }
     });
+
+    // Vías, áreas verdes y deportivas locales para que el modo Solo vectorial sea claro sin internet
+    features
+      .filter((f) => f.properties?.category === "via")
+      .forEach((f) => {
+        L.geoJSON(f, {
+          interactive: false,
+          style: { color: "#94A3B8", weight: 1.2, opacity: 0.75 },
+        }).addTo(group);
+      });
+    features
+      .filter((f) => f.properties?.category === "area_verde")
+      .forEach((f) => {
+        L.geoJSON(f, {
+          interactive: false,
+          style: { color: "#86EFAC", weight: 0.8, fillColor: "#DCFCE7", fillOpacity: 0.5 },
+        }).addTo(group);
+      });
+    features
+      .filter((f) => f.properties?.category === "area_deportiva")
+      .forEach((f) => {
+        L.geoJSON(f, {
+          interactive: false,
+          style: { color: "#4ADE80", weight: 0.9, fillColor: "#BBF7D0", fillOpacity: 0.35 },
+        }).addTo(group);
+      });
 
     // Edificios reales OSM
     features
@@ -290,6 +336,89 @@ export default function StudentMonitoringMap({
     });
   }, [campusLayers, showAttentionZones]);
 
+  // Capa de puntos seguros y rutas referenciales de evacuación (TRL 3-4)
+  useEffect(() => {
+    const group = evacuationGroupRef.current;
+    if (!group || !campusLayers) return;
+    group.clearLayers();
+    if (!showEvacuation) return;
+
+    const evacFeatures = campusLayers.evacuation?.features || [];
+    const safePointsById = new Map();
+    evacFeatures
+      .filter((f) => f.properties?.zone_type === "safe_point")
+      .forEach((f) => safePointsById.set(f.properties.id, f.properties));
+
+    // Rutas referenciales primero (debajo de los marcadores de puntos seguros)
+    evacFeatures
+      .filter((f) => f.properties?.zone_type === "evacuation_route")
+      .forEach((f) => {
+        const p = f.properties || {};
+        const dest = safePointsById.get(p.to_safe_point_id);
+        const destName = dest?.name || p.to_safe_point_id;
+        L.geoJSON(f, {
+          style: {
+            color: "#15803D",
+            weight: 3.5,
+            dashArray: "7 6",
+            opacity: 0.92,
+          },
+          onEachFeature: (_feat, lyr) => {
+            lyr.bindPopup(
+              `<div class="space-y-1 max-w-[230px]">
+                <div class="text-[10px] font-bold uppercase text-emerald-700">Ruta referencial de evacuación</div>
+                <div class="font-bold text-slate-900">${esc(p.from_zone)} → ${esc(destName)}</div>
+                <div class="text-[11px] text-slate-700">${esc(p.recommendation || "")}</div>
+                <div class="text-[10px] text-slate-500">Distancia aprox.: ~${esc(p.distance_m_approx)} m</div>
+                <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_DISCLAIMER)}</div>
+              </div>`,
+              { className: "yaku-popup" }
+            );
+            lyr.on("click", () => {
+              setSelectedCard({
+                name: `${p.from_zone} → ${destName}`,
+                infoType: "Ruta referencial (TRL 3–4)",
+                explanation: `${p.recommendation || ""} (Distancia aproximada: ~${p.distance_m_approx} m).`,
+              });
+            });
+          },
+        }).addTo(group);
+      });
+
+    // Puntos seguros referenciales con marcador verde diferenciado
+    evacFeatures
+      .filter((f) => f.properties?.zone_type === "safe_point")
+      .forEach((f) => {
+        const p = f.properties || {};
+        const [lon, lat] = f.geometry.coordinates;
+        const icon = L.divIcon({
+          className: "yaku-safe-point-marker",
+          html: `<div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:#16A34A;color:#ffffff;font:700 12px/1 system-ui,sans-serif;border:2.5px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.32);">S</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        L.marker([lat, lon], { icon, zIndexOffset: 450 })
+          .bindTooltip(`${esc(p.name)} (referencial)`, { direction: "top", offset: [0, -10] })
+          .bindPopup(
+            `<div class="space-y-1 max-w-[230px]">
+              <div class="text-[10px] font-bold uppercase text-emerald-700">Punto seguro referencial</div>
+              <div class="font-bold text-slate-900">${esc(p.name)}</div>
+              <div class="text-[11px] text-slate-700">${esc(p.rationale || "")}</div>
+              <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_DISCLAIMER)}</div>
+            </div>`,
+            { className: "yaku-popup" }
+          )
+          .on("click", () => {
+            setSelectedCard({
+              name: p.name,
+              infoType: "Punto seguro referencial",
+              explanation: p.rationale || "Zona abierta de cota elevada dentro del campus UNT.",
+            });
+          })
+          .addTo(group);
+      });
+  }, [campusLayers, showEvacuation]);
+
   // Enfocar edificio seleccionado desde Inicio / Asistente YAKU
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -416,14 +545,26 @@ export default function StudentMonitoringMap({
           />
 
           {(basemap === "vectorial" || tilesFailed) && (
-            <div className="absolute left-3 top-3 z-[400] flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50/95 px-2.5 py-1.5 text-[11px] font-medium text-amber-900">
-              <WifiOff className="h-3.5 w-3.5" />
-              <span>Modo vectorial offline</span>
+            <div className="absolute left-3 top-3 z-[400] flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50/95 px-2.5 py-1.5 text-xs font-medium text-amber-900">
+              <WifiOff className="h-3.5 w-3.5 shrink-0" />
+              <span>Solo vectorial (sin internet). Capas locales activas.</span>
             </div>
           )}
 
           {/* Controles compactos arriba a la derecha */}
           <div className="absolute right-3 top-3 z-[400] flex flex-wrap items-center justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowEvacuation((v) => !v)}
+              aria-pressed={showEvacuation}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+                showEvacuation
+                  ? "border-emerald-600 bg-emerald-600 text-white"
+                  : "border-[#E2E8F0] bg-white/95 text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+              }`}
+            >
+              Puntos seguros y rutas ref.
+            </button>
             <button
               type="button"
               onClick={() => setShowAttentionZones((v) => !v)}
@@ -436,12 +577,18 @@ export default function StudentMonitoringMap({
             >
               Zonas de atención
             </button>
-            <div className="inline-flex rounded-lg border border-[#E2E8F0] bg-white/95 p-0.5 backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+            <div
+              role="group"
+              aria-label="Mapa base"
+              className="inline-flex rounded-lg border border-[#E2E8F0] bg-white/95 p-0.5 backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95"
+            >
               {Object.entries(BASEMAPS).map(([key, cfg]) => (
                 <button
                   key={key}
                   type="button"
+                  title={cfg.title || cfg.label}
                   onClick={() => setBasemap(key)}
+                  aria-pressed={basemap === key}
                   className={`rounded-md px-2 py-1 text-[11px] font-semibold transition ${
                     basemap === key
                       ? "bg-[#2563EB] text-white"
@@ -463,7 +610,10 @@ export default function StudentMonitoringMap({
               <span className="h-2.5 w-2.5 rounded-sm border border-sky-600 bg-sky-400/60" /> Relieve bajo (DEM)
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-teal-500" /> Punto de encuentro ref.
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> Punto seguro ref.
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta referencial
             </span>
           </div>
         </div>
@@ -547,13 +697,16 @@ export default function StudentMonitoringMap({
             </div>
           </section>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F7F9FC] p-3.5 text-[11px] leading-relaxed text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F7F9FC] p-3.5 text-xs leading-relaxed text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
             <div className="flex items-center gap-1.5 font-semibold text-[#101828] dark:text-slate-200">
               <CloudRain className="h-3.5 w-3.5 text-[#2563EB]" />
               Sobre los datos mostrados
             </div>
             <p className="mt-1">
-              El pronóstico proviene de Open-Meteo (modelo numérico, no sensores locales instalados en la UNT). Esta vista no declara zonas seguras ni reemplaza comunicados de SENAMHI, INDECI o Defensa Civil UNT.
+              El pronóstico proviene de Open-Meteo (modelo numérico, no sensores locales instalados en la UNT).
+            </p>
+            <p className="mt-1.5 font-medium text-[#101828] dark:text-slate-200">
+              {EVACUATION_DISCLAIMER}
             </p>
           </div>
         </div>

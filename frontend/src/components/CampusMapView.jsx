@@ -74,6 +74,7 @@ export default function CampusMapView({
   onSelectSensor,
   disconnectedSensors = {},
   onToggleDisconnectSensor,
+  offline = false,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -86,8 +87,16 @@ export default function CampusMapView({
   const fittedRef = useRef(false);
 
   const [basemap, setBasemap] = useState(
-    typeof navigator !== "undefined" && navigator.onLine === false ? "vectorial" : "calles"
+    offline || (typeof navigator !== "undefined" && navigator.onLine === false)
+      ? "vectorial"
+      : "calles"
   );
+
+  useEffect(() => {
+    if (offline) {
+      setBasemap("vectorial");
+    }
+  }, [offline]);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
@@ -496,6 +505,62 @@ export default function CampusMapView({
           .addTo(group);
       }
     });
+
+    // Capa referencial de evacuación (TRL 3-4): puntos seguros y rutas referenciales
+    const evacFeatures = campusLayers.evacuation?.features || [];
+    const safePointsById = new Map();
+    evacFeatures
+      .filter((f) => f.properties?.zone_type === "safe_point")
+      .forEach((f) => safePointsById.set(f.properties.id, f.properties));
+
+    if (visibleLayers.rutas) {
+      evacFeatures
+        .filter((f) => f.properties?.zone_type === "evacuation_route")
+        .forEach((f) => {
+          const p = f.properties || {};
+          const destName = safePointsById.get(p.to_safe_point_id)?.name || p.to_safe_point_id;
+          L.geoJSON(f, {
+            style: { color: "#15803D", weight: 3.2, dashArray: "7 6", opacity: 0.9 },
+          })
+            .bindPopup(
+              `<div class="space-y-1 max-w-[230px]">
+                <div class="text-[10px] font-bold uppercase text-emerald-700">Ruta referencial (TRL 3–4)</div>
+                <strong>${esc(p.from_zone)} → ${esc(destName)}</strong>
+                <div class="text-[11px]">${esc(p.recommendation || "")}</div>
+                <div class="text-[10px] text-slate-500">Distancia aprox.: ~${esc(p.distance_m_approx)} m · No reemplaza señalización oficial de Defensa Civil UNT.</div>
+              </div>`,
+              { className: "yaku-popup" }
+            )
+            .addTo(group);
+        });
+    }
+
+    if (visibleLayers.puntos) {
+      evacFeatures
+        .filter((f) => f.properties?.zone_type === "safe_point")
+        .forEach((f) => {
+          const p = f.properties || {};
+          const [lon, lat] = f.geometry.coordinates;
+          const icon = L.divIcon({
+            className: "yaku-safe-point-marker",
+            html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:#16A34A;color:#ffffff;font:700 11px/1 system-ui,sans-serif;border:2px solid #ffffff;box-shadow:0 2px 5px rgba(0,0,0,0.3);">S</div>`,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          });
+          L.marker([lat, lon], { icon, zIndexOffset: 450 })
+            .bindTooltip(`${esc(p.name)} (referencial)`, { direction: "top", offset: [0, -10] })
+            .bindPopup(
+              `<div class="space-y-1 max-w-[230px]">
+                <div class="text-[10px] font-bold uppercase text-emerald-700">Punto seguro referencial (TRL 3–4)</div>
+                <strong>${esc(p.name)}</strong>
+                <div class="text-[11px]">${esc(p.rationale || "")}</div>
+                <div class="text-[10px] text-slate-500">No reemplaza señalización oficial de Defensa Civil UNT ni alertas de SENAMHI/COEN.</div>
+              </div>`,
+              { className: "yaku-popup" }
+            )
+            .addTo(group);
+        });
+    }
   }, [campusLayers, simResult, visibleLayers]);
 
   // Capa YAKU SENSE: Sensores IoT [SIM]

@@ -8,7 +8,12 @@ from shapely.affinity import translate
 from shapely.geometry import GeometryCollection, mapping, shape
 from shapely.ops import unary_union
 
-from app.config import CAMPUS_GEOJSON_PATH, DATA_DIR, HAZARDS_GEOJSON_PATH
+from app.config import (
+    CAMPUS_GEOJSON_PATH,
+    DATA_DIR,
+    EVACUATION_GEOJSON_PATH,
+    HAZARDS_GEOJSON_PATH,
+)
 from app.models import (
     ExposedElement,
     SpatialAnalysisResult,
@@ -59,6 +64,11 @@ def load_campus_geojson() -> dict[str, Any]:
 
 def load_hazards_geojson() -> dict[str, Any]:
     with HAZARDS_GEOJSON_PATH.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_evacuation_geojson() -> dict[str, Any]:
+    with EVACUATION_GEOJSON_PATH.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 

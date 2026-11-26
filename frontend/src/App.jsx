@@ -276,6 +276,7 @@ export default function App() {
               onLocateInMap={handleLocateBuildingInMap}
               onNavigate={setActiveView}
               onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
+              userRole={userRole}
             />
           )}
 

@@ -28,6 +28,7 @@ export default function DashboardView({
   onLocateInMap,
   onNavigate,
   onRefresh,
+  userRole = "student",
 }) {
   const [limitsOpen, setLimitsOpen] = useState(false);
 
@@ -35,13 +36,14 @@ export default function DashboardView({
     return (
       <div className="space-y-6">
         <SkeletonCard lines={2} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SkeletonCard lines={2} />
-          <SkeletonCard lines={2} />
-          <SkeletonCard lines={2} />
-          <SkeletonCard lines={2} />
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+          <div className="lg:col-span-9">
+            <SkeletonCard lines={5} />
+          </div>
+          <div className="lg:col-span-3">
+            <SkeletonCard lines={5} />
+          </div>
         </div>
-        <SkeletonCard lines={4} />
       </div>
     );
   }
@@ -114,71 +116,75 @@ export default function DashboardView({
         onNavigate={onNavigate}
       />
 
-      {/* 3. Indicadores principales compactos */}
-      {summary && (
-        <section
-          aria-label="Indicadores principales"
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
-        >
-          <KpiCard
-            label="Lluvia acumulada (24h)"
-            value={`${summary.accumulated_24h_mm}`}
-            unit={units.precipitation}
-            note={`48h: ${summary.accumulated_48h_mm} ${units.precipitation}`}
-          />
-          <KpiCard
-            label="Intensidad prevista"
-            value={`${summary.max_intensity_mm_h}`}
-            unit={`${units.precipitation}/h`}
-            note="Pico horario máximo"
-          />
-          <KpiCard
-            label="Probabilidad de lluvia"
-            value={`${summary.max_probability_pct ?? "N/D"}`}
-            unit="%"
-            note="Chance de ≥0.1 mm en 1h"
-          />
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
-            <div className="text-xs font-medium text-[#475467] dark:text-slate-400">
-              Estado informativo
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              {liveEvaluation && (
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: liveEvaluation.level_color }}
-                />
-              )}
-              <span className="text-lg font-bold text-[#101828] dark:text-white">
-                {statusTitle}
-              </span>
-            </div>
+      {/* 3. Sección horizontal integrada: Gráfico protagonista (75%) + Indicadores compactos (25%) */}
+      <section
+        aria-label="Evolución e indicadores de las próximas 24 horas"
+        className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-stretch"
+      >
+        {/* Columna izquierda (~75%): Gráfico protagonista */}
+        <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-9">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-lg font-semibold text-[#101828] dark:text-white">
+              Evolución próximas 24 horas
+            </h3>
             <button
               type="button"
-              onClick={() => onNavigate("prevention")}
-              className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:underline dark:text-blue-400"
+              onClick={() => onNavigate("monitoring")}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:underline dark:text-blue-400"
             >
-              Ver ficha explicable <ArrowRight className="h-3 w-3" />
+              Monitoreo 24h / 48h <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
-        </section>
-      )}
-
-      {/* 3. Evolución del pronóstico */}
-      <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-semibold text-[#101828] dark:text-white">
-            Evolución próximas 24 horas
-          </h3>
-          <button
-            type="button"
-            onClick={() => onNavigate("monitoring")}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:underline dark:text-blue-400"
-          >
-            Monitoreo 24h / 48h <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+          <PrecipitationChart points={next24} height={225} />
         </div>
-        <PrecipitationChart points={next24} height={200} />
+
+        {/* Columna derecha (~25%): 4 indicadores compactos en un único contenedor vertical */}
+        {summary && (
+          <aside
+            aria-label="Indicadores principales"
+            className="flex flex-col justify-between divide-y divide-[#E2E8F0] rounded-xl border border-[#E2E8F0] bg-white px-4 py-1 dark:divide-slate-800 dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-3"
+          >
+            <CompactKpiRow
+              label="Lluvia 24 h"
+              value={`${summary.accumulated_24h_mm}`}
+              unit={units.precipitation}
+              note={`48 h: ${summary.accumulated_48h_mm} ${units.precipitation}`}
+            />
+            <CompactKpiRow
+              label="Intensidad máxima"
+              value={`${summary.max_intensity_mm_h}`}
+              unit={`${units.precipitation}/h`}
+            />
+            <CompactKpiRow
+              label="Probabilidad de lluvia"
+              value={`${summary.max_probability_pct ?? "N/D"}`}
+              unit="%"
+            />
+            <div className="py-3">
+              <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
+                Estado informativo
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                {liveEvaluation && (
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: liveEvaluation.level_color }}
+                  />
+                )}
+                <span className="text-base font-bold text-[#101828] dark:text-white">
+                  {statusTitle}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate("prevention")}
+                className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[#2563EB] hover:underline dark:text-blue-400"
+              >
+                Ver ficha explicable <ArrowRight className="h-3 w-3" />
+              </button>
+            </div>
+          </aside>
+        )}
       </section>
 
       {/* 4. Acciones claras */}
@@ -187,7 +193,7 @@ export default function DashboardView({
           icon={<MapIcon className="h-4 w-4 text-[#2563EB]" />}
           title="Ver mapa del campus"
           desc="Ubica facultades, accesos y puntos referenciales."
-          onClick={() => onNavigate("map")}
+          onClick={() => onNavigate(userRole === "admin" ? "map" : "student_map")}
         />
         <ActionLink
           icon={<BookOpen className="h-4 w-4 text-[#2563EB]" />}
@@ -199,24 +205,34 @@ export default function DashboardView({
           icon={<Sliders className="h-4 w-4 text-[#2563EB]" />}
           title="Explorar simulaciones"
           desc="Ensaya escenarios experimentales sin conexión."
-          onClick={() => onNavigate("simulator")}
+          onClick={() => onNavigate(userRole === "admin" ? "simulator" : "student_sim")}
         />
       </section>
     </div>
   );
 }
 
-function KpiCard({ label, value, unit, note }) {
+function CompactKpiRow({ label, value, unit, note }) {
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
-      <div className="text-xs font-medium text-[#475467] dark:text-slate-400">{label}</div>
-      <div className="mt-2 flex items-baseline gap-1.5">
-        <span className="text-3xl font-bold tracking-tight text-[#101828] tabular-nums dark:text-white">
+    <div className="py-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
+          {label}
+        </span>
+        {note && (
+          <span className="text-[11px] text-[#64748B] dark:text-slate-400">
+            {note}
+          </span>
+        )}
+      </div>
+      <div className="mt-0.5 flex items-baseline gap-1">
+        <span className="text-2xl font-bold tracking-tight text-[#101828] tabular-nums dark:text-white">
           {value}
         </span>
-        <span className="text-sm font-medium text-[#475467] dark:text-slate-400">{unit}</span>
+        <span className="text-xs font-semibold text-[#475467] dark:text-slate-400">
+          {unit}
+        </span>
       </div>
-      <div className="mt-1 text-xs text-[#475467] dark:text-slate-400">{note}</div>
     </div>
   );
 }

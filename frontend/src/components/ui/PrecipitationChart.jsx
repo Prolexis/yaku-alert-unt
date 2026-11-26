@@ -35,15 +35,19 @@ export default function PrecipitationChart({ points = [], height = 250 }) {
   const labelInterval = points.length > 30 ? 6 : 3;
 
   return (
-    <div className="space-y-3">
-      {/* Barra de lectura interactiva */}
-      <div className="flex min-h-[40px] flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3.5 py-2 text-xs dark:border-slate-800 dark:bg-slate-900/70">
+    <div className="space-y-2.5">
+      <span className="sr-only">
+        Pase el cursor o navegue con teclado sobre las barras para inspeccionar cada hora.
+      </span>
+
+      {/* Lectura interactiva compacta sin franja de instrucciones */}
+      <div className="flex min-h-[24px] flex-wrap items-center justify-between gap-2 text-xs">
         {activePoint ? (
           <>
             <span className="font-semibold text-[#111827] dark:text-white">
               {activePoint.time.replace("T", " · ")}
             </span>
-            <div className="flex flex-wrap gap-5 text-[#64748B] dark:text-slate-300">
+            <div className="flex flex-wrap gap-4 text-[#64748B] dark:text-slate-300">
               <span>
                 Precipitación:{" "}
                 <strong className="font-bold text-[#1D4ED8] dark:text-blue-400">
@@ -65,8 +69,8 @@ export default function PrecipitationChart({ points = [], height = 250 }) {
             </div>
           </>
         ) : (
-          <span className="text-[#64748B] dark:text-slate-400">
-            Pase el cursor o navegue con teclado sobre las barras para inspeccionar cada hora.
+          <span className="text-[11px] text-[#64748B] dark:text-slate-400">
+            Inspección horaria interactiva (cursor o teclado Tab)
           </span>
         )}
       </div>

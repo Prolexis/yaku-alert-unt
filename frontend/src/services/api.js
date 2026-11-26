@@ -62,3 +62,13 @@ export function fetchHydroRun(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+// --- YAKU SENSE (Red de sensores IoT virtuales simulados) -------------------
+export function fetchVirtualSensors() {
+  return requestJson("/sensors/virtual");
+}
+
+// --- Experiencia pública Estudiante / Visitante (escenarios 2017 / 2023) ----
+export function fetchPublicSimulation(presetId) {
+  return requestJson(`/public/simulation/${encodeURIComponent(presetId)}`);
+}

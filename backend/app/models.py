@@ -284,6 +284,7 @@ class HydroRunResponse(BaseModel):
     avisos: list[str]
     weather: Optional[dict[str, Any]] = None
     evaluation: Optional[HydroEvaluationSheet] = None
+    virtual_sensors: Optional[list[dict[str, Any]]] = None
 
 
 class HydroPreset(BaseModel):

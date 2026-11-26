@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   fetchCampusLayers,
   fetchConditionsCatalog,
   fetchLiveEvaluation,
   fetchProtocols,
+  fetchVirtualSensors,
   fetchWeather,
   runSimulation,
 } from "./services/api";
+import { mergeVirtualSensors } from "./utils/sensorFormatters";
 import Sidebar from "./components/ui/Sidebar";
 import TopHeader from "./components/ui/TopHeader";
 import DataStatusBanner from "./components/ui/DataStatusBanner";
@@ -15,6 +17,8 @@ import YakuAssistantDrawer from "./components/ui/YakuAssistantDrawer";
 import DashboardView from "./components/DashboardView";
 import MonitoringView from "./components/MonitoringView";
 import CampusMapView from "./components/CampusMapView";
+import StudentMonitoringMap from "./components/StudentMonitoringMap";
+import StudentSimpleSimulation from "./components/StudentSimpleSimulation";
 import PreventionView from "./components/PreventionView";
 import SimulatorView from "./components/SimulatorView";
 import DynamicSimulationView from "./components/DynamicSimulationView";
@@ -32,6 +36,7 @@ const DEFAULT_SIM_PARAMS = {
 };
 
 export default function App() {
+  const [userRole, setUserRole] = useState("student"); // "student" (público) | "admin" (técnico)
   const [activeView, setActiveView] = useState("dashboard");
   const [theme, setTheme] = useState("light"); // Modo claro priorizado para jurado
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -60,14 +65,58 @@ export default function App() {
   const [simParams, setSimParams] = useState(DEFAULT_SIM_PARAMS);
   const [simResult, setSimResult] = useState(null);
   const [hydroResult, setHydroResult] = useState(null);
+  const [publicSimResult, setPublicSimResult] = useState(null);
+  const [hydroActiveHour, setHydroActiveHour] = useState(1);
+  const [virtualSensorsCatalog, setVirtualSensorsCatalog] = useState(null);
+  const [selectedSensorId, setSelectedSensorId] = useState("");
+  const [disconnectedSensors, setDisconnectedSensors] = useState({});
   const [simLoading, setSimLoading] = useState(false);
   const [simError, setSimError] = useState("");
   const [lastSimAt, setLastSimAt] = useState("");
   const [focusedBuildingId, setFocusedBuildingId] = useState("");
 
+  const virtualSensors = useMemo(
+    () => mergeVirtualSensors(virtualSensorsCatalog, hydroResult),
+    [virtualSensorsCatalog, hydroResult]
+  );
+
   const handleLocateBuildingInMap = (buildingId) => {
     setFocusedBuildingId(buildingId);
-    setActiveView("map");
+    setActiveView(userRole === "admin" ? "map" : "student_map");
+  };
+
+  const handleChangeRole = (nextRole) => {
+    setUserRole(nextRole);
+    if (nextRole === "student") {
+      if (activeView === "map" || activeView === "monitoring") setActiveView("student_map");
+      else if (activeView === "hydro" || activeView === "simulator") setActiveView("student_sim");
+      setEvalSourceMode("live");
+    } else {
+      if (activeView === "student_map") setActiveView("map");
+      else if (activeView === "student_sim") setActiveView("hydro");
+    }
+  };
+
+  const handleLocateSensorInMap = (sensorId, targetView = "map") => {
+    setSelectedSensorId(sensorId);
+    setActiveView(targetView);
+  };
+
+  const handleToggleDisconnectSensor = (sensorId, frozenReading) => {
+    setDisconnectedSensors((prev) => {
+      const next = { ...prev };
+      if (!frozenReading) {
+        delete next[sensorId];
+      } else {
+        next[sensorId] = {
+          value: frozenReading.value,
+          hour: hydroActiveHour,
+          label: frozenReading.hourLabel,
+          accumulatedMm: frozenReading.accumulatedMm ?? null,
+        };
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -149,12 +198,22 @@ export default function App() {
     runSimulation(DEFAULT_SIM_PARAMS).then(setSimResult).catch(onFail);
   }, []);
 
+  // Solo el rol Administrador carga el catálogo técnico de sensores IoT virtuales
+  useEffect(() => {
+    if (userRole !== "admin" || virtualSensorsCatalog) return;
+    fetchVirtualSensors()
+      .then(setVirtualSensorsCatalog)
+      .catch((err) => console.warn("Sensores virtuales no disponibles:", err));
+  }, [userRole, virtualSensorsCatalog]);
+
   const currentEvaluation =
     evalSourceMode === "simulated" && simResult
       ? simResult.preventive_evaluation
       : liveEvaluation;
 
   const isSimulationContext =
+    activeView === "student_sim" ||
+    activeView === "hydro" ||
     activeView === "simulator" ||
     activeView === "map" ||
     (activeView === "prevention" && evalSourceMode === "simulated");
@@ -169,6 +228,8 @@ export default function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
         simActive={isSimulationContext}
+        userRole={userRole}
+        onChangeRole={handleChangeRole}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -229,7 +290,26 @@ export default function App() {
             />
           )}
 
-          {activeView === "map" && (
+          {activeView === "student_map" && (
+            <StudentMonitoringMap
+              weather={weather}
+              campusLayers={campusLayers}
+              declaredConditions={declaredConditions}
+              focusedBuildingId={focusedBuildingId}
+              onSelectBuilding={setFocusedBuildingId}
+              onNavigate={setActiveView}
+            />
+          )}
+
+          {activeView === "student_sim" && (
+            <StudentSimpleSimulation
+              campusLayers={campusLayers}
+              onPublicSimResult={setPublicSimResult}
+              onNavigate={setActiveView}
+            />
+          )}
+
+          {activeView === "map" && userRole === "admin" && (
             <CampusMapView
               campusLayers={campusLayers}
               conditionsCatalog={conditionsCatalog}
@@ -240,6 +320,12 @@ export default function App() {
               onSelectBuilding={setFocusedBuildingId}
               onRunSimulation={handleRunSimulation}
               onNavigate={setActiveView}
+              virtualSensors={virtualSensors}
+              hydroActiveHour={hydroActiveHour}
+              selectedSensorId={selectedSensorId}
+              onSelectSensor={setSelectedSensorId}
+              disconnectedSensors={disconnectedSensors}
+              onToggleDisconnectSensor={handleToggleDisconnectSensor}
             />
           )}
 
@@ -254,10 +340,11 @@ export default function App() {
               conditionsCatalog={conditionsCatalog}
               declaredConditions={declaredConditions}
               onToggleCondition={handleToggleDeclaredCondition}
+              userRole={userRole}
             />
           )}
 
-          {activeView === "simulator" && (
+          {activeView === "simulator" && userRole === "admin" && (
             <SimulatorView
               conditionsCatalog={conditionsCatalog}
               simParams={simParams}
@@ -271,10 +358,18 @@ export default function App() {
             />
           )}
 
-          {activeView === "hydro" && (
+          {activeView === "hydro" && userRole === "admin" && (
             <DynamicSimulationView
               campusLayers={campusLayers}
               onResultChange={setHydroResult}
+              onHourChange={setHydroActiveHour}
+              virtualSensors={virtualSensors}
+              selectedSensorId={selectedSensorId}
+              onSelectSensor={setSelectedSensorId}
+              disconnectedSensors={disconnectedSensors}
+              onToggleDisconnectSensor={handleToggleDisconnectSensor}
+              onLocateBuildingInMap={handleLocateBuildingInMap}
+              onNavigate={setActiveView}
             />
           )}
 
@@ -291,11 +386,17 @@ export default function App() {
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       <YakuAssistantDrawer
+        userRole={userRole}
         weather={weather}
         campusLayers={campusLayers}
         simResult={simResult}
+        publicSimResult={publicSimResult}
         liveEvaluation={liveEvaluation}
+        virtualSensors={userRole === "admin" ? virtualSensors : []}
+        hydroActiveHour={hydroActiveHour}
+        disconnectedSensors={disconnectedSensors}
         onLocateInMap={handleLocateBuildingInMap}
+        onLocateSensor={handleLocateSensorInMap}
         onNavigate={setActiveView}
         onRunQuickSim={() => handleRunSimulation(DEFAULT_SIM_PARAMS)}
       />

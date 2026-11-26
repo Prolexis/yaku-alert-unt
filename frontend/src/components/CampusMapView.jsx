@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
-import { Layers, MapPin, ShieldAlert, Building2, Navigation, ArrowRight, WifiOff } from "lucide-react";
+import { Layers, MapPin, ShieldAlert, Building2, Navigation, ArrowRight, WifiOff, Radio } from "lucide-react";
 import { normalizeText } from "../utils/formatters";
 import { buildCampusCatalog, CAMPUS_CATEGORIES } from "../utils/campusCatalog";
 import ExternalConditionsPanel from "./ui/ExternalConditionsPanel";
+import SensorDetailPanel from "./ui/SensorDetailPanel";
+import {
+  SENSOR_STATUS_STYLES,
+  resolveSensorReading,
+} from "../utils/sensorFormatters";
 import {
   CONDITIONS_ZONE_ID,
   conditionsModeParams,
@@ -63,11 +68,18 @@ export default function CampusMapView({
   onSelectBuilding,
   onRunSimulation,
   onNavigate,
+  virtualSensors = [],
+  hydroActiveHour = 1,
+  selectedSensorId = "",
+  onSelectSensor,
+  disconnectedSensors = {},
+  onToggleDisconnectSensor,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const baseGroupRef = useRef(null);
   const overlayGroupRef = useRef(null);
+  const sensorsGroupRef = useRef(null);
   const focusLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const tileErrorsRef = useRef(0);
@@ -99,7 +111,20 @@ export default function CampusMapView({
     reportes: true,
     influencia_sintetica: true,
     vigilar: true,
+    sensores_iot: false,
   });
+
+  // Si se selecciona un sensor desde Asistente YAKU u otra vista, activa la capa automáticamente.
+  useEffect(() => {
+    if (selectedSensorId) {
+      setVisibleLayers((prev) => (prev.sensores_iot ? prev : { ...prev, sensores_iot: true }));
+    }
+  }, [selectedSensorId]);
+
+  const selectedSensor = useMemo(
+    () => virtualSensors.find((s) => s.id === selectedSensorId) || null,
+    [virtualSensors, selectedSensorId]
+  );
 
   // Inicializa el mapa (sin mapa base: se maneja aparte para poder cambiarlo y degradar sin internet)
   useEffect(() => {
@@ -116,6 +141,7 @@ export default function CampusMapView({
 
     baseGroupRef.current = L.layerGroup().addTo(map);
     overlayGroupRef.current = L.layerGroup().addTo(map);
+    sensorsGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
     return () => {
@@ -472,6 +498,64 @@ export default function CampusMapView({
     });
   }, [campusLayers, simResult, visibleLayers]);
 
+  // Capa YAKU SENSE: Sensores IoT [SIM]
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const group = sensorsGroupRef.current;
+    if (!map || !group) return;
+    group.clearLayers();
+    if (!visibleLayers.sensores_iot || !virtualSensors.length) return;
+
+    virtualSensors.forEach((sensor) => {
+      const reading = resolveSensorReading(
+        sensor,
+        hydroActiveHour,
+        disconnectedSensors[sensor.id]
+      );
+      const st = SENSOR_STATUS_STYLES[reading.statusKey] || SENSOR_STATUS_STYLES.no_reading;
+      const isSelected = sensor.id === selectedSensorId;
+      const borderStyle = reading.statusKey === "disconnected_sim" ? "dashed" : "solid";
+
+      const icon = L.divIcon({
+        className: "yaku-sensor-marker",
+        html: `<div style="display:flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;background:${st.fill};color:#fff;font:700 11px/1.1 system-ui,sans-serif;border:2px ${borderStyle} ${isSelected ? "#0B1F33" : "#ffffff"};box-shadow:${isSelected ? "0 0 0 3px rgba(37,99,235,0.45),0 4px 10px rgba(0,0,0,0.28)" : "0 2px 6px rgba(0,0,0,0.25)"};white-space:nowrap;"><span>${esc(sensor.id)}</span></div>`,
+        iconSize: [44, 24],
+        iconAnchor: [22, 12],
+      });
+
+      const marker = L.marker([sensor.lat, sensor.lon], {
+        icon,
+        zIndexOffset: isSelected ? 1000 : 500,
+      });
+
+      marker.bindTooltip(
+        `${esc(sensor.name)} · ${esc(reading.displayValue)} (${esc(st.shortLabel)})`,
+        { direction: "top", offset: [0, -10] }
+      );
+      marker.on("click", () => {
+        onSelectSensor?.(sensor.id);
+        map.panTo([sensor.lat, sensor.lon], { animate: true });
+      });
+      marker.addTo(group);
+    });
+  }, [
+    visibleLayers.sensores_iot,
+    virtualSensors,
+    hydroActiveHour,
+    disconnectedSensors,
+    selectedSensorId,
+    onSelectSensor,
+  ]);
+
+  // Centrar el mapa al enfocar un sensor seleccionado desde fuera
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !selectedSensor || !visibleLayers.sensores_iot) return;
+    map.setView([selectedSensor.lat, selectedSensor.lon], Math.max(map.getZoom(), 17), {
+      animate: true,
+    });
+  }, [selectedSensor, visibleLayers.sensores_iot]);
+
   const toggleCondition = (conditionId) => {
     const next = toggledConditionParams(simParams, conditionId);
     onChangeSimParams(next);
@@ -586,17 +670,34 @@ export default function CampusMapView({
               </div>
             )}
 
-            {/* Control flotante discreto de capas */}
+            {/* Control flotante discreto de capas + acceso rápido YAKU SENSE */}
             <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
-              <button
-                type="button"
-                onClick={() => setLayersOpen((v) => !v)}
-                aria-expanded={layersOpen}
-                className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#101828] backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
-              >
-                <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
-                <span>Capas</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibleLayers((prev) => ({ ...prev, sensores_iot: !prev.sensores_iot }))
+                  }
+                  aria-pressed={visibleLayers.sensores_iot}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold backdrop-blur transition ${
+                    visibleLayers.sensores_iot
+                      ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                      : "border-[#E2E8F0] bg-white/95 text-[#101828] hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                  }`}
+                >
+                  <Radio className="h-3.5 w-3.5" />
+                  <span>Sensores IoT [SIM]</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayersOpen((v) => !v)}
+                  aria-expanded={layersOpen}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#101828] backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                >
+                  <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
+                  <span>Capas</span>
+                </button>
+              </div>
 
               {layersOpen && (
                 <div className="w-52 rounded-xl border border-[#E2E8F0] bg-white/95 p-3 text-xs backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
@@ -629,6 +730,7 @@ export default function CampusMapView({
                       { key: "accesos", label: "Accesos" },
                       { key: "puntos", label: "Puntos encuentro ref." },
                       { key: "rutas", label: "Rutas ref." },
+                      { key: "sensores_iot", label: "Sensores IoT [SIM]" },
                     ].map((layer) => (
                       <label key={layer.key} className="flex cursor-pointer items-center gap-2">
                         <input
@@ -692,6 +794,19 @@ export default function CampusMapView({
                 <span className="flex items-center gap-1.5">
                   <span className="inline-block h-2.5 w-3 rounded-sm border-2 border-dashed border-fuchsia-600" /> A vigilar (evento previo)
                 </span>
+                {visibleLayers.sensores_iot && (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-sky-500" /> Sensor virtual con datos
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-slate-400" /> Sensor sin lectura
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full border border-dashed border-amber-800 bg-amber-500" /> Sensor desconectado [SIM]
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -700,6 +815,45 @@ export default function CampusMapView({
         {/* Panel lateral compacto (~30%) */}
         <div className="flex flex-col justify-between space-y-4 rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-4">
           <div className="space-y-4">
+            {visibleLayers.sensores_iot && selectedSensor && (
+              <SensorDetailPanel
+                sensor={selectedSensor}
+                activeHour={hydroActiveHour}
+                disconnectedEntry={disconnectedSensors[selectedSensor.id]}
+                onToggleDisconnect={onToggleDisconnectSensor}
+                onClose={() => onSelectSensor?.("")}
+                onCenterMap={(s) =>
+                  mapInstanceRef.current?.setView([s.lat, s.lon], 18, { animate: true })
+                }
+                onOpenDynamicSim={() => onNavigate("hydro")}
+                onOpenFacility={(facId) => onSelectBuilding?.(facId)}
+                onOpenGuidance={() => onNavigate("continuity")}
+              />
+            )}
+
+            {visibleLayers.sensores_iot && !selectedSensor && virtualSensors.length > 0 && (
+              <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-3 text-xs dark:border-sky-900 dark:bg-sky-950/30">
+                <div className="font-bold text-sky-950 dark:text-sky-200">
+                  YAKU SENSE — 6 sensores IoT virtuales [SIM]
+                </div>
+                <p className="mt-0.5 text-[11px] text-sky-900/80 dark:text-sky-300/80">
+                  Propuesta futura (sin hardware instalado). Selecciona un sensor para ver su ficha y evolución:
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {virtualSensors.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => onSelectSensor?.(s.id)}
+                      className="rounded-md border border-sky-300 bg-white px-2 py-1 text-[11px] font-semibold text-sky-900 hover:bg-sky-100 dark:border-sky-800 dark:bg-slate-900 dark:text-sky-200"
+                    >
+                      {s.id} · {s.short_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <div className="text-xs font-medium text-[#2563EB] dark:text-blue-400">
                 Escenario seleccionado

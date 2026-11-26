@@ -9,9 +9,15 @@ import {
   MapPin,
   Pause,
   Play,
+  Radio,
   WifiOff,
 } from "lucide-react";
 import { fetchHydroForecast, fetchHydroPresets, fetchHydroRun } from "../services/api";
+import SensorDetailPanel from "./ui/SensorDetailPanel";
+import {
+  SENSOR_STATUS_STYLES,
+  resolveSensorReading,
+} from "../utils/sensorFormatters";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 // Puerta 4 (Av. Jesús de Nazareth): respaldo si el catálogo del campus aún no cargó.
@@ -134,16 +140,29 @@ const FIELD_CLASS =
   "w-full rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-2 text-xs text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white";
 const CHECK_CLASS = "h-4 w-4 rounded accent-[#2563EB]";
 
-export default function DynamicSimulationView({ campusLayers, onResultChange }) {
+export default function DynamicSimulationView({
+  campusLayers,
+  onResultChange,
+  onHourChange,
+  virtualSensors = [],
+  selectedSensorId = "",
+  onSelectSensor,
+  disconnectedSensors = {},
+  onToggleDisconnectSensor,
+  onLocateBuildingInMap,
+  onNavigate,
+}) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const catalogGroupRef = useRef(null);
   const waterGroupRef = useRef(null);
+  const sensorsGroupRef = useRef(null);
   const tileLayerRef = useRef(null);
   const tileErrorsRef = useRef(0);
   const fittedRef = useRef(false);
   const waterLayersRef = useRef([]);
   const builtKeyRef = useRef("");
+  const [showSensorsLayer, setShowSensorsLayer] = useState(true);
 
   const [presets, setPresets] = useState(null);
   const [presetsError, setPresetsError] = useState("");
@@ -181,6 +200,15 @@ export default function DynamicSimulationView({ campusLayers, onResultChange }) 
   useEffect(() => {
     onResultChange?.(result);
   }, [result, onResultChange]);
+
+  useEffect(() => {
+    onHourChange?.(hour);
+  }, [hour, onHourChange]);
+
+  const selectedSensor = useMemo(
+    () => virtualSensors.find((s) => s.id === selectedSensorId) || null,
+    [virtualSensors, selectedSensorId]
+  );
 
   // Red disponible: el modo pronóstico usa ?offline=true cuando no hay conexión.
   useEffect(() => {
@@ -288,12 +316,14 @@ export default function DynamicSimulationView({ campusLayers, onResultChange }) 
     );
     catalogGroupRef.current = L.layerGroup().addTo(map);
     waterGroupRef.current = L.layerGroup().addTo(map);
+    sensorsGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
     return () => {
       map.remove();
       mapInstanceRef.current = null;
       catalogGroupRef.current = null;
       waterGroupRef.current = null;
+      sensorsGroupRef.current = null;
       tileLayerRef.current = null;
     };
   }, []);
@@ -323,6 +353,52 @@ export default function DynamicSimulationView({ campusLayers, onResultChange }) 
     layer.bringToBack();
     tileLayerRef.current = layer;
   }, [basemap]);
+
+  // Capa sincronizada YAKU SENSE (Sensores IoT [SIM]) sobre la simulación dinámica
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const group = sensorsGroupRef.current;
+    if (!map || !group) return;
+    group.clearLayers();
+    if (!showSensorsLayer || !virtualSensors.length) return;
+
+    virtualSensors.forEach((sensor) => {
+      const r = resolveSensorReading(sensor, hour, disconnectedSensors[sensor.id]);
+      const st = SENSOR_STATUS_STYLES[r.statusKey] || SENSOR_STATUS_STYLES.no_reading;
+      const isSelected = sensor.id === selectedSensorId;
+      const borderStyle = r.statusKey === "disconnected_sim" ? "dashed" : "solid";
+      const valChip =
+        r.value !== null && r.value !== undefined ? ` · ${esc(r.displayValue)}` : "";
+
+      const icon = L.divIcon({
+        className: "yaku-sensor-marker",
+        html: `<div style="display:flex;align-items:center;gap:3px;padding:3px 7px;border-radius:999px;background:${st.fill};color:#fff;font:700 10px/1.1 system-ui,sans-serif;border:2px ${borderStyle} ${isSelected ? "#0B1F33" : "#ffffff"};box-shadow:${isSelected ? "0 0 0 3px rgba(37,99,235,0.45),0 4px 10px rgba(0,0,0,0.28)" : "0 2px 6px rgba(0,0,0,0.25)"};white-space:nowrap;"><span>${esc(sensor.id)}${valChip}</span></div>`,
+        iconSize: [78, 22],
+        iconAnchor: [39, 11],
+      });
+
+      const marker = L.marker([sensor.lat, sensor.lon], {
+        icon,
+        zIndexOffset: isSelected ? 1000 : 600,
+      });
+      marker.bindTooltip(
+        `${esc(sensor.name)} · ${esc(r.displayValue)} (${esc(st.shortLabel)})`,
+        { direction: "top", offset: [0, -10] }
+      );
+      marker.on("click", () => {
+        onSelectSensor?.(sensor.id);
+        map.panTo([sensor.lat, sensor.lon], { animate: true });
+      });
+      marker.addTo(group);
+    });
+  }, [
+    showSensorsLayer,
+    virtualSensors,
+    hour,
+    disconnectedSensors,
+    selectedSensorId,
+    onSelectSensor,
+  ]);
 
   // Catálogo del campus: perímetro, vías, estacionamientos, edificios y accesos.
   useEffect(() => {
@@ -635,15 +711,30 @@ export default function DynamicSimulationView({ campusLayers, onResultChange }) 
               )}
 
               <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLayersOpen((value) => !value)}
-                  aria-expanded={layersOpen}
-                  className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#101828] backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
-                >
-                  <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
-                  <span>Capas</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowSensorsLayer((v) => !v)}
+                    aria-pressed={showSensorsLayer}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold backdrop-blur transition ${
+                      showSensorsLayer
+                        ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                        : "border-[#E2E8F0] bg-white/95 text-[#101828] hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                    }`}
+                  >
+                    <Radio className="h-3.5 w-3.5" />
+                    <span>Sensores IoT [SIM]</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLayersOpen((value) => !value)}
+                    aria-expanded={layersOpen}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#101828] backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                  >
+                    <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
+                    <span>Capas</span>
+                  </button>
+                </div>
                 {layersOpen && (
                   <div className="w-40 rounded-xl border border-[#E2E8F0] bg-white/95 p-2 text-xs backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
                     <div className="flex gap-1" role="group" aria-label="Mapa base">
@@ -804,6 +895,65 @@ export default function DynamicSimulationView({ campusLayers, onResultChange }) 
 
         {/* Controles y panel de la hora seleccionada */}
         <div className="min-w-0 space-y-4 lg:col-span-4">
+          {showSensorsLayer && selectedSensor && (
+            <SensorDetailPanel
+              sensor={selectedSensor}
+              activeHour={hour}
+              disconnectedEntry={disconnectedSensors[selectedSensor.id]}
+              onToggleDisconnect={onToggleDisconnectSensor}
+              onClose={() => onSelectSensor?.("")}
+              onCenterMap={(s) =>
+                mapInstanceRef.current?.setView([s.lat, s.lon], 18, { animate: true })
+              }
+              onOpenFacility={(facId) => onLocateBuildingInMap?.(facId)}
+              onOpenGuidance={() => onNavigate?.("continuity")}
+            />
+          )}
+
+          {showSensorsLayer && virtualSensors.length > 0 && (
+            <section className="rounded-xl border border-sky-200 bg-sky-50/50 p-3.5 dark:border-sky-900/80 dark:bg-sky-950/25">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-bold text-sky-950 dark:text-sky-200">
+                  YAKU SENSE · Sensores virtuales (h+{hour})
+                </div>
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                  SIM
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-1.5">
+                {virtualSensors.map((s) => {
+                  const r = resolveSensorReading(s, hour, disconnectedSensors[s.id]);
+                  const active = s.id === selectedSensorId;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        onSelectSensor?.(s.id);
+                        mapInstanceRef.current?.panTo([s.lat, s.lon], { animate: true });
+                      }}
+                      className={`rounded-lg border px-2 py-1.5 text-left text-[11px] transition ${
+                        active
+                          ? "border-[#2563EB] bg-blue-50 dark:border-sky-400 dark:bg-sky-950/70"
+                          : "border-[#E2E8F0] bg-white hover:border-sky-400 dark:border-slate-800 dark:bg-[#0B1F33]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-bold text-[#101828] dark:text-white">
+                        <span>{s.id}</span>
+                        <span className="font-mono text-[10px] font-semibold text-sky-700 dark:text-sky-300">
+                          {r.value !== null && r.value !== undefined ? r.displayValue : "N/D"}
+                        </span>
+                      </div>
+                      <div className="truncate text-[10px] text-[#475467] dark:text-slate-400">
+                        {s.short_name}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           <section className="min-w-0 space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-4 dark:border-slate-800 dark:bg-[#0B1F33]">
           <div>
             <h3 className="text-sm font-bold text-[#101828] dark:text-white">Controles del escenario</h3>

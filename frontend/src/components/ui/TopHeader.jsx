@@ -3,12 +3,15 @@ import { Menu, Wifi, WifiOff, Sun, Moon, HelpCircle, RefreshCw, FlaskConical } f
 import { formatLimaTime } from "../../utils/formatters";
 
 const VIEW_TITLES = {
-  dashboard: "Dashboard",
+  dashboard: "Inicio",
+  student_map: "Mapa UNT",
+  student_sim: "Simulación de lluvias",
   monitoring: "Monitoreo",
-  map: "Mapa UNT",
+  map: "Mapa técnico + IoT",
+  hydro: "Simulación dinámica",
   simulator: "Simulaciones",
   prevention: "Prevención",
-  continuity: "Continuidad",
+  continuity: "Continuidad académica",
 };
 
 export default function TopHeader({

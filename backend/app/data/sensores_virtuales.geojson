@@ -1,0 +1,230 @@
+{
+  "type": "FeatureCollection",
+  "name": "yaku_sense_sensores_virtuales_unt",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "metadata": {
+    "network_name": "YAKU SENSE — Red de Monitoreo IoT Simulado",
+    "data_nature": "RED_IOT_VIRTUAL_SIMULADA",
+    "installed_physically": false,
+    "coordinate_system": "EPSG:4326 (WGS 84)",
+    "sampling_strategy": "Celda abierta exterior exacta (r, c) en terrain_grid.json (malla de 10 m derivada de DEM Copernicus GLO-30 + huellas OpenStreetMap). No se promedian celdas bloqueadas ni se generan lecturas aleatorias.",
+    "disclaimer": "No existen sensores físicos instalados en la Ciudad Universitaria UNT. Todas las ubicaciones son propuestas sujetas a verificación de campo y sus lecturas derivan de escenarios experimentales o series meteorológicas referenciales."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.040767, -8.117776]
+      },
+      "properties": {
+        "id": "S01",
+        "name": "S01 — Pluviómetro en área abierta",
+        "short_name": "Pluviómetro UNT",
+        "category": "pluviometria",
+        "category_label": "Pluviómetro",
+        "sensor_type": "Pluviómetro IoT de balancín (tipping bucket)",
+        "variable": "Precipitación horaria y acumulada",
+        "unit": "mm/h",
+        "secondary_unit": "mm",
+        "location_label": "Área abierta en zona deportiva del campus UNT, alejada de fachadas y árboles",
+        "location_status": "Ubicación propuesta — pendiente de verificación de campo",
+        "associated_facility_id": null,
+        "associated_facility_name": "Zona deportiva / área abierta UNT",
+        "grid_rc": [96, 45],
+        "dem_elevation_m": 18.14,
+        "surface_class": "area_deportiva",
+        "location_criterion": "Celda abierta (96, 45) dentro del perímetro UNT con vecindad 3x3 libre de edificaciones bloqueadas para evitar apantallamiento de lluvia.",
+        "physical_technology": "Pluviómetro de balancín + microcontrolador ESP32 (o equivalente de bajo consumo) + transceptor LoRaWAN + carcasa estanca IP65 con batería/panel solar.",
+        "connectivity_protocol": "LoRaWAN (propuesta futura — no operativa)",
+        "reading_label": "Precipitación del escenario activo",
+        "reading_source": "Serie horaria de lluvia que alimenta el escenario activo (sin serie paralela independiente)",
+        "data_nature": "DATO_DE_ESCENARIO_SIMULADO",
+        "warnings": [
+          "Sensor virtual: no existe pluviómetro físico instalado.",
+          "Reutiliza exactamente la serie horaria de entrada del escenario o pronóstico."
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.036049, -8.111627]
+      },
+      "properties": {
+        "id": "S02",
+        "name": "S02 — Nivel de agua en Puerta 4",
+        "short_name": "Nivel Puerta 4",
+        "category": "nivel_agua",
+        "category_label": "Nivel de agua",
+        "sensor_type": "Sensor de nivel superficial sin contacto (radar / ultrasonido impermeable o sonda para aniegos)",
+        "variable": "Lámina de agua superficial modelada",
+        "unit": "cm",
+        "secondary_unit": null,
+        "location_label": "Exterior de Puerta 4 (frente a Av. Jesús de Nazareth)",
+        "location_status": "Ubicación propuesta — pendiente de verificación de campo",
+        "associated_facility_id": "acc_osm_3802902370",
+        "associated_facility_name": "Puerta 4 (Av. Jesús de Nazareth)",
+        "grid_rc": [28, 97],
+        "dem_elevation_m": 27.62,
+        "surface_class": "via",
+        "location_criterion": "Celda abierta (28, 97) perteneciente al conjunto de celdas de ingreso externo p4 en terrain_grid.json, próxima a la Puerta 4.",
+        "physical_technology": "Sensor de nivel sin contacto (radar de corto alcance o ultrasonido impermeable sujeto a evaluación de zona ciega y precisión en láminas someras) o sensor específico para aniegos + nodo LoRaWAN.",
+        "connectivity_protocol": "LoRaWAN (propuesta futura — no operativa)",
+        "reading_label": "Lámina modelada en el punto virtual",
+        "reading_source": "Autómata celular exploratorio YAKU ALERT (hydro.py, celda 28,97)",
+        "data_nature": "SIMULACION_EXPLORATORIA_HIDRO",
+        "warnings": [
+          "No todo sensor ultrasónico mide con precisión láminas de 2 cm; requiere evaluación de zona ciega en campo.",
+          "La lectura refleja el autómata celular exploratorio y el ingreso graduable por Puerta 4, no una medición real."
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.039588, -8.116058]
+      },
+      "properties": {
+        "id": "S03",
+        "name": "S03 — Nivel de agua en el Comedor Universitario",
+        "short_name": "Nivel Comedor",
+        "category": "nivel_agua",
+        "category_label": "Nivel de agua",
+        "sensor_type": "Sensor de nivel superficial sin contacto o sonda para aniegos",
+        "variable": "Lámina de agua superficial modelada",
+        "unit": "cm",
+        "secondary_unit": null,
+        "location_label": "Exterior del Comedor Universitario UNT",
+        "location_status": "Ubicación propuesta — pendiente de verificación de campo",
+        "associated_facility_id": "bld_osm_1034573626",
+        "associated_facility_name": "Comedor Universitario",
+        "grid_rc": [77, 58],
+        "dem_elevation_m": 20.84,
+        "surface_class": "otro",
+        "location_criterion": "Celda abierta exterior (77, 58) adyacente a la huella OpenStreetMap del Comedor Universitario (way/1034573626), fuera del polígono bloqueado del edificio.",
+        "physical_technology": "Sensor de nivel sin contacto (radar o ultrasonido evaluado para aniegos someros) + microcontrolador de bajo consumo + módulo LoRaWAN.",
+        "connectivity_protocol": "LoRaWAN (propuesta futura — no operativa)",
+        "reading_label": "Lámina modelada en el punto virtual",
+        "reading_source": "Autómata celular exploratorio YAKU ALERT (hydro.py, celda 77,58)",
+        "data_nature": "SIMULACION_EXPLORATORIA_HIDRO",
+        "warnings": [
+          "Sensor virtual: no existe dispositivo físico en el Comedor Universitario.",
+          "La ausencia de lámina modelada no califica ni certifica la condición física del edificio."
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.040132, -8.115696]
+      },
+      "properties": {
+        "id": "S04",
+        "name": "S04 — Nivel de agua en Pabellón de zona baja (Ing. de Materiales)",
+        "short_name": "Nivel Pabellón Baja",
+        "category": "nivel_agua",
+        "category_label": "Nivel de agua",
+        "sensor_type": "Sensor de nivel superficial sin contacto o sonda para aniegos",
+        "variable": "Lámina de agua superficial modelada",
+        "unit": "cm",
+        "secondary_unit": null,
+        "location_label": "Exterior de la Escuela de Ingeniería de Materiales (sector topográficamente bajo en DEM)",
+        "location_status": "Ubicación propuesta — pendiente de verificación de campo",
+        "associated_facility_id": "bld_osm_376779175",
+        "associated_facility_name": "Escuela de Ingeniería de Materiales",
+        "grid_rc": [73, 52],
+        "dem_elevation_m": 19.77,
+        "surface_class": "otro",
+        "location_criterion": "Pabellón académico con la menor cota exterior registrada en terrain_grid.json (19,77 m en DEM Copernicus GLO-30), celda abierta (73, 52) fuera de la huella del edificio.",
+        "physical_technology": "Sensor de nivel sin contacto o sensor para aniegos superficiales + nodo ESP32/LoRaWAN con protección exterior.",
+        "connectivity_protocol": "LoRaWAN (propuesta futura — no operativa)",
+        "reading_label": "Lámina modelada en el punto virtual",
+        "reading_source": "Autómata celular exploratorio YAKU ALERT (hydro.py, celda 73,52)",
+        "data_nature": "SIMULACION_EXPLORATORIA_HIDRO",
+        "warnings": [
+          "Seleccionado por cota relativa en DEM de 30 m (±4 m de error vertical); no declara zona de peligro confirmada.",
+          "Lectura puramente exploratoria derivada del autómata celular."
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.037228, -8.112079]
+      },
+      "properties": {
+        "id": "S05",
+        "name": "S05 — Humedad del suelo en área verde",
+        "short_name": "Humedad Suelo",
+        "category": "humedad_suelo",
+        "category_label": "Humedad del suelo",
+        "sensor_type": "Sonda capacitiva o TDR de humedad volumétrica del suelo",
+        "variable": "Humedad volumétrica del suelo (VWC)",
+        "unit": "% VWC",
+        "secondary_unit": null,
+        "location_label": "Área verde representativa en el sector noreste del campus UNT",
+        "location_status": "Ubicación propuesta — pendiente de verificación de campo",
+        "associated_facility_id": null,
+        "associated_facility_name": "Área verde UNT (infiltración)",
+        "grid_rc": [33, 84],
+        "dem_elevation_m": 25.77,
+        "surface_class": "area_verde",
+        "location_criterion": "Celda abierta (33, 84) clasificada como area_verde en terrain_grid.json con vecindad 3x3 libre de edificaciones, donde hydro.py aplica infiltración.",
+        "physical_technology": "Sonda capacitiva impermeable / TDR para suelo + nodo LoRaWAN de bajo consumo (batería de larga duración).",
+        "connectivity_protocol": "LoRaWAN (propuesta futura — no operativa)",
+        "reading_label": "Sin lectura disponible en el modelo actual",
+        "reading_source": "No calculado por hydro.py (el modelo usa tasa de infiltración supuesta de 5 mm/h, sin balance calibrado de humedad volumétrica)",
+        "data_nature": "SIN_LECTURA_DISPONIBLE",
+        "warnings": [
+          "Sin lectura disponible: hydro.py no calcula humedad volumétrica del suelo calibrada; no se inventan valores sintéticos.",
+          "En despliegue físico futuro permitiría calibrar la saturación antecedente e infiltración real."
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.038771, -8.115154]
+      },
+      "properties": {
+        "id": "S06",
+        "name": "S06 — Temperatura y humedad ambiental (Biblioteca Central)",
+        "short_name": "Temp. / Humedad",
+        "category": "ambiental",
+        "category_label": "Ambiente (T° / HR)",
+        "sensor_type": "Sensor digital termo-higrométrico con escudo de radiación (SHT31 / BME280)",
+        "variable": "Temperatura (°C) y Humedad relativa (%)",
+        "unit": "°C / %",
+        "secondary_unit": null,
+        "location_label": "Exterior protegido de la Biblioteca Central UNT",
+        "location_status": "Ubicación propuesta — pendiente de verificación de campo",
+        "associated_facility_id": "bld_osm_376779178",
+        "associated_facility_name": "Biblioteca Central",
+        "grid_rc": [67, 67],
+        "dem_elevation_m": 21.33,
+        "surface_class": "otro",
+        "location_criterion": "Celda abierta exterior (67, 67) junto a la huella de Biblioteca Central (way/376779178), ubicación céntrica con fácil acceso para mantenimiento.",
+        "physical_technology": "Sensor SHT31 o BME280 en abrigo meteorológico ventilado + microcontrolador ESP32 + módulo LoRaWAN.",
+        "connectivity_protocol": "LoRaWAN (propuesta futura — no operativa)",
+        "reading_label": "Sin medición local (referencia ambiental futura)",
+        "reading_source": "Sin estación local instalada (el backend actual solo ingesta precipitación de Open-Meteo)",
+        "data_nature": "SIN_LECTURA_DISPONIBLE",
+        "warnings": [
+          "Sin lectura local disponible: no existe sensor SHT31/BME280 instalado en la Biblioteca Central.",
+          "Cualquier cifra futura proveniente de Open-Meteo deberá rotularse como pronóstico del modelo, jamás como medición local."
+        ]
+      }
+    }
+  ]
+}

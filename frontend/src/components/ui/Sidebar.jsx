@@ -10,20 +10,36 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  Lock,
+  GraduationCap,
 } from "lucide-react";
+
+export const STUDENT_NAV_ITEMS = [
+  { id: "dashboard", label: "Inicio", fullTitle: "Inicio y consulta rápida", icon: LayoutDashboard },
+  { id: "student_map", label: "Mapa UNT", fullTitle: "Mapa de monitoreo del campus UNT", icon: MapIcon },
+  {
+    id: "student_sim",
+    label: "Simulación sencilla",
+    fullTitle: "Simulación de lluvias tipo 2017 y 2023",
+    icon: Waves,
+    badge: "SIM",
+  },
+  { id: "prevention", label: "Prevención", fullTitle: "Orientaciones y avisos preventivos", icon: ShieldCheck },
+  { id: "continuity", label: "Continuidad académica", fullTitle: "Recomendaciones de continuidad", icon: BookOpen },
+];
 
 export const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", fullTitle: "Dashboard principal", icon: LayoutDashboard },
   { id: "monitoring", label: "Monitoreo", fullTitle: "Monitoreo meteorológico", icon: CloudRain },
-  { id: "map", label: "Mapa UNT", fullTitle: "Mapa interactivo del campus UNT", icon: MapIcon },
+  { id: "map", label: "Mapa UNT + IoT", fullTitle: "Mapa técnico y sensores IoT [SIM]", icon: MapIcon },
   {
     id: "hydro",
     label: "Simulación dinámica",
-    fullTitle: "Agua modelada por hora (simulación exploratoria)",
+    fullTitle: "Agua modelada por hora (simulación exploratoria avanzada)",
     icon: Waves,
     badge: "EXP",
   },
-  { id: "simulator", label: "Simulaciones", fullTitle: "Simulador de escenarios", icon: Sliders, badge: "SIM" },
+  { id: "simulator", label: "Simulaciones", fullTitle: "Simulador de escenarios A/B/C/D", icon: Sliders, badge: "SIM" },
   { id: "prevention", label: "Prevención", fullTitle: "Análisis preventivo explicable", icon: ShieldCheck },
   { id: "continuity", label: "Continuidad", fullTitle: "Orientaciones y continuidad académica", icon: BookOpen },
 ];
@@ -36,7 +52,10 @@ export default function Sidebar({
   collapsed,
   onToggleCollapse,
   simActive,
+  userRole = "student",
+  onChangeRole,
 }) {
+  const items = userRole === "admin" ? NAV_ITEMS : STUDENT_NAV_ITEMS;
   return (
     <>
       {mobileOpen && (
@@ -91,9 +110,9 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Navegación sin truncamientos */}
+        {/* Navegación diferenciada por rol */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV_ITEMS.map((item) => {
+          {items.map((item) => {
             const Icon = item.icon;
             const isActive = activeView === item.id;
             return (
@@ -138,17 +157,52 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Pie institucional compacto */}
-        <div className="border-t border-white/10 px-4 py-3 text-[11px] text-slate-400">
-          {collapsed ? (
-            <div className="flex justify-center" title="Prototipo TRL 3–4 · SINAGERD">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+        {/* Selector de experiencia (Estudiante público vs Administrador técnico) */}
+        <div className="border-t border-white/10 p-3">
+          {!collapsed ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <span>Rol activo</span>
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-200">
+                  {userRole === "admin" ? "Administrador" : "Estudiante"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onChangeRole?.(userRole === "admin" ? "student" : "admin")}
+                title="Separación de interfaz para demostración; en producción el acceso administrador requiere autenticación RBAC en backend."
+                className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold transition ${
+                  userRole === "admin"
+                    ? "border-sky-500/50 bg-sky-500/15 text-sky-200 hover:bg-sky-500/25"
+                    : "border-white/15 bg-white/5 text-slate-200 hover:bg-white/15"
+                }`}
+              >
+                {userRole === "admin" ? (
+                  <>
+                    <GraduationCap className="h-3.5 w-3.5" />
+                    <span>Volver a vista Estudiante</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>Acceso Administrador</span>
+                  </>
+                )}
+              </button>
+              <div className="flex items-center justify-between pt-0.5 text-[10px] text-slate-400">
+                <span>TRL 3–4 · Ley N.° 29664</span>
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <span>TRL 3–4 · Ley N.° 29664</span>
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            </div>
+            <button
+              type="button"
+              onClick={() => onChangeRole?.(userRole === "admin" ? "student" : "admin")}
+              title={userRole === "admin" ? "Cambiar a vista Estudiante" : "Cambiar a vista Administrador"}
+              className="flex w-full justify-center rounded-lg p-2 text-slate-300 hover:bg-white/10"
+            >
+              {userRole === "admin" ? <GraduationCap className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            </button>
           )}
         </div>
       </aside>

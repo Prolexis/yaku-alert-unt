@@ -1,25 +1,43 @@
 import React, { useMemo, useState } from "react";
-import { MessageSquare, X, Send, MapPin, Sliders, BookOpen } from "lucide-react";
+import { MessageSquare, X, Send, MapPin, Sliders, BookOpen, Radio } from "lucide-react";
 import { buildCampusCatalog } from "../../utils/campusCatalog";
 import { formatLimaTime, humanPreventiveTitle, normalizeText } from "../../utils/formatters";
+import { resolveSensorReading } from "../../utils/sensorFormatters";
 
-const QUICK_PROMPTS = [
-  "¿Va a llover hoy en la UNT?",
-  "Ubicar Facultad de Ingeniería",
+const STUDENT_QUICK_PROMPTS = [
+  "¿Cómo está el pronóstico de lluvia?",
+  "¿Qué zonas aparecen en el mapa?",
+  "¿Qué representa el escenario 2017?",
   "¿Dónde está el Comedor Universitario?",
-  "Simular lluvia intensa FEN",
-  "¿Qué hago durante lluvias intensas?",
+  "¿Es una simulación o una medición real?",
+  "¿Qué debería hacer ante lluvias intensas?",
+];
+
+const ADMIN_QUICK_PROMPTS = [
+  "¿Va a llover hoy en la UNT?",
+  "¿Dónde están los sensores?",
+  "¿Qué indica el sensor del comedor?",
+  "¿Qué indica el sensor de Puerta 4?",
+  "¿Cómo se conectarían los sensores?",
+  "¿Dónde está el Comedor Universitario?",
 ];
 
 export default function YakuAssistantDrawer({
+  userRole = "student",
   weather,
   campusLayers,
   simResult,
+  publicSimResult = null,
   liveEvaluation,
+  virtualSensors = [],
+  hydroActiveHour = 1,
+  disconnectedSensors = {},
   onLocateInMap,
+  onLocateSensor,
   onNavigate,
   onRunQuickSim,
 }) {
+  const quickPrompts = userRole === "admin" ? ADMIN_QUICK_PROMPTS : STUDENT_QUICK_PROMPTS;
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
@@ -47,8 +65,128 @@ export default function YakuAssistantDrawer({
       action: null,
     };
 
+    // 0. Consultas sobre YAKU SENSE (solo disponibles en modo Administrador)
+    const idMatch = norm.match(/\bs0([1-6])\b/);
+    const asksSensors =
+      Boolean(idMatch) ||
+      norm.includes("sensor") ||
+      norm.includes("pluviometro") ||
+      norm.includes("lorawan") ||
+      norm.includes("mqtt") ||
+      norm.includes("yaku sense") ||
+      (userRole === "admin" && norm.includes("lamina") && (norm.includes("comedor") || norm.includes("puerta") || norm.includes("pabellon")));
+
+    if (asksSensors && userRole !== "admin") {
+      reply = {
+        role: "assistant",
+        text: "La vista pública para estudiantes y visitantes no muestra sensores ni diagnósticos técnicos. Puedes consultar el pronóstico vigente en el Mapa UNT o explorar la Simulación sencilla (2017 / 2023).",
+        action: { label: "Abrir Mapa UNT", type: "nav", target: "student_map" },
+      };
+    } else if (asksSensors && virtualSensors.length > 0) {
+      if (norm.includes("conectar") || norm.includes("lorawan") || norm.includes("fisica")) {
+        reply = {
+          role: "assistant",
+          text: "Propuesta futura (no operativa): Sensor físico → MCU + LoRaWAN → Gateway del campus → Servidor LoRaWAN (ChirpStack/TTS) → MQTT/Webhook → FastAPI → Mapa Leaflet y Asistente YAKU. Hoy no existen sensores físicos instalados; requiere evaluar frecuencias MTC, cobertura RF, energía y permisos UNT.",
+          action: { label: "Ver sensores en Mapa UNT", type: "sensor", sensorId: "S01" },
+        };
+      } else if (norm.includes("no tienen datos") || norm.includes("sin datos") || norm.includes("sin lectura")) {
+        const noData = virtualSensors.filter(
+          (s) => resolveSensorReading(s, hydroActiveHour, disconnectedSensors[s.id]).statusKey === "no_reading"
+        );
+        const list = noData.map((s) => `${s.id} (${s.short_name})`).join(", ");
+        reply = {
+          role: "assistant",
+          text: noData.length
+            ? `Sensores virtuales sin lectura en el modelo actual: ${list}. Por rigor científico no se inventan mediciones donde hydro.py o la API no producen esa variable.`
+            : "Todos los sensores con serie compatible tienen lectura en la simulación activa.",
+          action: { label: "Ver S05 en Mapa UNT", type: "sensor", sensorId: noData[0]?.id || "S05" },
+        };
+      } else {
+        let targetSensor = null;
+        if (idMatch) {
+          targetSensor = virtualSensors.find((s) => s.id === `S0${idMatch[1]}`);
+        } else if (norm.includes("comedor")) {
+          targetSensor = virtualSensors.find((s) => s.id === "S03");
+        } else if (norm.includes("puerta 4") || norm.includes("p4") || norm.includes("nazareth")) {
+          targetSensor = virtualSensors.find((s) => s.id === "S02");
+        } else if (norm.includes("lluvia") || norm.includes("pluviometro")) {
+          targetSensor = virtualSensors.find((s) => s.id === "S01");
+        } else if (norm.includes("pabellon") || norm.includes("materiales") || norm.includes("baja")) {
+          targetSensor = virtualSensors.find((s) => s.id === "S04");
+        } else if (norm.includes("suelo") || norm.includes("verde")) {
+          targetSensor = virtualSensors.find((s) => s.id === "S05");
+        } else if (norm.includes("temperatura") || norm.includes("ambiental") || norm.includes("biblioteca")) {
+          targetSensor = virtualSensors.find((s) => s.id === "S06");
+        }
+
+        if (targetSensor) {
+          const r = resolveSensorReading(
+            targetSensor,
+            hydroActiveHour,
+            disconnectedSensors[targetSensor.id]
+          );
+          const statusDesc =
+            r.statusKey === "disconnected_sim"
+              ? `Comunicación interrumpida (simulada); último dato: ${r.displayValue} (${r.hourLabel}).`
+              : r.statusKey === "active_virtual"
+              ? `${targetSensor.reading_label}: ${r.displayValue} en ${r.hourLabel} (escenario simulado, no medición real).`
+              : `Sin lectura disponible (${targetSensor.reading_source}).`;
+          reply = {
+            role: "assistant",
+            text: `${targetSensor.name} [Sensor virtual · SIM]. Ubicación propuesta: ${targetSensor.location_label}. ${statusDesc}`,
+            action: { label: `Ver ${targetSensor.id} en Mapa UNT`, type: "sensor", sensorId: targetSensor.id },
+          };
+        } else {
+          const summaryList = virtualSensors
+            .map((s) => `${s.id} (${s.short_name})`)
+            .join(", ");
+          reply = {
+            role: "assistant",
+            text: `YAKU SENSE propone 6 sensores IoT virtuales (sin hardware instalado): ${summaryList}. Puedes activar la capa «Sensores IoT [SIM]» en Mapa UNT o Simulación dinámica.`,
+            action: { label: "Activar sensores en Mapa UNT", type: "sensor", sensorId: "S03" },
+          };
+        }
+      }
+    }
+    // 0b. Preguntas frecuentes específicas de estudiantes (diferencia simulación vs real, escenarios 2017/2023, zonas del mapa)
+    else if (norm.includes("simulacion o una medicion") || norm.includes("medicion real")) {
+      reply = {
+        role: "assistant",
+        text: "El Mapa de monitoreo UNT muestra el pronóstico numérico de Open-Meteo (no sensores locales instalados). En cambio, «Simulación sencilla» (tipo 2017 y tipo 2023) es una simulación experimental para explorar escenarios y no representa la situación actual del campus.",
+        action: { label: "Ver Mapa UNT", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
+      };
+    } else if (norm.includes("2017") || norm.includes("2023")) {
+      const year = norm.includes("2023") ? "2023" : "2017";
+      reply = {
+        role: "assistant",
+        text:
+          year === "2017"
+            ? "El Escenario tipo 2017 es una simulación experimental inspirada en los antecedentes documentados de marzo de 2017 (27,5 mm en 24 h; hietograma horario supuesto). No es una reconstrucción exacta del evento real."
+            : "El Escenario tipo 2023 es una simulación experimental relacionada con los antecedentes documentados del 10 de marzo de 2023 (35 mm en el día; hietograma horario supuesto). No es una reconstrucción exacta del evento real.",
+        action: { label: "Ir a Simulación sencilla", type: "nav", target: userRole === "admin" ? "hydro" : "student_sim" },
+      };
+    } else if (norm.includes("que zonas aparecen") || norm.includes("zonas de atencion")) {
+      reply = {
+        role: "assistant",
+        text: "En el Mapa UNT aparecen las instalaciones registradas en OpenStreetMap, puntos de encuentro referenciales y las «Zonas de atención» basadas en antecedentes históricos documentados (2017/2023) y sectores de cota relativamente baja del DEM Copernicus GLO-30. Ninguna capa declara zonas seguras ni peligrosas oficiales.",
+        action: { label: "Explorar Mapa UNT", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
+      };
+    } else if (norm.includes("sucede") && norm.includes("comedor") && norm.includes("simul")) {
+      const comedorEl = (publicSimResult?.elements || []).find((e) =>
+        normalizeText(e.name).includes("comedor")
+      );
+      reply = {
+        role: "assistant",
+        text: comedorEl
+          ? comedorEl.first_hour_affected !== null
+            ? `En el escenario cargado, el entorno del Comedor Universitario muestra contacto modelado desde h+${comedorEl.first_hour_affected} (lámina máxima modelada: ${comedorEl.max_depth_cm} cm). Es un resultado exploratorio, no una medición real.`
+            : "En el escenario cargado, el entorno del Comedor Universitario no muestra lámina visible. Recuerda que es un modelo exploratorio y no certifica condiciones reales."
+          : "Abre «Simulación sencilla», elige Escenario tipo 2017 o tipo 2023, pulsa «Ver simulación» y haz clic sobre el Comedor Universitario en el mapa para consultar su resultado exploratorio.",
+        action: { label: "Abrir Simulación sencilla", type: "nav", target: userRole === "admin" ? "hydro" : "student_sim" },
+      };
+    }
     // 1. Consulta de lluvia / clima / pronóstico
-    if (
+    else if (
       norm.includes("llov") ||
       norm.includes("lluvia") ||
       norm.includes("clima") ||
@@ -76,7 +214,7 @@ export default function YakuAssistantDrawer({
               ? humanPreventiveTitle(liveEvaluation.preventive_level, false)
               : "Estado informativo"
           }. Recuerda que es pronóstico numérico, no medición local.`,
-          action: { label: "Ver monitoreo", type: "nav", target: "monitoring" },
+          action: { label: userRole === "admin" ? "Ver monitoreo" : "Ver Mapa UNT", type: "nav", target: userRole === "admin" ? "monitoring" : "student_map" },
         };
       }
     }
@@ -143,6 +281,9 @@ export default function YakuAssistantDrawer({
     if (!action) return;
     if (action.type === "locate") {
       onLocateInMap(action.buildingId);
+      setOpen(false);
+    } else if (action.type === "sensor") {
+      onLocateSensor?.(action.sensorId, "map");
       setOpen(false);
     } else if (action.type === "nav") {
       onNavigate(action.target);
@@ -215,6 +356,7 @@ export default function YakuAssistantDrawer({
                     className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-[#2563EB] bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300"
                   >
                     {m.action.type === "locate" && <MapPin className="h-3 w-3" />}
+                    {m.action.type === "sensor" && <Radio className="h-3 w-3" />}
                     {m.action.type === "sim" && <Sliders className="h-3 w-3" />}
                     {m.action.type === "nav" && <BookOpen className="h-3 w-3" />}
                     {m.action.label}
@@ -226,7 +368,7 @@ export default function YakuAssistantDrawer({
 
           {/* Botones rápidos */}
           <div className="flex gap-1.5 overflow-x-auto border-t border-[#E2E8F0] px-3 py-2 dark:border-slate-800">
-            {QUICK_PROMPTS.map((q) => (
+            {quickPrompts.map((q) => (
               <button
                 key={q}
                 type="button"

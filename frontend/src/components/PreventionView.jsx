@@ -12,6 +12,7 @@ export default function PreventionView({
   conditionsCatalog,
   declaredConditions = [],
   onToggleCondition,
+  userRole = "student",
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
 
@@ -59,8 +60,8 @@ export default function PreventionView({
         </div>
       </div>
 
-      {/* Condiciones externas declarables (conectadas a GET /api/conditions) */}
-      {evalSourceMode === "live" && conditionsCatalog?.conditions?.length > 0 && (
+      {/* Condiciones externas declarables (solo editables en modo Administrador) */}
+      {userRole === "admin" && evalSourceMode === "live" && conditionsCatalog?.conditions?.length > 0 && (
         <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>

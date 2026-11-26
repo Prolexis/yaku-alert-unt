@@ -45,6 +45,7 @@ from app.models import (
     HydroPresetsResponse,
     HydroRunResponse,
 )
+from app.services.virtual_sensors import build_virtual_sensor_readings
 
 TERRAIN_PATH = DATA_DIR / "terrain_grid.json"
 HYDRO_PARAMS_PATH = DATA_DIR / "hydro_params.json"
@@ -646,6 +647,7 @@ def simulate_core(
     mass_inflow = mass_drain = mass_edge = mass_roof_lost = 0.0
 
     frames: list[HydroFrame] = []
+    sensor_hourly_depths: list[np.ndarray] = []
     max_depth_seen = 0.0
     peak_wet_area = 0.0
     peak_hour = 0
@@ -763,6 +765,7 @@ def simulate_core(
             campus_edge_wet_cells=int((wet & grid.campus_edge).sum()),
             geojson=_frame_geojson(depth, grid, class_ranges),
         ))
+        sensor_hourly_depths.append(depth.copy())
         if hourly_out is not None:
             hourly_out.append(depth.copy())
 
@@ -877,6 +880,15 @@ def simulate_core(
         "Todo es offline: la corrida no consultó ninguna red ni ningún mapa externo.",
     ]
 
+    virtual_sensors = build_virtual_sensor_readings(
+        grid=grid,
+        hourly_depths=sensor_hourly_depths,
+        rainfall_mm_h=series,
+        scenario_label=source,
+        data_nature=data_nature,
+        run_id=run_id,
+    )
+
     response = HydroRunResponse(
         run_id=run_id,
         data_nature=data_nature,
@@ -954,5 +966,6 @@ def simulate_core(
         limitations=limitations,
         avisos=avisos,
         weather=weather,
+        virtual_sensors=virtual_sensors,
     )
     return response, depth

@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -14,7 +16,8 @@ from app.models import (
     WeatherResponse,
 )
 from app.services.conditions import load_conditions_catalog, resolve_conditions
-from app.services.hydro import list_presets, run_hydro_simulation
+from app.services.hydro import list_presets, load_terrain_grid, run_hydro_simulation
+from app.services.virtual_sensors import get_virtual_sensors_catalog
 from app.services.preventive_engine import (
     build_hydro_evaluation,
     evaluate_preventive_rules,
@@ -164,6 +167,80 @@ def hydro_evaluate(payload: HydroRunRequest) -> HydroRunResponse:
 def hydro_presets() -> HydroPresetsResponse:
     """Eventos de referencia con su hietograma horario (acumulado dato + reparto supuesto)."""
     return list_presets()
+
+
+@app.get("/api/sensors/virtual")
+def virtual_sensors_catalog() -> dict:
+    """Catálogo georreferenciado de los 6 sensores IoT virtuales (YAKU SENSE, simulados)."""
+    return get_virtual_sensors_catalog(load_terrain_grid())
+
+
+PUBLIC_SIMULATION_PRESETS = {
+    "evento_2017_03": {
+        "title": "Escenario tipo 2017",
+        "summary": (
+            "Escenario de lluvia de referencia inspirado en los antecedentes documentados "
+            "de marzo de 2017 (27,5 mm en 24 h; hietograma horario supuesto)."
+        ),
+    },
+    "evento_2023_03_10": {
+        "title": "Escenario tipo 2023",
+        "summary": (
+            "Escenario de lluvia de referencia relacionado con los antecedentes documentados "
+            "del 10 de marzo de 2023 (35 mm en el día; hietograma horario supuesto)."
+        ),
+    },
+}
+
+
+@lru_cache(maxsize=4)
+def _cached_public_simulation(preset_id: str) -> dict:
+    presets_resp = list_presets()
+    preset = next((p for p in presets_resp.presets if p.id == preset_id), None)
+    if preset is None:
+        raise ValueError(f"Preset no disponible: {preset_id}")
+    defaults = preset.defaults or {}
+    run_resp = _with_hydro_evaluation(
+        run_hydro_simulation(
+            preset.rainfall_mm_h,
+            drainage_state=defaults.get("drainage_state", "normal"),
+            inflow_p4=defaults.get("inflow_p4", "medio"),
+            secondary_inflow=bool(defaults.get("secondary_inflow", False)),
+            use_reported_sinks=False,
+            data_nature="SIMULACION_EXPLORATORIA_PUBLICA",
+            source=f"{PUBLIC_SIMULATION_PRESETS[preset_id]['title']} ({preset.source})",
+        )
+    )
+    payload = run_resp.model_dump()
+    # Vista pública: no expone telemetría ni catálogo de sensores IoT virtuales
+    payload["virtual_sensors"] = None
+    payload["public_preset"] = {
+        "id": preset.id,
+        "title": PUBLIC_SIMULATION_PRESETS[preset_id]["title"],
+        "summary": PUBLIC_SIMULATION_PRESETS[preset_id]["summary"],
+        "total_mm": preset.total_mm,
+        "hours": preset.hours,
+        "source": preset.source,
+        "note": preset.note,
+    }
+    return payload
+
+
+@app.get("/api/public/simulation/{preset_id}")
+def public_student_simulation(preset_id: str) -> dict:
+    """Ejecuta de forma restringida y cacheada solo los escenarios públicos 2017 y 2023."""
+    if preset_id not in PUBLIC_SIMULATION_PRESETS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Escenario público no permitido. Solo se admiten: "
+                + ", ".join(sorted(PUBLIC_SIMULATION_PRESETS.keys()))
+            ),
+        )
+    try:
+        return _cached_public_simulation(preset_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/hydro/forecast", response_model=HydroRunResponse)

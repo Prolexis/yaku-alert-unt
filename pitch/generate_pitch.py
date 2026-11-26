@@ -1,170 +1,544 @@
+"""Generador oficial del Pitch Deck YAKU ALERT — UNT (estrictamente 7 diapositivas).
+
+Hackathon Innova Norte 3G 2026 — Desafío 3: Gestión de riesgos y desastres ante el Fenómeno El Niño.
+"""
+from __future__ import annotations
+
 from pathlib import Path
 from pptx import Presentation
 from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
-BG_DARK = RGBColor(15, 23, 42)       # #0f172a
-ACCENT_CYAN = RGBColor(6, 182, 212)  # #06b6d4
-ACCENT_AMBER = RGBColor(245, 158, 11)
-TEXT_WHITE = RGBColor(248, 250, 252)
-TEXT_MUTED = RGBColor(148, 163, 184)
+BG_NAVY = RGBColor(11, 31, 51)       # #0B1F33
+CARD_BG = RGBColor(18, 45, 74)       # #122D4A
+CARD_BORDER = RGBColor(36, 75, 115)  # #244B73
+ACCENT_CYAN = RGBColor(56, 189, 248) # #38BDF8
+ACCENT_BLUE = RGBColor(37, 99, 235)  # #2563EB
+ACCENT_GREEN = RGBColor(16, 185, 129)# #10B981
+ACCENT_AMBER = RGBColor(245, 158, 11)# #F59E0B
+TEXT_WHITE = RGBColor(248, 250, 252) # #F8FAFC
+TEXT_LIGHT = RGBColor(203, 213, 225) # #CBD5E1
+TEXT_MUTED = RGBColor(148, 163, 184) # #94A3B8
+
+ROOT = Path(__file__).resolve().parents[1]
+EVIDENCIAS_DIR = ROOT / "docs" / "evidencias"
+FOOTER_TEXT = "YAKU ALERT — UNT · Hackathon Innova Norte 3G 2026 · Desafío 3 (TRL 3–4)"
 
 
-def add_dark_slide(prs: Presentation, title: str, subtitle: str, bullets: list[str], footer: str):
-    slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank
-    bg = slide.background
-    fill = bg.fill
+def _set_bg(slide) -> None:
+    fill = slide.background.fill
     fill.solid()
-    fill.fore_color.rgb = BG_DARK
+    fill.fore_color.rgb = BG_NAVY
 
+
+def _add_chrome(slide, badge_text: str, title: str, subtitle: str, slide_num: int) -> None:
     # Top accent bar
-    bar = slide.shapes.add_shape(1, Inches(0), Inches(0), Inches(13.333), Inches(0.12))
+    bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0), Inches(0), Inches(13.333), Inches(0.1))
     bar.fill.solid()
     bar.fill.fore_color.rgb = ACCENT_CYAN
     bar.line.fill.background()
 
+    # Rubric badge
+    badge = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(0.7), Inches(0.28), Inches(5.6), Inches(0.32))
+    badge.fill.solid()
+    badge.fill.fore_color.rgb = CARD_BG
+    badge.line.color.rgb = ACCENT_CYAN
+    badge.line.width = Pt(1)
+    btf = badge.text_frame
+    btf.margin_left = Inches(0.12)
+    btf.margin_top = Inches(0.03)
+    bp = btf.paragraphs[0]
+    bp.text = badge_text
+    bp.font.size = Pt(10.5)
+    bp.font.bold = True
+    bp.font.color.rgb = ACCENT_CYAN
+
     # Title
-    tb = slide.shapes.add_textbox(Inches(0.8), Inches(0.45), Inches(11.7), Inches(0.9))
+    tb = slide.shapes.add_textbox(Inches(0.7), Inches(0.68), Inches(11.9), Inches(0.62))
     tf = tb.text_frame
     tf.word_wrap = True
+    tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
     p = tf.paragraphs[0]
     p.text = title
-    p.font.size = Pt(32)
+    p.font.size = Pt(27)
     p.font.bold = True
     p.font.color.rgb = TEXT_WHITE
 
     # Subtitle
-    sb = slide.shapes.add_textbox(Inches(0.8), Inches(1.25), Inches(11.7), Inches(0.5))
+    sb = slide.shapes.add_textbox(Inches(0.7), Inches(1.26), Inches(11.9), Inches(0.4))
     stf = sb.text_frame
     stf.word_wrap = True
+    stf.margin_left = stf.margin_top = stf.margin_right = stf.margin_bottom = 0
     sp = stf.paragraphs[0]
     sp.text = subtitle
-    sp.font.size = Pt(16)
-    sp.font.color.rgb = ACCENT_CYAN
-
-    # Bullets
-    bb = slide.shapes.add_textbox(Inches(0.9), Inches(2.0), Inches(11.5), Inches(4.6))
-    btf = bb.text_frame
-    btf.word_wrap = True
-    for i, item in enumerate(bullets):
-        bp = btf.paragraphs[0] if i == 0 else btf.add_paragraph()
-        bp.text = f"•  {item}"
-        bp.font.size = Pt(20)
-        bp.font.color.rgb = TEXT_WHITE
-        bp.space_after = Pt(14)
+    sp.font.size = Pt(14)
+    sp.font.color.rgb = TEXT_LIGHT
 
     # Footer
-    fb = slide.shapes.add_textbox(Inches(0.8), Inches(6.9), Inches(11.7), Inches(0.4))
-    ftf = fb.text_frame
-    fp = ftf.paragraphs[0]
-    fp.text = footer
-    fp.font.size = Pt(11)
+    fb = slide.shapes.add_textbox(Inches(0.7), Inches(7.02), Inches(10.5), Inches(0.32))
+    fp = fb.text_frame.paragraphs[0]
+    fp.text = FOOTER_TEXT
+    fp.font.size = Pt(10)
     fp.font.color.rgb = TEXT_MUTED
-    fp.alignment = PP_ALIGN.RIGHT
+
+    nb = slide.shapes.add_textbox(Inches(11.6), Inches(7.02), Inches(1.0), Inches(0.32))
+    np_ = nb.text_frame.paragraphs[0]
+    np_.text = f"{slide_num} / 7"
+    np_.font.size = Pt(10.5)
+    np_.font.bold = True
+    np_.font.color.rgb = ACCENT_CYAN
+    np_.alignment = PP_ALIGN.RIGHT
 
 
-def main():
+def _add_card(
+    slide,
+    left: float,
+    top: float,
+    width: float,
+    height: float,
+    heading: str,
+    bullets: list[str],
+    accent: RGBColor = ACCENT_CYAN,
+    body_pt: float = 13.5,
+) -> None:
+    card = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE, Inches(left), Inches(top), Inches(width), Inches(height)
+    )
+    card.fill.solid()
+    card.fill.fore_color.rgb = CARD_BG
+    card.line.color.rgb = CARD_BORDER
+    card.line.width = Pt(1.2)
+
+    # Left accent stripe
+    stripe = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(left), Inches(top + 0.12), Inches(0.08), Inches(height - 0.24)
+    )
+    stripe.fill.solid()
+    stripe.fill.fore_color.rgb = accent
+    stripe.line.fill.background()
+
+    tb = slide.shapes.add_textbox(
+        Inches(left + 0.22), Inches(top + 0.14), Inches(width - 0.34), Inches(height - 0.24)
+    )
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
+
+    hp = tf.paragraphs[0]
+    hp.text = heading
+    hp.font.size = Pt(15.5)
+    hp.font.bold = True
+    hp.font.color.rgb = accent
+    hp.space_after = Pt(8)
+
+    for item in bullets:
+        bp = tf.add_paragraph()
+        bp.text = f"•  {item}"
+        bp.font.size = Pt(body_pt)
+        bp.font.color.rgb = TEXT_WHITE
+        bp.space_after = Pt(7)
+
+
+def _add_evidence_image(
+    slide,
+    filename: str,
+    left: float,
+    top: float,
+    width: float,
+    caption: str,
+) -> None:
+    img_path = EVIDENCIAS_DIR / filename
+    if not img_path.exists():
+        return
+    # Frame
+    height = width * (860.0 / 1280.0)
+    frame = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Inches(left - 0.08),
+        Inches(top - 0.08),
+        Inches(width + 0.16),
+        Inches(height + 0.5),
+    )
+    frame.fill.solid()
+    frame.fill.fore_color.rgb = CARD_BG
+    frame.line.color.rgb = CARD_BORDER
+    frame.line.width = Pt(1.2)
+
+    slide.shapes.add_picture(str(img_path), Inches(left), Inches(top), width=Inches(width))
+
+    cb = slide.shapes.add_textbox(Inches(left), Inches(top + height + 0.06), Inches(width), Inches(0.32))
+    ctf = cb.text_frame
+    ctf.word_wrap = True
+    ctf.margin_left = ctf.margin_top = ctf.margin_right = ctf.margin_bottom = 0
+    cp = ctf.paragraphs[0]
+    cp.text = caption
+    cp.font.size = Pt(10.5)
+    cp.font.color.rgb = TEXT_MUTED
+    cp.alignment = PP_ALIGN.CENTER
+
+
+def build_deck() -> Presentation:
     prs = Presentation()
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
+    blank = prs.slide_layouts[6]
 
-    footer = "YAKU ALERT — UNT | Hackathon Innova Norte 3G 2026 | Desafío 3: Fenómeno El Niño"
-
-    # Slide 1: Portada
-    add_dark_slide(
-        prs,
+    # ------------------------------------------------------------------
+    # SLIDE 1: Portada + Problema real en la UNT (15 pts)
+    # ------------------------------------------------------------------
+    s1 = prs.slides.add_slide(blank)
+    _set_bg(s1)
+    _add_chrome(
+        s1,
+        "DESAFÍO 3: FENÓMENO EL NIÑO · PROBLEMA REAL EN LA UNT (15 PTS)",
         "YAKU ALERT — UNT",
-        "Plataforma Inteligente de Monitoreo, Análisis Espacial y Prevención Explicable ante Lluvias Intensas y FEN",
+        "Plataforma explicable de prevención, simulación 10 m y continuidad universitaria ante lluvias intensas",
+        1,
+    )
+    _add_card(
+        s1,
+        0.7,
+        1.85,
+        5.8,
+        4.75,
+        "El problema real en la Ciudad Universitaria UNT",
         [
-            "Desafío 3: Gestión de riesgos y desastres ante el Fenómeno El Niño (UNT — DITT / VIN / RUI).",
-            "Transformamos datos meteorológicos y geográficos en orientaciones preventivas claras para estudiantes, docentes y personal UNT.",
-            "Prototipo funcional TRL 3–4 con respaldo offline, análisis espacial real (Shapely) y cumplimiento SINAGERD (Ley N.° 29664).",
+            "Antecedentes documentados en marzo 2017 y 10 de marzo 2023 evidencian ingreso de agua y anegamientos internos.",
+            "Zonas críticas identificadas: Puerta 4 (Av. Jesús de Nazareth), estacionamientos CIDUNT/Derecho, Comedor, Puerta 3 y pabellones en cota baja (SO).",
+            "Las plataformas oficiales (SENAMHI, SIGRID, GEOQUEBRADAS) operan a escala nacional/distrital, sin microescala de campus.",
+            "Falta una herramienta clara que traduzca lluvia en acciones preventivas sin generar pánico ni rumores.",
         ],
-        footer,
+        accent=ACCENT_AMBER,
+        body_pt=14,
+    )
+    _add_card(
+        s1,
+        6.8,
+        1.85,
+        5.8,
+        4.75,
+        "Comunidad afectada y brecha de decisión",
+        [
+            "Estudiantes: incertidumbre sobre qué accesos evitar, dónde resguardarse y si habrá clases o laboratorios.",
+            "Docentes: necesidad de criterios tempranos para migrar sesiones teóricas al aula virtual y reprogramar prácticas.",
+            "Personal administrativo: urgencia de proteger expedientes físicos y equipos en primer nivel y activar Mesa de Partes virtual.",
+            "Brecha crítica: ante cortes de Wi-Fi o datos móviles en lluvia extrema, las apps dependientes de la nube fallan.",
+        ],
+        accent=ACCENT_CYAN,
+        body_pt=14,
     )
 
-    # Slide 2: El Problema
-    add_dark_slide(
-        prs,
-        "1. El Problema en la Comunidad Universitaria",
-        "Brecha entre el pronóstico técnico y la decisión preventiva cotidiana",
+    # ------------------------------------------------------------------
+    # SLIDE 2: Propuesta de valor e innovación (15 pts)
+    # ------------------------------------------------------------------
+    s2 = prs.slides.add_slide(blank)
+    _set_bg(s2)
+    _add_chrome(
+        s2,
+        "PROPUESTA DE VALOR E INNOVACIÓN (15 PTS)",
+        "Dos roles diseñados a medida + Motor Preventivo Explicable",
+        "No solo mostramos mapas: explicamos qué datos y reglas sustentan cada orientación",
+        2,
+    )
+    _add_card(
+        s2,
+        0.7,
+        1.85,
+        5.8,
+        3.55,
+        "Rol 1 · Estudiante / Visitante (< 10 segundos)",
         [
-            "Dificultad para interpretar pronósticos numéricos (mm/h, probabilidad %, acumulados) frente a lluvias intensas.",
-            "Desconocimiento de qué accesos o pabellones del campus UNT podrían verse expuestos en un evento extremo.",
-            "Plataformas oficiales (SENAMHI ISAAC/ARES, SIGRID, GEOQUEBRADAS, CENDEHUA) operan a escala nacional/distrital o en otras cuencas, sin foco en microescala ni continuidad académica.",
-            "Necesidad de alternativas claras para sostener clases y laboratorios sin generar pánico ni falsas alarmas.",
+            "Inicio 75/25: pronóstico 24 h protagonista + buscador inmediato de facultad.",
+            "Mapa de monitoreo claro con 5 puntos seguros y 5 rutas referenciales en cota alta.",
+            "Simulación en 1 clic (Escenario tipo 2017 y tipo 2023) con resalte de rutas alternas.",
+            "Cero sobrecarga técnica: sensores virtuales y controles complejos ocultos por diseño.",
         ],
-        footer,
+        accent=ACCENT_GREEN,
+        body_pt=13.5,
+    )
+    _add_card(
+        s2,
+        6.8,
+        1.85,
+        5.8,
+        3.55,
+        "Rol 2 · Gestión / Administrador UNT",
+        [
+            "Autómata celular determinista 10 m + escenarios espaciales Shapely (A/B/C/D).",
+            "Reglas transparentes R-MET / R-ACU / R-ESP / R-COND / R-EXT / R-HID.",
+            "Red conceptual YAKU SENSE (S01–S06) rotulada como propuesta futura no operativa.",
+            "Generador de avisos simulados por perfil (Estudiantes, Docentes, Administrativos) y canal (WhatsApp/Telegram y Correo UNT).",
+        ],
+        accent=ACCENT_CYAN,
+        body_pt=13.5,
+    )
+    _add_card(
+        s2,
+        0.7,
+        5.6,
+        11.9,
+        1.15,
+        "Innovación clave: rigor científico y trazabilidad total",
+        [
+            "Separa explícitamente Peligro meteorológico, Exposición espacial y Estado preventivo; nunca convierte probabilidad de lluvia en probabilidad de huaico.",
+        ],
+        accent=ACCENT_AMBER,
+        body_pt=13.5,
     )
 
-    # Slide 3: Solución e Innovación
-    add_dark_slide(
-        prs,
-        "2. Propuesta de Valor e Innovación: Motor Explicable",
-        "No solo mostramos mapas: explicamos qué datos sustentan cada orientación",
+    # ------------------------------------------------------------------
+    # SLIDE 3: Arquitectura técnica y demostración del MVP (25 pts)
+    # ------------------------------------------------------------------
+    s3 = prs.slides.add_slide(blank)
+    _set_bg(s3)
+    _add_chrome(
+        s3,
+        "ARQUITECTURA TÉCNICA Y DEMOSTRACIÓN DEL MVP (25 PTS)",
+        "Simulación en malla 10 m, blindaje 100 % offline y continuidad integral",
+        "FastAPI + Shapely 2.x + NumPy + React/Leaflet desplegable con Docker Compose",
+        3,
+    )
+    _add_card(
+        s3,
+        0.7,
+        1.85,
+        6.5,
+        4.85,
+        "Capacidades demostrables hoy (en vivo y sin Wi-Fi)",
         [
-            "Motor de Decisiones Preventivas Explicables: Pronóstico -> Contexto Geográfico -> Reglas Transparentes -> Exposición -> Orientación.",
-            "Cada ficha preventiva detalla: reglas activadas, fuentes, hora de actualización, limitaciones e incertidumbre.",
-            "Rigor científico: separa Peligro, Exposición y Estado Preventivo; nunca convierte probabilidad de lluvia en probabilidad de huaico.",
-            "Etiquetado permanente y visible entre DATOS REALES (Open-Meteo) y ESCENARIOS SIMULADOS SINTÉTICOS.",
+            "Autómata celular 10 m (8 vecinos): DEM Copernicus GLO-30 con priority flood, escorrentía, infiltración, drenaje e ingreso por Puerta 4.",
+            "Escenarios históricos 2017 (27,5 mm) y 2023 (35 mm) + pronóstico horario 48 h con balance de masa verificado.",
+            "Modo 100 % offline: mapa base Solo vectorial (sin internet) automático + caché meteorológica local (OFFLINE_FALLBACK).",
+            "Continuidad académica y administrativa: fases Antes/Durante/Después (aulas virtuales, reprogramación, Mesa de Partes virtual y trabajo remoto).",
+            "Software verificado: 70/70 pruebas pytest + build de producción Vite limpio.",
         ],
-        footer,
+        accent=ACCENT_CYAN,
+        body_pt=13.2,
+    )
+    _add_evidence_image(
+        s3,
+        "16_estudiante_simulacion.png",
+        7.55,
+        2.05,
+        5.05,
+        "Captura real: Simulación 2017/2023 sobre malla 10 m y capas UNT",
     )
 
-    # Slide 4: Cómo Funciona y Arquitectura
-    add_dark_slide(
-        prs,
-        "3. ¿Cómo Funciona? Arquitectura Modular (TRL 3–4)",
-        "Stack ligero, mantenible y resiliente ante fallos de conectividad",
+    # ------------------------------------------------------------------
+    # SLIDE 4: Validación y aprendizaje con usuarios (15 pts)
+    # ------------------------------------------------------------------
+    s4 = prs.slides.add_slide(blank)
+    _set_bg(s4)
+    _add_chrome(
+        s4,
+        "VALIDACIÓN Y APRENDIZAJE CON USUARIOS (15 PTS)",
+        "Pivote real de UX: de panel técnico sobrecargado a 2 experiencias claras",
+        "Ciclo Construir → Medir → Aprender con evidencia verificable y cero cifras inventadas",
+        4,
+    )
+    _add_card(
+        s4,
+        0.7,
+        1.85,
+        6.5,
+        4.85,
+        "Hallazgos, pivote ejecutado y verificación real",
         [
-            "Vista 1 — Monitoreo: API real Open-Meteo (forzado IPv4 + caché local offline), pronóstico 24–48h, intensidad, acumulados y humedad.",
-            "Vista 2 — Mapa y Simulador Offline: Leaflet + FastAPI + Shapely 2.x calculando intersecciones reales sobre GeoJSON del campus UNT.",
-            "Vista 3 — Prevención y Respuesta: Ficha explicable, protocolos preventivos, contexto informativo de quebradas de Trujillo y continuidad académica.",
-            "Privacidad por diseño (Ley N.° 29733): cero registro de usuarios, cero recopilación de datos personales o GPS.",
+            "Hallazgo UX: en la versión inicial, los controles hidrológicos, capas sintéticas y sensores saturaban al estudiante que solo busca orientación rápida.",
+            "Pivote aplicado: separación estricta Estudiante vs. Gestión; se ocultaron sensores y parámetros técnicos en vista pública (virtual_sensors: null).",
+            "Resultado en interfaz: mapa estudiantil claro con 5 puntos seguros y 5 rutas referenciales + simulación en 1 clic (2017 / 2023).",
+            "Verificación técnica real: 70/70 pruebas automatizadas pytest (API, offline, Shapely, conservación de masa, límites UNT y términos prohibidos).",
+            "Validación en campo protocolizada (Entregable 4): 5 tareas (T1–T5) listas para 5–10 participantes UNT — sin reportar encuestas ficticias.",
         ],
-        footer,
+        accent=ACCENT_GREEN,
+        body_pt=13.2,
+    )
+    _add_evidence_image(
+        s4,
+        "15_estudiante_mapa.png",
+        7.55,
+        2.05,
+        5.05,
+        "Pivote UX: Mapa de monitoreo Estudiante limpio y directo",
     )
 
-    # Slide 5: Demostración y Pruebas Técnicas
-    add_dark_slide(
-        prs,
-        "4. Demostración en Vivo y Verificación Técnica",
-        "Software funcional ejecutable y probado con suite automatizada",
+    # ------------------------------------------------------------------
+    # SLIDE 5: Escalabilidad IoT responsable — YAKU SENSE (15 pts)
+    # ------------------------------------------------------------------
+    s5 = prs.slides.add_slide(blank)
+    _set_bg(s5)
+    _add_chrome(
+        s5,
+        "VIABILIDAD, ESCALABILIDAD E IMPACTO (15 PTS)",
+        "Escalabilidad IoT responsable: YAKU SENSE + Hoja de Ruta",
+        "Arquitectura preparada para telemetría real sin prometer sensores inexistentes hoy",
+        5,
+    )
+    _add_card(
+        s5,
+        0.7,
+        1.85,
+        6.5,
+        4.85,
+        "Red conceptual YAKU SENSE y destino del incentivo (S/ 1,500)",
         [
-            "Demo en vivo (90 s): Monitoreo real -> Simulación Escenario B — Ingreso reportado (28 mm/h de referencia, drenaje obstruido) -> Ficha Preventiva y Continuidad.",
-            "9 pruebas automatizadas (pytest) aprobadas: API en vivo, fallback offline, rechazo de datos inválidos, intersección Shapely y seguridad HTTP.",
-            "Plan de validación en campo listo (14–24 nov 2026): protocolo de 4 tareas con 12–20 usuarios UNT para medir comprensión y usabilidad real.",
+            "Red virtual S01–S06 (Puerta 4, CIDUNT, Derecho, Comedor, Puerta 3, pluviómetro) bajo estándar LoRaWAN AU915 + MQTT.",
+            "Declaración explícita en UI y API: PROPUESTA_FUTURA_NO_OPERATIVA (telemetría determinista simulada; cero hardware instalado hoy).",
+            "Destino concreto del premio (S/ 1,500): levantamiento en campo de las canaletas nuevas de la UNT y microdrenajes (hito clave para pasar a TRL 5–6).",
+            "Piloto institucional con Defensa Civil y Servicios Generales UNT + ejecución de sesiones T1–T5 con comunidad universitaria.",
+            "Escalabilidad regional: arquitectura GeoJSON intercambiable para El Porvenir, Alto Trujillo y Víctor Larco (licenciamiento S/ 0).",
         ],
-        footer,
+        accent=ACCENT_CYAN,
+        body_pt=13.2,
+    )
+    _add_evidence_image(
+        s5,
+        "13_yaku_sense_dinamica.png",
+        7.55,
+        2.05,
+        5.05,
+        "YAKU SENSE [SIM] — Rotulado como PROPUESTA_FUTURA_NO_OPERATIVA",
     )
 
-    # Slide 6: Beneficios e Impacto
-    add_dark_slide(
-        prs,
-        "5. Beneficios e Impacto Universitario y Regional",
-        "De la Ciudad Universitaria UNT hacia comunidades vulnerables de Trujillo",
+    # ------------------------------------------------------------------
+    # SLIDE 6: Seguridad, ética y marco normativo (10 pts)
+    # ------------------------------------------------------------------
+    s6 = prs.slides.add_slide(blank)
+    _set_bg(s6)
+    _add_chrome(
+        s6,
+        "SEGURIDAD, ÉTICA Y MARCO NORMATIVO (10 PTS)",
+        "Cumplimiento SINAGERD, PLANAGERD 2022–2030 y Privacidad por Diseño",
+        "Alcance TRL 3–4 transparente, sin datos personales ni conexión a sistemas productivos",
+        6,
+    )
+    _add_card(
+        s6,
+        0.7,
+        1.85,
+        5.8,
+        2.25,
+        "Marco normativo completo (Desafío 3)",
         [
-            "Estudiantes y docentes: comprensión inmediata de riesgos locales, puntos de encuentro referenciales y continuidad académica virtual.",
-            "Gestión universitaria: herramienta de capacitación y preparación alineada al PLANAGERD 2022–2030 y Ley N.° 29664 (SINAGERD).",
-            "Escalabilidad regional: arquitectura GeoJSON intercambiable para distritos vulnerables (El Porvenir, Alto Trujillo, Víctor Larco).",
+            "Ley N.° 29664 (SINAGERD) y D.S. N.° 048-2011-PCM (Reglamento).",
+            "D.S. N.° 115-2022-PCM — PLANAGERD 2022–2030.",
+            "No reemplaza alertas oficiales de SENAMHI, COEN, INDECI ni Defensa Civil UNT.",
         ],
-        footer,
+        accent=ACCENT_CYAN,
+        body_pt=13.5,
+    )
+    _add_card(
+        s6,
+        6.8,
+        1.85,
+        5.8,
+        2.25,
+        "Privacidad por diseño (Ley N.° 29733)",
+        [
+            "Cero recopilación de PII: no solicita cuentas, DNI ni correo personal.",
+            "Cero rastreo ni geolocalización GPS del dispositivo del estudiante.",
+            "Sin conexión ni escritura en sistemas productivos universitarios.",
+        ],
+        accent=ACCENT_GREEN,
+        body_pt=13.5,
+    )
+    _add_card(
+        s6,
+        0.7,
+        4.35,
+        5.8,
+        2.3,
+        "Ética científica y rotulado (TRL 3–4)",
+        [
+            "Distinción visual y en API entre pronóstico real y escenarios sintéticos.",
+            "Puntos seguros y rutas marcados con reference_only: true y descargo visible.",
+            "Canaletas nuevas UNT declaradas como no modeladas hasta inventario en campo.",
+        ],
+        accent=ACCENT_AMBER,
+        body_pt=13.5,
+    )
+    _add_card(
+        s6,
+        6.8,
+        4.35,
+        5.8,
+        2.3,
+        "Seguridad de software y difusión responsable",
+        [
+            "Validación estricta Pydantic (HTTP 422) y cabeceras HTTP (nosniff, DENY).",
+            "Difusión por perfil 100 % simulada (borrador copiable; no envía SMS/correos).",
+            "Lenguaje preventivo auditado automáticamente por tests para evitar falsas alarmas.",
+        ],
+        accent=ACCENT_BLUE,
+        body_pt=13.5,
     )
 
-    # Slide 7: Viabilidad, Sostenibilidad y Hoja de Ruta
-    add_dark_slide(
-        prs,
-        "6. Viabilidad, Sostenibilidad y Próximos Pasos",
-        "Bajo costo operativo, código abierto y articulación institucional",
-        [
-            "Viabilidad técnica y económica: 100% software libre y APIs abiertas; desplegable en infraestructura existente de la UNT (DITT/OTI).",
-            "Ética y límites: herramienta informativa de apoyo; no sustituye alertas oficiales de Defensa Civil UNT, SENAMHI, COEN o INDECI.",
-            "Hoja de ruta post-hackathon: calibración hidrológica con especialistas UNT, validación con usuarios y piloto con Defensa Civil UNT.",
-        ],
-        footer,
+    # ------------------------------------------------------------------
+    # SLIDE 7: Cierre e impacto en la comunidad UNT (5 pts)
+    # ------------------------------------------------------------------
+    s7 = prs.slides.add_slide(blank)
+    _set_bg(s7)
+    _add_chrome(
+        s7,
+        "CIERRE E IMPACTO EN LA COMUNIDAD UNT (5 PTS)",
+        "Preparación inteligente, ética y 100 % offline para nuestra universidad",
+        "Software abierto, demostrable hoy y listo para articular con DITT, UNT y RUI",
+        7,
     )
 
+    # 3 KPI tiles
+    kpis = [
+        ("100 % OFFLINE", "Mapa solo vectorial automático + caché meteorológica local", ACCENT_CYAN),
+        ("70 / 70 TESTS", "Suite pytest verificada + build de producción limpio", ACCENT_GREEN),
+        ("0 PII · TRL 3–4", "Ley N.° 29733 + PLANAGERD 2022–2030 + costo licencia S/ 0", ACCENT_AMBER),
+    ]
+    for idx, (big, desc, color) in enumerate(kpis):
+        x = 0.7 + idx * 4.08
+        tile = s7.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(x), Inches(1.9), Inches(3.75), Inches(1.55))
+        tile.fill.solid()
+        tile.fill.fore_color.rgb = CARD_BG
+        tile.line.color.rgb = color
+        tile.line.width = Pt(1.8)
+        tb = s7.shapes.add_textbox(Inches(x + 0.18), Inches(2.08), Inches(3.4), Inches(1.25))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        p1 = tf.paragraphs[0]
+        p1.text = big
+        p1.font.size = Pt(22)
+        p1.font.bold = True
+        p1.font.color.rgb = color
+        p1.alignment = PP_ALIGN.CENTER
+        p1.space_after = Pt(6)
+        p2 = tf.add_paragraph()
+        p2.text = desc
+        p2.font.size = Pt(12)
+        p2.font.color.rgb = TEXT_LIGHT
+        p2.alignment = PP_ALIGN.CENTER
+
+    _add_card(
+        s7,
+        0.7,
+        3.75,
+        11.9,
+        2.9,
+        "Llamado a la acción institucional (DITT · UNT · RUI)",
+        [
+            "Hoy demostramos una plataforma funcional que orienta a estudiantes en <10 s y apoya a Gestión UNT con simulación 10 m, rutas referenciales, avisos por perfil y continuidad académica y administrativa.",
+            "Siguiente paso inmediato con DITT, Defensa Civil y Servicios Generales UNT: levantar en campo las canaletas nuevas del campus, calibrar umbrales y activar el piloto universitario.",
+            "Visión regional: replicar esta base open-source junto a la RUI para proteger campus y distritos vulnerables de La Libertad ante el próximo Fenómeno El Niño.",
+        ],
+        accent=ACCENT_CYAN,
+        body_pt=14.5,
+    )
+
+    return prs
+
+
+def main() -> None:
+    prs = build_deck()
+    assert len(prs.slides) == 7, f"Se esperaban exactamente 7 diapositivas, se generaron {len(prs.slides)}"
     out_path = Path(__file__).resolve().parent / "YAKU_ALERT_UNT_PITCH.pptx"
     prs.save(out_path)
     print(f"Pitch generado exitosamente en: {out_path} ({len(prs.slides)} diapositivas)")

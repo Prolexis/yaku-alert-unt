@@ -32,8 +32,10 @@ import {
   recordSimulationRun,
 } from "../services/api";
 import SensorDetailPanel from "./ui/SensorDetailPanel";
+import SimulationHyetograph from "./ui/SimulationHyetograph";
 import { SENSOR_STATUS_STYLES, resolveSensorReading } from "../utils/sensorFormatters";
 import { getFeatureDisplayName } from "../utils/campusCatalog";
+import { renderEvacuationLayers, resolveAlternativeMeetingPoint } from "../utils/evacuationLayers";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -73,6 +75,31 @@ const WATER_CLASSES = {
   },
 };
 const WATER_CLASS_ORDER = ["leve", "moderada", "alta"];
+
+// 3 Escenarios de infraestructura de drenaje ("¿Qué pasa si...?" — solo Gestión UNT)
+const DRAINAGE_WHATIF_OPTIONS = [
+  {
+    id: "obstruido",
+    title: "Alcantarillado obstruido",
+    subtitle: "Peor caso — sin mantenimiento (×0.35)",
+    activeCls: "border-[#DC2626] bg-[#FEF2F2] text-[#991B1B] ring-1 ring-[#DC2626] dark:border-red-500 dark:bg-red-950/45 dark:text-red-200",
+    dotCls: "bg-[#DC2626]",
+  },
+  {
+    id: "base",
+    title: "Estado base actual",
+    subtitle: "Referencia calibrada (×1.0)",
+    activeCls: "border-[#0369A1] bg-[#F0F9FF] text-[#0B2545] ring-1 ring-[#0369A1] dark:border-[#00B4D8] dark:bg-sky-950/45 dark:text-sky-100",
+    dotCls: "bg-[#0369A1]",
+  },
+  {
+    id: "canaletas_nuevas",
+    title: "Canaletas nuevas + mantenimiento",
+    subtitle: "Hipótesis de mejora (×1.75)",
+    activeCls: "border-[#059669] bg-[#ECFDF5] text-[#065F46] ring-1 ring-[#059669] dark:border-emerald-500 dark:bg-emerald-950/45 dark:text-emerald-200",
+    dotCls: "bg-[#059669]",
+  },
+];
 
 // 3 Presets operativos realistas en 1 clic
 const QUICK_PRESETS = [
@@ -165,7 +192,10 @@ function resolveSemaphore(totalRainMm, maxDepthCm, inflowP4) {
   return "VERDE";
 }
 
-function detectGateStatusAtHour(elements = [], activeHour = 1) {
+function detectGateStatusAtHour(elements = [], activeHour = 1, evaluation = null) {
+  const hasRHid01 = Boolean(
+    evaluation?.triggered_rules?.some((r) => String(r.id || "").toUpperCase() === "R-HID-01")
+  );
   const gateDefs = [
     { code: "P1", match: ["puerta 1", "p1"] },
     { code: "P2", match: ["puerta 2", "p2", "derecho"] },
@@ -184,10 +214,12 @@ function detectGateStatusAtHour(elements = [], activeHour = 1) {
       map[g.code] = { state: "libre", depthCm: 0, color: "#059669", label: "Libre" };
     } else {
       const peakDepth = Math.max(...matched.map((m) => m.max_depth_cm ?? 0));
-      if (peakDepth >= 12) {
+      if (peakDepth >= 12 || (hasRHid01 && peakDepth >= 5)) {
         map[g.code] = { state: "bloqueada", depthCm: peakDepth, color: "#DC2626", label: "Bloqueada" };
-      } else {
+      } else if (peakDepth >= 5) {
         map[g.code] = { state: "precaucion", depthCm: peakDepth, color: "#F59E0B", label: "Precaución" };
+      } else {
+        map[g.code] = { state: "libre", depthCm: peakDepth, color: "#059669", label: "Libre" };
       }
     }
   });
@@ -227,6 +259,7 @@ export default function DynamicSimulationView({
   const [activePresetId, setActivePresetId] = useState("evento_2017_03");
   const [source, setSource] = useState("evento_2017_03");
   const [drainageState, setDrainageState] = useState("normal");
+  const [drainageScenario, setDrainageScenario] = useState("base");
   const [inflowP4, setInflowP4] = useState("medio");
   const [useReportedSinks, setUseReportedSinks] = useState(true);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -237,7 +270,9 @@ export default function DynamicSimulationView({
       : "calles"
   );
   const [tilesFailed, setTilesFailed] = useState(false);
-  const [showEvacuation, setShowEvacuation] = useState(true);
+  const [showRiskZones, setShowRiskZones] = useState(true);
+  const [showSafeAreas, setShowSafeAreas] = useState(true);
+  const [showMeetingPoints, setShowMeetingPoints] = useState(true);
   const [showTrujilloContext, setShowTrujilloContext] = useState(false);
   const [showSensorsLayer, setShowSensorsLayer] = useState(false);
   const [legendOpen, setLegendOpen] = useState(true);
@@ -295,7 +330,7 @@ export default function DynamicSimulationView({
     };
   }, []);
 
-  async function runPresetConfig(presetCard, presetList = presets) {
+  async function runPresetConfig(presetCard, presetList = presets, nextDrainageScenario = drainageScenario) {
     setPlaying(false);
     setLoading(true);
     setError("");
@@ -310,6 +345,7 @@ export default function DynamicSimulationView({
       const data = await fetchHydroRun({
         rainfall_mm_h: rainfall,
         drainage_state: presetCard.drainage,
+        drainage_scenario: nextDrainageScenario,
         inflow_p4: presetCard.inflowP4,
         secondary_inflow: Boolean(presetCard.secondaryInflow),
         use_reported_sinks: Boolean(presetCard.useReportedSinks),
@@ -323,7 +359,7 @@ export default function DynamicSimulationView({
     }
   }
 
-  async function runCustomCalculation() {
+  async function runCustomCalculation(overrideDrainageScenario = drainageScenario) {
     setPlaying(false);
     setLoading(true);
     setError("");
@@ -332,6 +368,7 @@ export default function DynamicSimulationView({
       if (source === "forecast") {
         data = await fetchHydroForecast(offlineProp, {
           drainage_state: drainageState,
+          drainage_scenario: overrideDrainageScenario,
           inflow_p4: inflowP4,
           use_reported_sinks: useReportedSinks,
         });
@@ -342,6 +379,7 @@ export default function DynamicSimulationView({
         data = await fetchHydroRun({
           rainfall_mm_h: rainfall,
           drainage_state: drainageState,
+          drainage_scenario: overrideDrainageScenario,
           inflow_p4: inflowP4,
           secondary_inflow: Boolean(card?.secondaryInflow),
           use_reported_sinks: useReportedSinks,
@@ -349,11 +387,22 @@ export default function DynamicSimulationView({
       }
       setResult(data);
       setHour(data.summary?.peak_hour || 1);
-      toast.success("Simulación recalculada con parámetros personalizados");
+      toast.success("Simulación recalculada con parámetros actualizados");
     } catch (err) {
       setError(err.message || "No se pudo recalcular la simulación.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handleSelectDrainageScenario(nextScenario) {
+    if (nextScenario === drainageScenario && result) return;
+    setDrainageScenario(nextScenario);
+    const activeCard = QUICK_PRESETS.find((q) => q.id === activePresetId);
+    if (activeCard && source === activePresetId) {
+      runPresetConfig(activeCard, presets, nextScenario);
+    } else {
+      runCustomCalculation(nextScenario);
     }
   }
 
@@ -439,8 +488,8 @@ export default function DynamicSimulationView({
     [affectedElements, hour]
   );
   const gateStatusMap = useMemo(
-    () => detectGateStatusAtHour(elements, hour),
-    [elements, hour]
+    () => detectGateStatusAtHour(elements, hour, result?.evaluation),
+    [elements, hour, result?.evaluation]
   );
   const blockedOrCautionGates = useMemo(
     () =>
@@ -450,6 +499,13 @@ export default function DynamicSimulationView({
           .map(([code]) => code)
       ),
     [gateStatusMap]
+  );
+  const alternativeMeetingPoint = useMemo(
+    () =>
+      blockedOrCautionGates.size > 0
+        ? resolveAlternativeMeetingPoint(campusLayers?.evacuation, blockedOrCautionGates)
+        : null,
+    [campusLayers, blockedOrCautionGates]
   );
 
   // Capa base vectorial del campus con tooltips claros en facultades afectadas
@@ -545,59 +601,19 @@ export default function DynamicSimulationView({
       });
   }, [campusLayers, gateStatusMap]);
 
-  // Puntos seguros y rutas referenciales dinámicas
+  // Áreas seguras (polígonos #10B981) + Puntos de encuentro (#059669) + Rutas dinámicas
   useEffect(() => {
     const group = evacuationGroupRef.current;
     if (!group || !campusLayers) return;
-    group.clearLayers();
-    if (!showEvacuation) return;
-
-    const evac = campusLayers.evacuation?.features || [];
-    evac
-      .filter((f) => f.properties?.zone_type === "evacuation_route")
-      .forEach((f) => {
-        const p = f.properties || {};
-        const avoidGate = p.avoid_when_gate_affected;
-        const highlighted = Boolean(avoidGate && blockedOrCautionGates.has(avoidGate));
-        if (highlighted) {
-          L.geoJSON(f, {
-            interactive: false,
-            style: { color: "#F59E0B", weight: 7, opacity: 0.4 },
-          }).addTo(group);
-        }
-        L.geoJSON(f, {
-          style: {
-            color: "#059669",
-            weight: highlighted ? 4.2 : 2.8,
-            dashArray: "8 6",
-            opacity: 0.95,
-          },
-        })
-          .bindTooltip(
-            highlighted
-              ? `Ruta alternativa recomendada (evita ${avoidGate})`
-              : `Ruta referencial: ${esc(p.from_zone || "")}`,
-            { sticky: true }
-          )
-          .addTo(group);
-      });
-
-    evac
-      .filter((f) => f.properties?.zone_type === "safe_point" && f.geometry?.type === "Point")
-      .forEach((f) => {
-        const [lon, lat] = f.geometry.coordinates;
-        const p = f.properties || {};
-        const icon = L.divIcon({
-          className: "yaku-safe-point-marker",
-          html: `<div class="yaku-safe-pulse" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:#059669;color:#fff;font:800 12px/1 system-ui,sans-serif;border:2px solid #fff;">S</div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        });
-        L.marker([lat, lon], { icon, zIndexOffset: 650 })
-          .bindTooltip(`Punto seguro: ${esc(p.name)}`, { direction: "top" })
-          .addTo(group);
-      });
-  }, [campusLayers, showEvacuation, blockedOrCautionGates]);
+    renderEvacuationLayers({
+      group,
+      evacuationData: campusLayers.evacuation,
+      showSafeAreas,
+      showMeetingPoints,
+      showRoutes: showMeetingPoints,
+      affectedGates: blockedOrCautionGates,
+    });
+  }, [campusLayers, showSafeAreas, showMeetingPoints, blockedOrCautionGates]);
 
   // Contexto Trujillo (Ruta del Agua)
   useEffect(() => {
@@ -662,9 +678,10 @@ export default function DynamicSimulationView({
       builtKeyRef.current = key;
     }
     group.clearLayers();
+    if (!showRiskZones) return;
     const idx = Math.min(Math.max(hour, 1), result.frames.length) - 1;
     if (waterLayersRef.current[idx]) group.addLayer(waterLayersRef.current[idx]);
-  }, [result, hour]);
+  }, [result, hour, showRiskZones]);
 
   // Reproducción temporal fluida
   useEffect(() => {
@@ -846,6 +863,105 @@ export default function DynamicSimulationView({
           })}
         </div>
 
+        {/* Selector "Infraestructura de drenaje (¿Qué pasa si...?)" + Impacto estimado (solo Gestión UNT) */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2">
+              <Droplets className="h-4 w-4 text-[#0369A1] dark:text-[#38BDF8]" />
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#0B2545] dark:text-white">
+                Infraestructura de drenaje (¿Qué pasa si...?)
+              </h3>
+            </div>
+            <span className="rounded-full border border-slate-200 bg-[#F8FAFC] px-2.5 py-0.5 text-[11px] font-semibold text-[#475569] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              Simulación paramétrica hipotética · TRL 3–4
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-2.5 md:grid-cols-3">
+            {DRAINAGE_WHATIF_OPTIONS.map((opt) => {
+              const active = drainageScenario === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleSelectDrainageScenario(opt.id)}
+                  aria-pressed={active}
+                  className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-left transition ${
+                    active
+                      ? opt.activeCls
+                      : "border-slate-200 bg-[#F8FAFC] text-[#0F172A] hover:border-[#00B4D8] dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200"
+                  }`}
+                >
+                  <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${opt.dotCls}`} />
+                  <div className="min-w-0">
+                    <div className="text-xs font-extrabold leading-tight">{opt.title}</div>
+                    <div className="mt-0.5 text-[11px] opacity-85">{opt.subtitle}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {result?.drainage_impact && (
+            <div className="mt-3 rounded-xl border border-slate-200/90 bg-[#F8FAFC] px-3.5 py-2.5 dark:border-slate-700/80 dark:bg-slate-900/65">
+              <div className="flex flex-col justify-between gap-2 lg:flex-row lg:items-center">
+                <div className="text-xs font-extrabold text-[#0B2545] dark:text-white">
+                  Impacto estimado de la infraestructura{" "}
+                  <span className="font-mono font-semibold text-[#0369A1] dark:text-[#38BDF8]">
+                    ({result.drainage_impact.effective_drain_mm_h} mm/h efectivos)
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
+                  <span
+                    className={`rounded-lg px-2 py-0.5 font-bold ${
+                      result.drainage_impact.delta_max_depth_cm < 0
+                        ? "bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/60 dark:text-emerald-300"
+                        : result.drainage_impact.delta_max_depth_cm > 0
+                        ? "bg-[#FEF2F2] text-[#DC2626] dark:bg-red-950/60 dark:text-red-300"
+                        : "bg-slate-200/70 text-[#475569] dark:bg-slate-800 dark:text-slate-300"
+                    }`}
+                  >
+                    Δ Prof. máx.: {result.drainage_impact.delta_max_depth_cm > 0 ? "+" : ""}
+                    {result.drainage_impact.delta_max_depth_cm} cm
+                  </span>
+                  <span
+                    className={`rounded-lg px-2 py-0.5 font-bold ${
+                      result.drainage_impact.delta_affected_elements < 0
+                        ? "bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/60 dark:text-emerald-300"
+                        : result.drainage_impact.delta_affected_elements > 0
+                        ? "bg-[#FEF2F2] text-[#DC2626] dark:bg-red-950/60 dark:text-red-300"
+                        : "bg-slate-200/70 text-[#475569] dark:bg-slate-800 dark:text-slate-300"
+                    }`}
+                  >
+                    Δ Edificios/accesos: {result.drainage_impact.delta_affected_elements > 0 ? "+" : ""}
+                    {result.drainage_impact.delta_affected_elements}
+                  </span>
+                  <span
+                    className={`rounded-lg px-2 py-0.5 font-bold ${
+                      result.drainage_impact.delta_persistence_hours < 0
+                        ? "bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/60 dark:text-emerald-300"
+                        : result.drainage_impact.delta_persistence_hours > 0
+                        ? "bg-[#FEF2F2] text-[#DC2626] dark:bg-red-950/60 dark:text-red-300"
+                        : "bg-slate-200/70 text-[#475569] dark:bg-slate-800 dark:text-slate-300"
+                    }`}
+                  >
+                    Δ Persistencia: {result.drainage_impact.delta_persistence_hours > 0 ? "+" : ""}
+                    {result.drainage_impact.delta_persistence_hours} h
+                  </span>
+                  <span className="rounded-lg bg-white px-2 py-0.5 font-bold text-[#475569] ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
+                    Δ Área húmeda: {result.drainage_impact.delta_affected_area_pct > 0 ? "+" : ""}
+                    {result.drainage_impact.delta_affected_area_pct}%
+                  </span>
+                </div>
+              </div>
+              <p className="mt-1.5 text-[11px] leading-snug text-[#475569] dark:text-slate-400">
+                Escenario hipotético paramétrico — el levantamiento real de las canaletas nuevas UNT es el hito 1 del piloto con Infraestructura.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Panel colapsable de parámetros avanzados (cerrado por defecto) */}
         <AnimatePresence>
           {advancedOpen && (
@@ -940,7 +1056,7 @@ export default function DynamicSimulationView({
             <div className="relative">
               <div
                 ref={mapContainerRef}
-                className="h-[440px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[560px]"
+                className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[600px] 2xl:h-[700px]"
               />
 
               {/* Pill hora actual + estado offline */}
@@ -957,19 +1073,43 @@ export default function DynamicSimulationView({
                 )}
               </div>
 
-              {/* Controles flotantes limpios arriba a la derecha */}
+              {/* Controles flotantes limpios arriba a la derecha — 3 capas independientes */}
               <div className="absolute right-3 top-3 z-[400] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-end gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1.5 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
                 <button
                   type="button"
-                  onClick={() => setShowEvacuation((v) => !v)}
-                  aria-pressed={showEvacuation}
+                  onClick={() => setShowRiskZones((v) => !v)}
+                  aria-pressed={showRiskZones}
                   className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                    showEvacuation
+                    showRiskZones
+                      ? "bg-[#0284C7] text-white"
+                      : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100"
+                  }`}
+                >
+                  Zonas de riesgo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSafeAreas((v) => !v)}
+                  aria-pressed={showSafeAreas}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
+                    showSafeAreas
+                      ? "bg-[#10B981] text-white"
+                      : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100"
+                  }`}
+                >
+                  Áreas seguras
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowMeetingPoints((v) => !v)}
+                  aria-pressed={showMeetingPoints}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
+                    showMeetingPoints
                       ? "bg-[#059669] text-white"
                       : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100"
                   }`}
                 >
-                  Rutas seguras
+                  Puntos de encuentro
                 </button>
                 <button
                   type="button"
@@ -1031,19 +1171,49 @@ export default function DynamicSimulationView({
                   {legendOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
                 </button>
                 {legendOpen && (
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-xs font-medium text-[#0F172A] dark:text-slate-200">
-                    {WATER_CLASS_ORDER.map((cls) => (
-                      <span key={cls} className="inline-flex items-center gap-1.5">
-                        <span
-                          className="h-3 w-3 shrink-0 rounded-sm"
-                          style={{
-                            background: WATER_CLASSES[cls].style.fillColor,
-                            border: `1.5px solid ${WATER_CLASSES[cls].style.color}`,
-                          }}
-                        />
-                        {WATER_CLASSES[cls].label}
-                      </span>
-                    ))}
+                  <div className="mt-2 space-y-1.5 text-xs font-medium text-[#0F172A] dark:text-slate-200">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                      {WATER_CLASS_ORDER.map((cls) => (
+                        <span key={cls} className="inline-flex items-center gap-1.5">
+                          <span
+                            className="h-3 w-3 shrink-0 rounded-sm"
+                            style={{
+                              background: WATER_CLASSES[cls].style.fillColor,
+                              border: `1.5px solid ${WATER_CLASSES[cls].style.color}`,
+                            }}
+                          />
+                          {WATER_CLASSES[cls].label}
+                        </span>
+                      ))}
+                      {showSafeAreas && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-3 w-3 shrink-0 rounded-sm border border-dashed border-[#059669] bg-[#10B981]/35" />
+                          Áreas seguras (polígono)
+                        </span>
+                      )}
+                      {showMeetingPoints && (
+                        <>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="h-3 w-3 shrink-0 rounded-full bg-[#059669]" />
+                            Puntos de encuentro
+                          </span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="inline-block w-4 border-t-2 border-dashed border-rose-600" />
+                            Evitar paso
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {campusLayers?.evacuation?.dem_validation?.verified_against_dem && (
+                      <div className="text-[11px] font-semibold text-[#059669] dark:text-emerald-300">
+                        Validado DEM 10 m (2017/2023): máx. {campusLayers.evacuation.dem_validation.max_depth_at_safe_points_cm} cm en puntos de encuentro.
+                        {alternativeMeetingPoint && blockedOrCautionGates.size > 0 && (
+                          <span className="ml-1 text-[#B45309] dark:text-amber-300">
+                            · Alternativa activa: {alternativeMeetingPoint.properties.name}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1129,37 +1299,16 @@ export default function DynamicSimulationView({
                 })}
               </div>
 
-              {/* Mini-gráfico interactivo de lluvia */}
-              <svg
-                viewBox={`0 0 ${Math.max(rain.length, 1) * 8} 44`}
-                preserveAspectRatio="none"
-                role="img"
-                aria-label="Hietograma horario de la simulación"
-                className="h-10 w-full cursor-pointer rounded-lg bg-white dark:bg-slate-900"
-                onClick={(e) => {
-                  if (!rain.length) return;
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 0.999);
+              {/* Hietograma horario real (mm/h) sincronizado hora por hora */}
+              <SimulationHyetograph
+                rainfallSeries={rain}
+                frames={frames}
+                activeHour={hour}
+                onSelectHour={(hr) => {
                   setPlaying(false);
-                  setHour(Math.min(rain.length, Math.max(1, Math.floor(ratio * rain.length) + 1)));
+                  setHour(hr);
                 }}
-              >
-                {rain.map((val, idx) => {
-                  const h = val > 0 ? Math.max((val / rainMax) * 38, 2) : 0;
-                  const isCurr = idx + 1 === hour;
-                  return (
-                    <rect
-                      key={idx}
-                      x={idx * 8 + 1}
-                      y={44 - h}
-                      width={6}
-                      height={h}
-                      rx={1.5}
-                      fill={isCurr ? "#0B2545" : idx + 1 < hour ? "#00B4D8" : "#CBD5E1"}
-                    />
-                  );
-                })}
-              </svg>
+              />
             </div>
           </div>
         </div>

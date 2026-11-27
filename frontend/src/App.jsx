@@ -425,7 +425,7 @@ export default function App() {
             </div>
           )}
 
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <main className="w-full flex-1 px-3 py-5 sm:px-5 lg:px-6 xl:px-8">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${userRole}-${activeView}`}

@@ -21,6 +21,7 @@ import ActiveAlertsBanner from "./ui/ActiveAlertsBanner";
 import { REPORT_CATEGORIES } from "./ui/CampusReportModal";
 import WhereAmISafeRouteBar from "./ui/WhereAmISafeRouteBar";
 import { findNearestSafeRoute } from "../utils/safeRouteHelper";
+import { renderEvacuationLayers } from "../utils/evacuationLayers";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -111,7 +112,8 @@ export default function StudentMonitoringMap({
   );
   const [tilesFailed, setTilesFailed] = useState(false);
   const [showAttentionZones, setShowAttentionZones] = useState(true);
-  const [showEvacuation, setShowEvacuation] = useState(true);
+  const [showSafeAreas, setShowSafeAreas] = useState(true);
+  const [showMeetingPoints, setShowMeetingPoints] = useState(true);
   const [showTrujilloContext, setShowTrujilloContext] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -139,10 +141,7 @@ export default function StudentMonitoringMap({
     [catalog]
   );
 
-  const mySafeRoute = useMemo(() => {
-    if (!myLocationId) return null;
-    const origin = catalog.find((c) => c.id === myLocationId);
-    if (!origin) return null;
+  const blockedGatesFromReports = useMemo(() => {
     const blockedGates = new Set();
     campusReports.forEach((r) => {
       if (r.status === "atendido") return;
@@ -151,10 +150,22 @@ export default function StudentMonitoringMap({
         if (z.includes("puerta 4")) blockedGates.add("P4");
         if (z.includes("puerta 3")) blockedGates.add("P3");
         if (z.includes("puerta 2")) blockedGates.add("P2");
+        if (z.includes("puerta 1")) blockedGates.add("P1");
       }
     });
-    return findNearestSafeRoute({ originItem: origin, campusLayers, affectedGates: blockedGates });
-  }, [myLocationId, catalog, campusLayers, campusReports]);
+    return blockedGates;
+  }, [campusReports]);
+
+  const mySafeRoute = useMemo(() => {
+    if (!myLocationId) return null;
+    const origin = catalog.find((c) => c.id === myLocationId);
+    if (!origin) return null;
+    return findNearestSafeRoute({
+      originItem: origin,
+      campusLayers,
+      affectedGates: blockedGatesFromReports,
+    });
+  }, [myLocationId, catalog, campusLayers, blockedGatesFromReports]);
 
   const filteredCatalog = useMemo(() => {
     const q = normalizeText(query.trim());
@@ -439,88 +450,21 @@ export default function StudentMonitoringMap({
     });
   }, [campusLayers, showAttentionZones]);
 
-  // Capa de puntos seguros y rutas referenciales de evacuación (TRL 3-4)
+  // Capas independientes: Áreas seguras (polígonos #10B981) + Puntos de encuentro (#059669) + Rutas
   useEffect(() => {
     const group = evacuationGroupRef.current;
     if (!group || !campusLayers) return;
-    group.clearLayers();
-    if (!showEvacuation) return;
-
-    const evacFeatures = campusLayers.evacuation?.features || [];
-    const safePointsById = new Map();
-    evacFeatures
-      .filter((f) => f.properties?.zone_type === "safe_point")
-      .forEach((f) => safePointsById.set(f.properties.id, f.properties));
-
-    // Rutas referenciales primero (debajo de los marcadores de puntos seguros)
-    evacFeatures
-      .filter((f) => f.properties?.zone_type === "evacuation_route")
-      .forEach((f) => {
-        const p = f.properties || {};
-        const dest = safePointsById.get(p.to_safe_point_id);
-        const destName = dest?.name || p.to_safe_point_id;
-        L.geoJSON(f, {
-          style: {
-            color: "#15803D",
-            weight: 3.5,
-            dashArray: "7 6",
-            opacity: 0.92,
-          },
-          onEachFeature: (_feat, lyr) => {
-            lyr.bindPopup(
-              `<div class="space-y-1 max-w-[230px]">
-                <div class="text-[10px] font-bold uppercase text-emerald-700">Ruta referencial de evacuación</div>
-                <div class="font-bold text-slate-900">${esc(p.from_zone)} → ${esc(destName)}</div>
-                <div class="text-[11px] text-slate-700">${esc(p.recommendation || "")}</div>
-                <div class="text-[10px] text-slate-500">Distancia aprox.: ~${esc(p.distance_m_approx)} m</div>
-                <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_DISCLAIMER)}</div>
-              </div>`,
-              { className: "yaku-popup" }
-            );
-            lyr.on("click", () => {
-              setSelectedCard({
-                name: `${p.from_zone} → ${destName}`,
-                infoType: "Ruta referencial (TRL 3–4)",
-                explanation: `${p.recommendation || ""} (Distancia aproximada: ~${p.distance_m_approx} m).`,
-              });
-            });
-          },
-        }).addTo(group);
-      });
-
-    // Puntos seguros referenciales con marcador verde diferenciado
-    evacFeatures
-      .filter((f) => f.properties?.zone_type === "safe_point")
-      .forEach((f) => {
-        const p = f.properties || {};
-        const [lon, lat] = f.geometry.coordinates;
-        const icon = L.divIcon({
-          className: "yaku-safe-point-marker",
-          html: `<div class="yaku-safe-pulse" style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:#059669;color:#ffffff;font:800 12px/1 system-ui,sans-serif;border:2.5px solid #ffffff;box-shadow:0 2px 8px rgba(5,150,105,0.42);">S</div>`,
-          iconSize: [26, 26],
-          iconAnchor: [13, 13],
-        });
-        L.marker([lat, lon], { icon, zIndexOffset: 450 })
-          .bindTooltip(`${esc(p.name)} (referencial)`, { direction: "top", offset: [0, -10] })
-          .bindPopup(
-            `<div class="space-y-1 max-w-[230px]">
-              <div class="text-[10px] font-bold uppercase text-emerald-700">Punto seguro referencial</div>
-              <div class="font-bold text-slate-900">${esc(p.name)}</div>
-              <div class="text-[11px] text-slate-700">${esc(p.rationale || "")}</div>
-              <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_DISCLAIMER)}</div>
-            </div>`,
-            { className: "yaku-popup" }
-          )
-          .on("click", () => {
-            setSelectedCard({
-              name: p.name,
-              infoType: "Punto seguro referencial",
-              explanation: p.rationale || "Zona abierta de cota elevada dentro del campus UNT.",
-            });
-          })
-          .addTo(group);
-      });
-  }, [campusLayers, showEvacuation]);
+    renderEvacuationLayers({
+      group,
+      evacuationData: campusLayers.evacuation,
+      showSafeAreas,
+      showMeetingPoints,
+      showRoutes: showMeetingPoints,
+      affectedGates: blockedGatesFromReports,
+      recommendedPointId: mySafeRoute?.safePoint?.id || "",
+      onSelectFeature: setSelectedCard,
+    });
+  }, [campusLayers, showSafeAreas, showMeetingPoints, blockedGatesFromReports, mySafeRoute]);
 
   // Capa referencial de Contexto Trujillo (Ruta del Agua y entorno) — desactivada por defecto
   useEffect(() => {
@@ -859,7 +803,7 @@ export default function StudentMonitoringMap({
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-8">
           <div
             ref={mapContainerRef}
-            className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[620px]"
+            className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[640px] 2xl:h-[740px]"
           />
 
           {(basemap === "vectorial" || tilesFailed) && (
@@ -869,20 +813,8 @@ export default function StudentMonitoringMap({
             </div>
           )}
 
-          {/* Controles flotantes translúcidos arriba a la derecha */}
+          {/* Controles flotantes translúcidos arriba a la derecha — 3 capas independientes */}
           <div className="absolute right-3 top-3 z-[400] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-end gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1.5 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
-            <button
-              type="button"
-              onClick={() => setShowEvacuation((v) => !v)}
-              aria-pressed={showEvacuation}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                showEvacuation
-                  ? "bg-[#059669] text-white shadow-sm"
-                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
-              }`}
-            >
-              Puntos seguros y rutas
-            </button>
             <button
               type="button"
               onClick={() => setShowAttentionZones((v) => !v)}
@@ -893,7 +825,31 @@ export default function StudentMonitoringMap({
                   : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
               }`}
             >
-              Zonas de atención
+              Zonas de riesgo
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSafeAreas((v) => !v)}
+              aria-pressed={showSafeAreas}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
+                showSafeAreas
+                  ? "bg-[#10B981] text-white shadow-sm"
+                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              Áreas seguras
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowMeetingPoints((v) => !v)}
+              aria-pressed={showMeetingPoints}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
+                showMeetingPoints
+                  ? "bg-[#059669] text-white shadow-sm"
+                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              Puntos de encuentro
             </button>
             <button
               type="button"
@@ -944,31 +900,41 @@ export default function StudentMonitoringMap({
               {legendOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
             </button>
             {legendOpen && (
-              <div className="mt-2 flex flex-wrap gap-3">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm border border-amber-600 bg-amber-400/70" /> Antecedente histórico
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm border border-sky-600 bg-sky-400/60" /> Relieve bajo (DEM)
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Punto seguro ref.
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta referencial
-                </span>
-                {showTrujilloContext && (
-                  <>
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block w-4 border-t-2 border-dashed border-sky-600" /> Ruta del Agua (ref.)
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block w-4 border-t-2 border-dotted border-indigo-600" /> Av. J. de Nazareth (ref.)
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-sm border border-amber-700 bg-amber-400/40" /> Urb. San Andrés (ref.)
-                    </span>
-                  </>
+              <div className="mt-2 space-y-1.5">
+                <div className="flex flex-wrap gap-3">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm border border-amber-600 bg-amber-400/70" /> Zona de riesgo (antecedente)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm border border-sky-600 bg-sky-400/60" /> Relieve bajo (DEM)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[#059669] bg-[#10B981]/35" /> Área segura (polígono)
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Punto de encuentro
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta referencial
+                  </span>
+                  {showTrujilloContext && (
+                    <>
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block w-4 border-t-2 border-dashed border-sky-600" /> Ruta del Agua (ref.)
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="inline-block w-4 border-t-2 border-dotted border-indigo-600" /> Av. J. de Nazareth (ref.)
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-sm border border-amber-700 bg-amber-400/40" /> Urb. San Andrés (ref.)
+                      </span>
+                    </>
+                  )}
+                </div>
+                {campusLayers?.evacuation?.dem_validation?.verified_against_dem && (
+                  <div className="text-[11px] font-semibold text-[#059669] dark:text-emerald-300">
+                    Validado DEM 10 m (2017/2023): máx. {campusLayers.evacuation.dem_validation.max_depth_at_safe_points_cm} cm en puntos de encuentro.
+                  </div>
                 )}
               </div>
             )}

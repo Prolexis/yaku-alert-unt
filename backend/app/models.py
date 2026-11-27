@@ -191,6 +191,7 @@ class SimulationResponse(BaseModel):
 # FASE 1 — simulación dinámica de agua (capa NUEVA; los escenarios A-D no cambian)
 # ---------------------------------------------------------------------------
 HydroDrainageState = Literal["normal", "obstruido", "pendiente_deficiente"]
+HydroDrainageScenario = Literal["obstruido", "base", "canaletas_nuevas"]
 HydroInflowLevel = Literal["ninguno", "bajo", "medio", "alto"]
 
 
@@ -205,6 +206,10 @@ class HydroRunRequest(BaseModel):
     drainage_state: HydroDrainageState = Field(
         default="normal",
         description="normal | obstruido | pendiente_deficiente (esta última es una hipótesis no verificada).",
+    )
+    drainage_scenario: HydroDrainageScenario = Field(
+        default="base",
+        description="Escenario paramétrico hipotético de alcantarillado/canaletas: obstruido | base | canaletas_nuevas.",
     )
     inflow_p4: HydroInflowLevel = Field(
         default="medio",
@@ -298,6 +303,7 @@ class HydroRunResponse(BaseModel):
     weather: Optional[dict[str, Any]] = None
     evaluation: Optional[HydroEvaluationSheet] = None
     virtual_sensors: Optional[list[dict[str, Any]]] = None
+    drainage_impact: Optional[dict[str, Any]] = None
 
 
 class HydroPreset(BaseModel):

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import {
+  BellRing,
   CloudRain,
   MapPin,
   Search,
@@ -17,7 +18,6 @@ import {
 import { formatLimaTime, normalizeText } from "../utils/formatters";
 import { buildCampusCatalog, getFeatureDisplayName } from "../utils/campusCatalog";
 import ExplainabilityStrip from "./ui/ExplainabilityStrip";
-import ActiveAlertsBanner from "./ui/ActiveAlertsBanner";
 import BuildingDynamicCard from "./ui/BuildingDynamicCard";
 import { REPORT_CATEGORIES } from "./ui/CampusReportModal";
 import WhereAmISafeRouteBar from "./ui/WhereAmISafeRouteBar";
@@ -789,15 +789,58 @@ export default function StudentMonitoringMap({
     });
   }, [focusedBuildingId, catalog]);
 
+  const topAlert = activeAlerts[0] || null;
+  const topAlertSev = String(topAlert?.severity || "AMARILLO").toUpperCase();
+  const topAlertTone =
+    topAlertSev === "ROJO"
+      ? "border-[#DC2626]/45 bg-[#FEF2F2] text-[#991B1B] dark:border-red-800 dark:bg-red-950/45 dark:text-red-100"
+      : topAlertSev === "NARANJA"
+      ? "border-[#D97706]/45 bg-[#FFFBEB] text-[#92400E] dark:border-amber-800 dark:bg-amber-950/45 dark:text-amber-100"
+      : topAlertSev === "VERDE"
+      ? "border-[#059669]/40 bg-[#ECFDF5] text-[#065F46] dark:border-emerald-800 dark:bg-emerald-950/45 dark:text-emerald-100"
+      : "border-[#0284C7]/40 bg-[#F0F9FF] text-[#075985] dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-100";
+  const topAlertBadge =
+    topAlertSev === "ROJO"
+      ? "bg-[#DC2626] text-white"
+      : topAlertSev === "NARANJA"
+      ? "bg-[#D97706] text-white"
+      : topAlertSev === "VERDE"
+      ? "bg-[#059669] text-white"
+      : "bg-[#0284C7] text-white";
+
   return (
     <div className="space-y-4">
-      {/* Banner vivo de alertas emitidas por Gestión UNT (CAP 1.2 + Confirmación) */}
-      {activeAlerts.length > 0 && (
-        <ActiveAlertsBanner
-          alerts={activeAlerts}
-          activeDemoRole={activeDemoRole}
-          onConfirmAlert={onConfirmAlert}
-        />
+      {/* Franja compacta en 1 línea (sin empujar el mapa hacia abajo) */}
+      {topAlert && (
+        <section
+          aria-label="Aviso institucional activo"
+          className={`flex flex-col justify-between gap-2 rounded-xl border px-3.5 py-2 shadow-subtle sm:flex-row sm:items-center ${topAlertTone}`}
+        >
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+            <span
+              className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${topAlertBadge}`}
+            >
+              <BellRing className="h-3 w-3" />
+              <span>{topAlertSev}</span>
+            </span>
+            <span className="truncate font-extrabold">
+              {topAlert.what_happens || topAlert.title}
+            </span>
+            {activeAlerts.length > 1 && (
+              <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 font-mono text-[11px] font-extrabold text-[#0B2545] dark:bg-slate-900/80 dark:text-white">
+                +{activeAlerts.length - 1} más
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate?.("notifications")}
+            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-[#0B2545] px-3 text-xs font-extrabold text-white transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
+          >
+            <BellRing className="h-3.5 w-3.5" />
+            <span>Ver notificaciones</span>
+          </button>
+        </section>
       )}
 
       {/* Cabecera inequívoca de PRONÓSTICO (distinta de Simulación histórica) */}

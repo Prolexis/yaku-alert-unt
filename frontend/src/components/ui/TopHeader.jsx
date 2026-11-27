@@ -11,12 +11,14 @@ import {
   ShieldCheck,
   Wrench,
   KeyRound,
+  Bell,
   X,
 } from "lucide-react";
 import { formatLimaTime } from "../../utils/formatters";
 
 const VIEW_TITLES = {
   dashboard: "Inicio",
+  notifications: "Notificaciones",
   student_map: "Mapa UNT",
   student_sim: "Simulación de lluvias",
   monitoring: "Monitoreo sinóptico",
@@ -96,6 +98,9 @@ export default function TopHeader({
   activeDemoRole = "estudiante",
   onSelectDemoRole,
   preventiveLevel,
+  alertsBadgeCount = 0,
+  hasUnconfirmedAlerts = false,
+  onOpenNotifications,
 }) {
   const [adminModalOpen, setAdminModalOpen] = useState(false);
 
@@ -254,8 +259,30 @@ export default function TopHeader({
               </button>
             )}
 
-            {/* Acciones rápidas */}
+            {/* Acciones rápidas: Campana de notificaciones + Actualizar + Tema + Ayuda */}
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onOpenNotifications}
+                aria-label={`Notificaciones y alertas CAP (${alertsBadgeCount} activas)`}
+                title={`Notificaciones y alertas CAP (${alertsBadgeCount} activas)`}
+                className={`relative rounded-lg border p-2 transition ${
+                  activeView === "notifications"
+                    ? "border-[#0369A1] bg-[#F0F9FF] text-[#0369A1] dark:border-[#38BDF8] dark:bg-sky-950 dark:text-[#38BDF8]"
+                    : "border-slate-200 bg-white text-[#0F172A] hover:border-[#00B4D8] hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                }`}
+              >
+                <Bell className="h-4 w-4" />
+                {alertsBadgeCount > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#DC2626] px-1 font-mono text-[10px] font-extrabold text-white shadow-sm ring-2 ring-white dark:ring-[#0B2545]">
+                    {hasUnconfirmedAlerts && (
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#DC2626] opacity-60" />
+                    )}
+                    <span className="relative">{alertsBadgeCount}</span>
+                  </span>
+                )}
+              </button>
+
               <button
                 type="button"
                 onClick={onRefresh}

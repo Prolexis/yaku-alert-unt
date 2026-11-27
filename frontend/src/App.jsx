@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import {
@@ -33,6 +33,7 @@ import HelpModal from "./components/ui/HelpModal";
 import CampusReportModal from "./components/ui/CampusReportModal";
 import YakuAssistantDrawer from "./components/ui/YakuAssistantDrawer";
 import DashboardView from "./components/DashboardView";
+import NotificationsView from "./components/NotificationsView";
 import MonitoringView from "./components/MonitoringView";
 import CampusMapView from "./components/CampusMapView";
 import StudentMonitoringMap from "./components/StudentMonitoringMap";
@@ -94,6 +95,9 @@ export default function App() {
   const [focusedBuildingId, setFocusedBuildingId] = useState("");
   const [activeDemoRole, setActiveDemoRole] = useState("estudiante");
   const [activeAlerts, setActiveAlerts] = useState([]);
+  const [allAlerts, setAllAlerts] = useState([]);
+  const [confirmedMap, setConfirmedMap] = useState({});
+  const seenAlertIdsRef = useRef(null);
   const [campusReports, setCampusReports] = useState([]);
   const [continuityDecisions, setContinuityDecisions] = useState([]);
   const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -113,15 +117,41 @@ export default function App() {
     return map;
   }, [liveSimulation, campusBuildingStatus]);
 
+  const syncAlertsPayload = (res, notifyNew = false) => {
+    const activeList = res.active_alerts || [];
+    const draftList = res.draft_alerts || [];
+    const fullList = res.alerts || [...activeList, ...draftList];
+    setActiveAlerts([...activeList, ...draftList]);
+    setAllAlerts(fullList);
+
+    if (seenAlertIdsRef.current === null) {
+      seenAlertIdsRef.current = new Set(activeList.map((a) => a.id));
+      return;
+    }
+
+    if (notifyNew) {
+      const newlyArrived = activeList.filter((a) => !seenAlertIdsRef.current.has(a.id));
+      newlyArrived.forEach((a) => {
+        seenAlertIdsRef.current.add(a.id);
+        const sev = String(a.severity || "AMARILLO").toUpperCase();
+        const notifyFn = sev === "ROJO" ? toast.error : toast.warning;
+        notifyFn(`Nueva alerta CAP ${sev}`, {
+          description: a.what_happens || a.title,
+          duration: 8000,
+          action: {
+            label: "Ver notificación",
+            onClick: () => setActiveView("notifications"),
+          },
+        });
+      });
+    } else {
+      activeList.forEach((a) => seenAlertIdsRef.current.add(a.id));
+    }
+  };
+
   const refreshAlertsAndReports = () => {
     fetchAlerts(false)
-      .then((res) => {
-        const visible = [
-          ...(res.active_alerts || []),
-          ...(res.draft_alerts || []),
-        ];
-        setActiveAlerts(visible);
-      })
+      .then((res) => syncAlertsPayload(res, false))
       .catch((err) => console.warn("Alertas SQLite no disponibles:", err));
     fetchReports()
       .then((res) => setCampusReports(res.reports || []))
@@ -176,6 +206,7 @@ export default function App() {
         { send_whatsapp: true, offline: forceOffline || browserOffline }
       );
       setActiveAlerts((prev) => prev.map((a) => (a.id === alertId ? validated : a)));
+      setAllAlerts((prev) => prev.map((a) => (a.id === alertId ? validated : a)));
       const wa = validated.whatsapp_dispatch;
       if (wa?.status === "sent") {
         toast.success("Alerta validada y enviada por WhatsApp (CAP 1.2)", {
@@ -192,11 +223,11 @@ export default function App() {
   const handleConfirmAlert = async (alertId, status) => {
     try {
       const res = await confirmAlertReceipt(alertId, activeDemoRole, status);
-      setActiveAlerts((prev) =>
-        prev.map((a) =>
-          a.id === alertId ? { ...a, confirmations: res.confirmations } : a
-        )
-      );
+      const patch = (list) =>
+        list.map((a) => (a.id === alertId ? { ...a, confirmations: res.confirmations } : a));
+      setActiveAlerts(patch);
+      setAllAlerts(patch);
+      setConfirmedMap((prev) => ({ ...prev, [alertId]: status }));
       toast.success(
         status === "en_zona_segura"
           ? "Confirmado: estás en zona segura"
@@ -227,6 +258,10 @@ export default function App() {
       offline: forceOffline || browserOffline,
     });
     setActiveAlerts((prev) => [created, ...prev]);
+    setAllAlerts((prev) => [created, ...prev]);
+    if (seenAlertIdsRef.current && created.status === "emitida") {
+      seenAlertIdsRef.current.add(created.id);
+    }
     const wa = created.whatsapp_dispatch;
     if (wa) {
       if (wa.status === "sent") {
@@ -259,6 +294,9 @@ export default function App() {
         setActiveAlerts((prev) =>
           prev.map((a) => (a.id === alertId ? res.alert : a))
         );
+        setAllAlerts((prev) =>
+          prev.map((a) => (a.id === alertId ? res.alert : a))
+        );
       }
       const wa = res.whatsapp || {};
       if (wa.status === "sent") {
@@ -285,9 +323,12 @@ export default function App() {
 
   const handleResolveAlert = async (alertId) => {
     try {
-      await resolveAlert(alertId);
+      const resolved = await resolveAlert(alertId);
       setActiveAlerts((prev) => prev.filter((a) => a.id !== alertId));
-      toast.info("Aviso institucional cerrado");
+      setAllAlerts((prev) =>
+        prev.map((a) => (a.id === alertId ? resolved || { ...a, active: false, status: "resuelta" } : a))
+      );
+      toast.info("Aviso institucional marcado como resuelto");
     } catch (err) {
       toast.error("No se pudo cerrar el aviso", { description: err.message });
     }
@@ -478,11 +519,7 @@ export default function App() {
       fetchAlerts(false)
         .then((res) => {
           if (!mounted) return;
-          const visible = [
-            ...(res.active_alerts || []),
-            ...(res.draft_alerts || []),
-          ];
-          setActiveAlerts(visible);
+          syncAlertsPayload(res, true);
         })
         .catch(() => {});
     };
@@ -517,6 +554,16 @@ export default function App() {
     activeView === "map" ||
     (activeView === "prevention" && evalSourceMode === "simulated");
 
+  const emittedActiveAlerts = useMemo(
+    () => activeAlerts.filter((a) => a.status === "emitida" && a.active),
+    [activeAlerts]
+  );
+  const alertsBadgeCount = emittedActiveAlerts.length;
+  const hasUnconfirmedAlerts = useMemo(
+    () => emittedActiveAlerts.some((a) => !confirmedMap[a.id]),
+    [emittedActiveAlerts, confirmedMap]
+  );
+
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex min-h-screen bg-[#F8FAFC] text-[#0F172A] dark:bg-[#071524] dark:text-slate-100">
@@ -531,6 +578,7 @@ export default function App() {
           userRole={userRole}
           activeDemoRole={activeDemoRole}
           onChangeRole={handleChangeRole}
+          alertsBadgeCount={alertsBadgeCount}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -551,6 +599,9 @@ export default function App() {
             activeDemoRole={activeDemoRole}
             onSelectDemoRole={handleSelectDemoRole}
             preventiveLevel={currentEvaluation?.preventive_level || currentEvaluation?.level}
+            alertsBadgeCount={alertsBadgeCount}
+            hasUnconfirmedAlerts={hasUnconfirmedAlerts}
+            onOpenNotifications={() => setActiveView("notifications")}
           />
 
           <DataStatusBanner
@@ -608,6 +659,23 @@ export default function App() {
                     whatsappStatus={whatsappStatus}
                     onUpdateReportStatus={handleUpdateReportStatus}
                     liveSimulation={liveSimulation}
+                  />
+                )}
+
+                {activeView === "notifications" && (
+                  <NotificationsView
+                    alerts={allAlerts}
+                    userRole={userRole}
+                    activeDemoRole={activeDemoRole}
+                    confirmedMap={confirmedMap}
+                    onConfirmAlert={handleConfirmAlert}
+                    onValidateAlert={handleValidateAlert}
+                    onResolveAlert={handleResolveAlert}
+                    onSendWhatsApp={handleSendAlertWhatsApp}
+                    whatsappStatus={whatsappStatus}
+                    onOpenSafeRoutes={() =>
+                      setActiveView(userRole === "admin" ? "map" : "student_map")
+                    }
                   />
                 )}
 

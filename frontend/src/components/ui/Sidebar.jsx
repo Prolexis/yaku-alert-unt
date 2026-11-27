@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
+  Bell,
   CloudRain,
   Map as MapIcon,
   ShieldCheck,
@@ -25,6 +26,12 @@ export const STUDENT_NAV_GROUPS = [
         label: "Inicio",
         fullTitle: "Inicio y estado preventivo del campus",
         icon: LayoutDashboard,
+      },
+      {
+        id: "notifications",
+        label: "Notificaciones",
+        fullTitle: "Centro de notificaciones y alertas CAP 1.2",
+        icon: Bell,
       },
       {
         id: "student_map",
@@ -68,6 +75,12 @@ export const DIRECTIVO_NAV_GROUPS = [
         label: "Dashboard directivo",
         fullTitle: "Semáforo ejecutivo y confirmaciones por perfil",
         icon: LayoutDashboard,
+      },
+      {
+        id: "notifications",
+        label: "Notificaciones",
+        fullTitle: "Centro de notificaciones, validación CAP 1.2 e historial",
+        icon: Bell,
       },
       {
         id: "prevention",
@@ -133,6 +146,12 @@ export const ADMIN_NAV_GROUPS = [
         icon: LayoutDashboard,
       },
       {
+        id: "notifications",
+        label: "Notificaciones",
+        fullTitle: "Centro de notificaciones y alertas CAP 1.2",
+        icon: Bell,
+      },
+      {
         id: "monitoring",
         label: "Monitoreo sinóptico",
         fullTitle: "Pronóstico horario, presión atmosférica y viento",
@@ -188,6 +207,7 @@ export default function Sidebar({
   userRole = "student",
   activeDemoRole = "estudiante",
   onChangeRole,
+  alertsBadgeCount = 0,
 }) {
   const groups =
     userRole === "admin"
@@ -320,7 +340,11 @@ export default function Sidebar({
                         {!collapsed && <span className="truncate">{item.label}</span>}
                       </span>
 
-                      {!collapsed && item.badge && (
+                      {!collapsed && item.id === "notifications" && alertsBadgeCount > 0 ? (
+                        <span className="relative z-10 rounded-full bg-[#DC2626] px-2 py-0.5 font-mono text-[11px] font-extrabold text-white">
+                          {alertsBadgeCount}
+                        </span>
+                      ) : !collapsed && item.badge ? (
                         <span
                           className={`relative z-10 rounded-md px-1.5 py-0.5 font-mono text-xs font-bold ${
                             simActive && isActive
@@ -330,7 +354,7 @@ export default function Sidebar({
                         >
                           {item.badge}
                         </span>
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}

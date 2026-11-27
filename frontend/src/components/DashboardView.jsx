@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   ArrowRight,
+  BellRing,
   Map as MapIcon,
   ShieldCheck,
   AlertCircle,
@@ -17,7 +18,6 @@ import PrecipitationChart from "./ui/PrecipitationChart";
 import SkeletonCard from "./ui/SkeletonCard";
 import FacultyLookupCard from "./ui/FacultyLookupCard";
 import ExecutiveDecisionCard from "./ui/ExecutiveDecisionCard";
-import ActiveAlertsBanner from "./ui/ActiveAlertsBanner";
 import { AdminReportsInbox } from "./ui/CampusReportModal";
 import DataSourcesPanel from "./ui/DataSourcesPanel";
 import {
@@ -137,22 +137,77 @@ export default function DashboardView({
     summary?.max_probability_24h_pct ?? summary?.max_probability_pct ?? "N/D";
   const levelBadgeStyle =
     LEVEL_BADGE_MAP[preventiveLevel] || LEVEL_BADGE_MAP.INFORMATIVO;
+  const emittedActiveAlerts = activeAlerts.filter(
+    (a) => a.status === "emitida" && a.active
+  );
+  const topAlert = emittedActiveAlerts[0] || null;
+  const topAlertSev = String(topAlert?.severity || "AMARILLO").toUpperCase();
+  const topAlertTone =
+    topAlertSev === "ROJO"
+      ? "border-[#DC2626]/45 bg-[#FEF2F2] text-[#991B1B] dark:border-red-800 dark:bg-red-950/45 dark:text-red-100"
+      : topAlertSev === "NARANJA"
+      ? "border-[#D97706]/45 bg-[#FFFBEB] text-[#92400E] dark:border-amber-800 dark:bg-amber-950/45 dark:text-amber-100"
+      : topAlertSev === "VERDE"
+      ? "border-[#059669]/40 bg-[#ECFDF5] text-[#065F46] dark:border-emerald-800 dark:bg-emerald-950/45 dark:text-emerald-100"
+      : "border-[#0284C7]/40 bg-[#F0F9FF] text-[#075985] dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-100";
+  const topAlertBadge =
+    topAlertSev === "ROJO"
+      ? "bg-[#DC2626] text-white"
+      : topAlertSev === "NARANJA"
+      ? "bg-[#D97706] text-white"
+      : topAlertSev === "VERDE"
+      ? "bg-[#059669] text-white"
+      : "bg-[#0284C7] text-white";
 
   return (
     <div className="space-y-6">
-      {/* Banner de avisos institucionales emitidos (si existen) */}
-      {activeAlerts.length > 0 && (
-        <ActiveAlertsBanner
-          alerts={activeAlerts}
-          onOpenSafeRoutes={() => onNavigate(userRole === "admin" ? "map" : "student_map")}
-          canResolve={userRole === "admin"}
-          onResolveAlert={onResolveAlert}
-          onValidateAlert={onValidateAlert}
-          onConfirmAlert={onConfirmAlert}
-          onSendWhatsApp={onSendWhatsApp}
-          whatsappStatus={whatsappStatus}
-          activeDemoRole={activeDemoRole}
-        />
+      {/* Franja compacta de alerta activa en 1 línea (sin apilar tarjetas gigantes en Inicio) */}
+      {topAlert && (
+        <section
+          aria-label="Aviso institucional activo"
+          className={`flex flex-col justify-between gap-2.5 rounded-2xl border px-4 py-3 shadow-subtle sm:flex-row sm:items-center ${topAlertTone}`}
+        >
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+            <span
+              className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${topAlertBadge}`}
+            >
+              <BellRing className="h-3 w-3" />
+              <span>{topAlertSev}</span>
+            </span>
+            <span className="truncate font-extrabold">
+              {topAlert.what_happens || topAlert.title}
+            </span>
+            {topAlert.where_zone && (
+              <span className="hidden truncate opacity-85 xl:inline">
+                · {topAlert.where_zone}
+              </span>
+            )}
+            {emittedActiveAlerts.length > 1 && (
+              <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 font-mono text-[11px] font-extrabold text-[#0B2545] dark:bg-slate-900/80 dark:text-white">
+                +{emittedActiveAlerts.length - 1} más
+              </span>
+            )}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onNavigate("notifications")}
+              className="inline-flex h-8 items-center gap-1.5 rounded-xl bg-[#0B2545] px-3 text-xs font-extrabold text-white shadow-sm transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
+            >
+              <BellRing className="h-3.5 w-3.5" />
+              <span>Ver notificaciones</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate(userRole === "admin" ? "map" : "student_map")}
+              className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-current/25 bg-white/85 px-3 text-xs font-bold text-[#0B2545] transition hover:bg-white dark:bg-slate-900/85 dark:text-white"
+            >
+              <MapIcon className="h-3.5 w-3.5" />
+              <span>Ver rutas seguras</span>
+            </button>
+          </div>
+        </section>
       )}
 
       {/* =====================================================================

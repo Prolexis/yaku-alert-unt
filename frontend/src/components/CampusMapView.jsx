@@ -18,22 +18,10 @@ import {
   toggledConditionParams,
 } from "../utils/conditions";
 import { renderEvacuationLayers } from "../utils/evacuationLayers";
+import { HD_BASEMAPS, attachHdBaseLayer } from "../utils/mapTiles";
 
 const UNT_CENTER = [-8.11473, -79.03923];
-
-const BASEMAPS = {
-  calles: {
-    label: "Calles",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; colaboradores de OpenStreetMap",
-  },
-  satelite: {
-    label: "Satélite",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Imagery &copy; Esri",
-  },
-  vectorial: { label: "Solo vectorial (sin internet)" },
-};
+const BASEMAPS = HD_BASEMAPS;
 
 // Los nombres vienen de OpenStreetMap (editable por terceros): se escapan antes de ir a un popup HTML.
 const esc = (s) =>
@@ -145,7 +133,9 @@ export default function CampusMapView({
     const map = L.map(mapContainerRef.current, {
       center: UNT_CENTER,
       zoom: 17,
-      maxZoom: 20,
+      maxZoom: 19,
+      zoomSnap: 1,
+      zoomDelta: 1,
       zoomControl: false,
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -228,7 +218,7 @@ export default function CampusMapView({
     }
   }, [focusedBuildingId, campusLayers, campusCatalog]);
 
-  // Mapa base seleccionable; si los mosaicos fallan (sin internet) se informa y quedan las capas vectoriales
+  // Mapa base HD (@2x Retina); si los mosaicos fallan (sin internet) se informa y quedan las capas vectoriales
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -238,20 +228,10 @@ export default function CampusMapView({
     }
     tileErrorsRef.current = 0;
     setTilesFailed(false);
-    const cfg = BASEMAPS[basemap];
-    if (!cfg?.url) return;
-    const layer = L.tileLayer(cfg.url, { attribution: cfg.attribution, maxZoom: 20, maxNativeZoom: 19 });
-    layer.on("tileerror", () => {
-      tileErrorsRef.current += 1;
-      if (tileErrorsRef.current >= 4) setTilesFailed(true);
+    tileLayerRef.current = attachHdBaseLayer(map, basemap, {
+      onFallbackOffline: () => setTilesFailed(true),
+      onTileLoaded: () => setTilesFailed(false),
     });
-    layer.on("tileload", () => {
-      tileErrorsRef.current = 0;
-      setTilesFailed(false);
-    });
-    layer.addTo(map);
-    layer.bringToBack();
-    tileLayerRef.current = layer;
   }, [basemap]);
 
   // Capas base reales del campus: perímetro, senderos y áreas deportivas (siempre vectoriales y locales)

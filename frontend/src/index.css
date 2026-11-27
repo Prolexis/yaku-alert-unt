@@ -28,6 +28,9 @@
     font-family: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: var(--ink-primary);
     background-color: var(--surface-canvas);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   code,
@@ -52,6 +55,24 @@
 .leaflet-container {
   font-family: inherit;
   z-index: 1;
+}
+
+/* Renderizado nítido HD / Retina (@2x) para mapas Leaflet y gráficos SVG en todas las vistas */
+.leaflet-container .leaflet-overlay-pane svg,
+.leaflet-container .leaflet-marker-pane,
+.leaflet-container .leaflet-shadow-pane {
+  will-change: auto !important;
+  shape-rendering: geometricPrecision;
+}
+
+.leaflet-container img.leaflet-tile {
+  image-rendering: auto;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+svg {
+  shape-rendering: geometricPrecision;
 }
 
 /* Custom Leaflet popup styling */

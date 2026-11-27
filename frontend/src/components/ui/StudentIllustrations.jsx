@@ -6,10 +6,11 @@ import { ArrowRight } from "lucide-react";
  * 1. Ilustración dinámica de estado climático (100 % SVG offline)
  */
 export function WeatherStateIllustration({ intensityMmH = 0, probabilityPct = 0 }) {
+  // Usar intensidad real (mm/h) para definir lluvia fuerte; alta probabilidad con 0 mm es solo cielo nublado/llovizna posible
   const mode =
-    intensityMmH >= 5 || probabilityPct >= 75
+    intensityMmH >= 4
       ? "heavy"
-      : intensityMmH >= 0.2 || probabilityPct >= 40
+      : intensityMmH >= 0.3 || (intensityMmH > 0 && probabilityPct >= 60)
       ? "light"
       : "clear";
 
@@ -169,10 +170,10 @@ function resolveGateState(gate, { simResult, hydroResult, campusReports = [] }) 
   // NUNCA declarar "Libre" por simple ausencia de reportes
   return {
     key: "no_updates",
-    label: "Sin información actualizada",
-    tone: "border-slate-200 bg-[#F8FAFC] text-[#475569] dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300",
-    dot: "#64748B",
-    sourceNote: "Sin reportes activos (no confirma verificación en campo)",
+    label: "Sin reportes activos",
+    tone: "border-slate-200/80 bg-[#F8FAFC] text-[#334155] dark:border-slate-700/80 dark:bg-slate-900/50 dark:text-slate-300",
+    dot: "#94A3B8",
+    sourceNote: "Sin reportes recientes (no confirma verificación en campo)",
   };
 }
 
@@ -181,20 +182,96 @@ export function CampusAccessStatusStrip({
   hydroResult,
   campusReports = [],
   onOpenMap,
+  compactVertical = false,
 }) {
+  const [noteOpen, setNoteOpen] = React.useState(false);
+
+  if (compactVertical) {
+    return (
+      <section
+        aria-label="Estado referencial de accesos UNT"
+        className="flex h-full flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]"
+      >
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold tracking-tight text-[#0F172A] dark:text-white">
+                Estado de puertas UNT
+              </h3>
+              <p className="text-xs text-[#64748B] dark:text-slate-400">
+                Referencia rápida antes de ingresar o salir
+              </p>
+            </div>
+            {onOpenMap && (
+              <button
+                type="button"
+                onClick={onOpenMap}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#0369A1] hover:underline dark:text-[#38BDF8]"
+              >
+                <span>Ver mapa</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="mt-3.5 space-y-2">
+            {UNT_GATES.map((gate) => {
+              const st = resolveGateState(gate, { simResult, hydroResult, campusReports });
+              return (
+                <button
+                  key={gate.code}
+                  type="button"
+                  onClick={() => onOpenMap?.()}
+                  title={`${gate.street} · ${st.sourceNote}`}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition hover:border-[#0369A1]/40 ${st.tone}`}
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: st.dot }}
+                    />
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-bold text-[#0F172A] dark:text-white">
+                        {gate.label} ·{" "}
+                        <span className="font-normal text-[#475569] dark:text-slate-300">
+                          {gate.street.split("(")[0].trim()}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-semibold">{st.label}</div>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-50" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <p className="mt-3 text-[11px] leading-snug text-[#64748B] dark:text-slate-400">
+          Referencial: sin reportes no implica verificación presencial en puerta.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section
       aria-label="Estado referencial de accesos UNT"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-800 dark:bg-[#0B2545] sm:p-5"
+      className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545] sm:p-5"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div>
+        <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-extrabold text-[#0F172A] dark:text-white">
-            Accesos de la UNT (P1 – P4) · Estado referencial
+            Accesos UNT (P1 – P4)
           </h3>
-          <p className="text-xs text-[#475569] dark:text-slate-300">
-            La ausencia de reportes no confirma que un acceso esté despejado en campo.
-          </p>
+          <button
+            type="button"
+            onClick={() => setNoteOpen((v) => !v)}
+            aria-expanded={noteOpen}
+            className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-[#475569] hover:bg-slate-200/70 dark:bg-slate-800 dark:text-slate-300"
+          >
+            {noteOpen ? "Ocultar criterio" : "Estado referencial · Ver criterio"}
+          </button>
         </div>
         {onOpenMap && (
           <button
@@ -208,6 +285,12 @@ export function CampusAccessStatusStrip({
         )}
       </div>
 
+      {noteOpen && (
+        <p className="mb-3 rounded-xl border border-slate-200/80 bg-[#F8FAFC] px-3 py-2 text-xs text-[#475569] dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+          La ausencia de reportes activos no confirma que un acceso esté despejado en campo; verifica siempre la señalización oficial de vigilancia y Defensa Civil UNT.
+        </p>
+      )}
+
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {UNT_GATES.map((gate) => {
           const st = resolveGateState(gate, { simResult, hydroResult, campusReports });
@@ -216,21 +299,21 @@ export function CampusAccessStatusStrip({
               key={gate.code}
               type="button"
               onClick={() => onOpenMap?.()}
-              className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition hover:shadow-sm ${st.tone}`}
+              title={`${gate.street} · ${st.sourceNote}`}
+              className={`flex items-center justify-between gap-2.5 rounded-2xl border px-3.5 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${st.tone}`}
             >
-              <span
-                className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: st.dot }}
-              />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: st.dot }}
+                  />
                   <span className="font-mono text-xs font-extrabold">{gate.code}</span>
-                  <span className="truncate text-xs font-bold">{gate.label}</span>
+                  <span className="truncate text-xs font-bold">{gate.street.split("(")[0].trim()}</span>
                 </div>
-                <div className="mt-0.5 text-xs font-extrabold">{st.label}</div>
-                <div className="mt-0.5 truncate text-[11px] opacity-85">{gate.street}</div>
-                <div className="mt-0.5 text-[10px] opacity-75">{st.sourceNote}</div>
+                <div className="mt-1 truncate pl-4 text-xs font-extrabold">{st.label}</div>
               </div>
+              <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
             </button>
           );
         })}

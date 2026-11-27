@@ -1,9 +1,18 @@
 import React, { useState } from "react";
 import {
-  CheckCircle2,
   GraduationCap,
   Briefcase,
   ChevronDown,
+  Sun,
+  CloudRain,
+  ShieldCheck,
+  Laptop,
+  FlaskConical,
+  FileText,
+  Map as MapIcon,
+  Backpack,
+  ArrowRight,
+  FileCheck2,
 } from "lucide-react";
 import CommunityPreparednessSection from "./ui/CommunityPreparednessSection";
 import OfficialChannelsSection from "./ui/OfficialChannelsSection";
@@ -56,28 +65,179 @@ const FALLBACK_PHASES = {
   },
 };
 
-const DOCENTE_PHASES = {
-  antes: [
-    "Preparar el aula virtual UNT con enlaces de respaldo para migrar sesiones teóricas sin interrupciones.",
-    "Identificar el punto de encuentro seguro más cercano a tu pabellón o laboratorio antes de iniciar clases.",
-    "Coordinar con escuela profesional el protocolo de reprogramación de prácticas de laboratorio sin penalización.",
-  ],
-  durante: [
-    "Migrar clases teóricas a modalidad virtual y suspender prácticas de laboratorio o evaluaciones presenciales sin penalización.",
-    "Conducir ordenadamente a los estudiantes hacia el punto seguro del pabellón o aplicar refugio vertical en piso superior.",
-    "Registrar asistencia de seguridad del grupo y seguir exclusivamente comunicados de Defensa Civil UNT y Decanato.",
-  ],
-  despues: [
-    "Verificar inspección técnica del aula o laboratorio antes de reanudar actividades presenciales.",
-    "Publicar el cronograma flexible de recuperación de laboratorios y entregas afectadas por cortes de energía.",
-    "Reportar filtraciones o accesos obstruidos del pabellón al Operador de Gestión de Riesgos.",
-  ],
+// Guía súper sencilla y amigable por perfil y momento (comprensible en segundos por cualquier usuario)
+const SIMPLE_USER_CARDS = {
+  estudiante: {
+    antes: [
+      {
+        title: "Mira el clima antes de salir",
+        text: "Revisa en Inicio si hoy habrá lluvia fuerte para decidir cómo ir al campus.",
+      },
+      {
+        title: "Ubica tu lugar alto y seguro",
+        text: "Mira en el Mapa UNT qué parque o explanada alta queda más cerca de tu salón.",
+      },
+      {
+        title: "Ten a mano tu aula virtual",
+        text: "Guarda tus accesos listos en el celular o laptop por si la clase pasa a internet.",
+      },
+    ],
+    durante: [
+      {
+        title: "Conéctate a clases desde un lugar seguro",
+        text: "Si hay alerta, las clases teóricas se dictan por Aula Virtual UNT sin que tengas que viajar.",
+      },
+      {
+        title: "Tranquilo con tus prácticas y exámenes",
+        text: "Los laboratorios o exámenes presenciales se cambian de fecha sin bajarte puntos ni poner falta.",
+      },
+      {
+        title: "Sube a un segundo piso y evita charcos",
+        text: "Si ya estás en la UNT, quédate bajo techo en pisos altos y no cruces Puerta 4 ni Puerta 3.",
+      },
+    ],
+    despues: [
+      {
+        title: "Espera el aviso antes de volver al aula",
+        text: "Ingresa a salones o laboratorios solo cuando tu facultad confirme que están secos y seguros.",
+      },
+      {
+        title: "Revisa tus nuevas fechas de entrega",
+        text: "Consulta con tu delegado o docente cuándo se recuperan las prácticas o tareas pendientes.",
+      },
+      {
+        title: "Avisa si ves agua o puertas cerradas",
+        text: "Si ves un charco grande o paso bloqueado, repórtalo desde el botón Reportar en el Mapa UNT.",
+      },
+    ],
+  },
+  docente: {
+    antes: [
+      {
+        title: "Deja listo el enlace de clase virtual",
+        text: "Publica con anticipación el link en Aula Virtual UNT por si toca enseñar a distancia.",
+      },
+      {
+        title: "Conoce el punto alto de tu pabellón",
+        text: "Revisa en el Mapa UNT a qué zona segura llevarías a tus alumnos si llueve en clase.",
+      },
+      {
+        title: "Ten un plan flexible para laboratorios",
+        text: "Coordina con tu escuela cómo reprogramar prácticas sin perjudicar a los estudiantes.",
+      },
+    ],
+    durante: [
+      {
+        title: "Pasa tus clases teóricas a internet",
+        text: "Dicta la sesión por Aula Virtual UNT y graba la clase para quienes tengan fallas de luz o red.",
+      },
+      {
+        title: "No tomes asistencia estricta ni exámenes",
+        text: "Posterga evaluaciones y laboratorios presenciales sin penalizar a ningún alumno.",
+      },
+      {
+        title: "Guía a tu salón hacia pisos altos",
+        text: "Si están en el campus, mantén la calma y sube con el grupo a pisos superiores.",
+      },
+    ],
+    despues: [
+      {
+        title: "Verifica que el aula esté segura",
+        text: "No uses proyectores ni enchufes si hubo filtraciones hasta que mantenimiento lo revise.",
+      },
+      {
+        title: "Publica las nuevas fechas con calma",
+        text: "Da facilidades de entrega a los estudiantes que sufrieron cortes de luz o internet.",
+      },
+      {
+        title: "Comunica cualquier daño en tu salón",
+        text: "Informa a tu decanato o en el Mapa UNT si hay goteras o accesos con barro.",
+      },
+    ],
+  },
+  administrativo: {
+    antes: [
+      {
+        title: "Pon en alto computadoras y papeles",
+        text: "Si tu oficina está en primer piso, sube equipos y carpetas lejos del suelo.",
+      },
+      {
+        title: "Revisa Mesa de Partes virtual",
+        text: "Comprueba que los correos y sistemas digitales funcionen bien para atender sin papeles.",
+      },
+      {
+        title: "Avisa si ves canaletas tapadas",
+        text: "Informa a mantenimiento antes de que llueva si ves rejillas con hojas o basura.",
+      },
+    ],
+    durante: [
+      {
+        title: "Atiende trámites por internet",
+        text: "Usa Mesa de Partes virtual UNT para que nadie tenga que caminar bajo la lluvia.",
+      },
+      {
+        title: "Desconecta enchufes si entra agua",
+        text: "Si ves humedad en el piso de tu oficina, apaga equipos y aléjate de tomacorrientes.",
+      },
+      {
+        title: "Coordina trabajo remoto seguro",
+        text: "Sigue las indicaciones de Recursos Humanos y Defensa Civil UNT para laborar a distancia.",
+      },
+    ],
+    despues: [
+      {
+        title: "Revisa antes de prender equipos",
+        text: "Espera a que personal técnico confirme que los enchufes estén secos antes de encender.",
+      },
+      {
+        title: "Ordena los trámites recibidos en línea",
+        text: "Actualiza el seguimiento de documentos enviados por Mesa de Partes virtual.",
+      },
+      {
+        title: "Registra cualquier daño en oficina",
+        text: "Avisa a Patrimonio y Defensa Civil UNT si se mojó mobiliario o archivo.",
+      },
+    ],
+  },
 };
+
+const MOMENT_OPTIONS = [
+  {
+    id: "antes",
+    stepNum: "1",
+    title: "Antes de salir",
+    subtitle: "Cuando todo está tranquilo",
+    icon: Sun,
+    activeStyle:
+      "border-[#0369A1] bg-[#F0F9FF] text-[#0B2545] ring-2 ring-[#0369A1]/25 dark:border-[#38BDF8] dark:bg-sky-950/60 dark:text-white",
+    iconBg: "bg-[#0369A1] text-white",
+  },
+  {
+    id: "durante",
+    stepNum: "2",
+    title: "Si llueve fuerte",
+    subtitle: "Qué hacer en ese momento",
+    icon: CloudRain,
+    activeStyle:
+      "border-[#D97706] bg-[#FFFBEB] text-[#0F172A] ring-2 ring-[#D97706]/25 dark:border-amber-400 dark:bg-amber-950/50 dark:text-white",
+    iconBg: "bg-[#D97706] text-white",
+  },
+  {
+    id: "despues",
+    stepNum: "3",
+    title: "Después de la lluvia",
+    subtitle: "Cómo volver con seguridad",
+    icon: ShieldCheck,
+    activeStyle:
+      "border-[#059669] bg-[#ECFDF5] text-[#0F172A] ring-2 ring-[#059669]/25 dark:border-emerald-400 dark:bg-emerald-950/50 dark:text-white",
+    iconBg: "bg-[#059669] text-white",
+  },
+];
 
 const PROFILE_LABELS = {
   estudiante: "Estudiante",
   docente: "Docente",
-  administrativo: "Personal administrativo",
+  administrativo: "Administrativo",
   directivo: "Directivo UNT",
   operador_riesgos: "Operador de Riesgos",
 };
@@ -89,10 +249,12 @@ export default function ContinuityView({
   continuityDecisions = [],
   onCreateDecision,
   onResolveDecision,
+  onNavigate,
 }) {
   const [selectedPhase, setSelectedPhase] = useState("antes");
-  const [showAllPhaseItems, setShowAllPhaseItems] = useState(false);
-  const [extraOpen, setExtraOpen] = useState(false);
+  const [fullProtocolOpen, setFullProtocolOpen] = useState(false);
+  const [mochilaOpen, setMochilaOpen] = useState(false);
+  const [channelsOpen, setChannelsOpen] = useState(false);
 
   const [decScope, setDecScope] = useState("academica");
   const [decArea, setDecArea] = useState("Todas las facultades UNT");
@@ -103,21 +265,23 @@ export default function ContinuityView({
   const phasesMap = protocols?.continuity_phases || FALLBACK_PHASES;
   const currentPhase = phasesMap[selectedPhase] || FALLBACK_PHASES[selectedPhase];
 
-  // Adaptación automática al perfil seleccionado (Estudiante vs Docente vs Administrativo)
   const isAdminProfile = activeDemoRole === "administrativo";
-  const isDocenteProfile = activeDemoRole === "docente";
   const canManageDecisions = userRole === "admin" && activeDemoRole === "directivo";
   const profileLabel = PROFILE_LABELS[activeDemoRole] || "Estudiante";
-  const primaryList = isAdminProfile
-    ? currentPhase.administrative || []
-    : isDocenteProfile
-    ? DOCENTE_PHASES[selectedPhase] || currentPhase.academic || []
-    : currentPhase.academic || [];
-  const secondaryList = isAdminProfile
-    ? currentPhase.academic || []
-    : currentPhase.administrative || [];
-  const allItems = [...primaryList, ...secondaryList];
-  const visibleItems = showAllPhaseItems ? allItems : primaryList.slice(0, 3);
+
+  const roleKey =
+    activeDemoRole === "docente"
+      ? "docente"
+      : activeDemoRole === "administrativo"
+      ? "administrativo"
+      : "estudiante";
+  const friendlyCards =
+    SIMPLE_USER_CARDS[roleKey]?.[selectedPhase] || SIMPLE_USER_CARDS.estudiante.antes;
+
+  const officialAllItems = [
+    ...(currentPhase.academic || []),
+    ...(currentPhase.administrative || []),
+  ];
 
   const handleSubmitDecision = async (e) => {
     e.preventDefault();
@@ -138,60 +302,17 @@ export default function ContinuityView({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Cabecera + Selector compacto de Fase (Antes | Durante | Después) */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-[#101828] dark:text-white sm:text-3xl">
-            Continuidad académica
-          </h2>
-          <p className="mt-1 text-sm text-[#475467] dark:text-slate-400">
-            Recomendaciones directas adaptadas a tu perfil ({profileLabel}) y a la fase seleccionada.
-          </p>
-        </div>
-
-        {/* Selector de una sola fase a la vez */}
-        <div
-          role="tablist"
-          aria-label="Fase de actuación"
-          className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-subtle dark:border-slate-700 dark:bg-[#0B2545]"
-        >
-          {[
-            { id: "antes", label: "Antes" },
-            { id: "durante", label: "Durante" },
-            { id: "despues", label: "Después" },
-          ].map((ph) => (
-            <button
-              key={ph.id}
-              type="button"
-              role="tab"
-              aria-selected={selectedPhase === ph.id}
-              onClick={() => {
-                setSelectedPhase(ph.id);
-                setShowAllPhaseItems(false);
-              }}
-              className={`rounded-lg px-4 py-1.5 text-xs font-extrabold transition ${
-                selectedPhase === ph.id
-                  ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
-                  : "text-[#475569] hover:text-[#0F172A] dark:text-slate-300"
-              }`}
-            >
-              {ph.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Medidas institucionales activas (SQLite) */}
+    <div className="space-y-4">
+      {/* Medidas institucionales activas (SQLite) y formulario Directivo — 100% conservado */}
       {(continuityDecisions.length > 0 || userRole === "admin") && (
-        <div className="rounded-2xl border border-[#0369A1]/30 bg-white p-5 shadow-panel dark:border-sky-800 dark:bg-[#0B2545]">
+        <div className="rounded-2xl border border-[#0369A1]/30 bg-white p-4 shadow-subtle dark:border-sky-800 dark:bg-[#0B2545] sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="text-sm font-extrabold text-[#0B2545] dark:text-white">
-                Medidas institucionales registradas (prototipo TRL 3–4)
+                Comunicados activos de la universidad
               </h3>
               <p className="text-xs text-[#475569] dark:text-slate-300">
-                Disposiciones de ejemplo registradas en el sistema local.
+                Medidas vigentes para clases y oficinas en la UNT.
               </p>
             </div>
             <span className="rounded-full bg-[#F0F9FF] px-2.5 py-0.5 font-mono text-xs font-bold text-[#0369A1] dark:bg-sky-950 dark:text-[#38BDF8]">
@@ -231,7 +352,7 @@ export default function ContinuityView({
 
           {userRole === "admin" && !canManageDecisions && (
             <p className="mt-3 rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-2 text-xs text-[#475569] dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
-              Modo consulta ({profileLabel}): la activación y cierre de medidas institucionales de continuidad corresponde al perfil <strong>Directivo</strong>.
+              Modo consulta ({profileLabel}): la activación y cierre de medidas institucionales corresponde al perfil <strong>Directivo</strong>.
             </p>
           )}
 
@@ -286,78 +407,266 @@ export default function ContinuityView({
         </div>
       )}
 
-      {/* Tarjeta principal: Una sola fase a la vez + adaptada al perfil (máx. 3 iniciales) */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B2545]">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {isAdminProfile ? (
-              <Briefcase className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-            ) : (
-              <GraduationCap className="h-4 w-4 text-[#0369A1] dark:text-[#38BDF8]" />
-            )}
-            <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white">
-              Fase «{currentPhase.title}» · Recomendaciones para {profileLabel}
-            </h3>
-          </div>
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-[#475569] dark:bg-slate-800 dark:text-slate-300">
-            Orientaciones referenciales (PLANAGERD 2022–2030)
+      {/* BLOQUE 1: Resumen súper visual en 3 tarjetas ("¿Qué pasa con mis clases y trámites si llueve?") */}
+      <section
+        aria-label="Qué pasa con tus clases y trámites si llueve fuerte"
+        className="grid grid-cols-1 gap-3 md:grid-cols-3"
+      >
+        <div className="flex items-start gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#F0F9FF] text-[#0369A1] dark:bg-sky-950/70 dark:text-[#38BDF8]">
+            <Laptop className="h-5 w-5" />
           </span>
-        </div>
-
-        <ul className="mt-4 space-y-2.5 text-sm text-[#0F172A] dark:text-slate-100">
-          {visibleItems.map((item, idx) => (
-            <li
-              key={idx}
-              className="flex items-start gap-2.5 rounded-xl bg-[#F8FAFC] p-3.5 dark:bg-slate-900/60"
-            >
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setShowAllPhaseItems((v) => !v)}
-            className="text-xs font-bold text-[#0369A1] hover:underline dark:text-[#38BDF8]"
-          >
-            {showAllPhaseItems ? "Mostrar resumen del perfil (3 principales)" : "Ver todas las recomendaciones"}
-          </button>
-          <span className="text-xs text-[#64748B] dark:text-slate-400">
-            Cambia tu perfil (Estudiante / Docente / Administrativo) en la barra superior para adaptar esta lista.
-          </span>
-        </div>
-      </section>
-
-      {/* Documentación adicional y mochila bajo demanda */}
-      <section className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0B2545]">
-        <button
-          type="button"
-          onClick={() => setExtraOpen((v) => !v)}
-          aria-expanded={extraOpen}
-          className="flex w-full items-center justify-between px-5 py-4 text-left"
-        >
-          <div>
-            <span className="text-sm font-extrabold text-[#0F172A] dark:text-white">
-              Mochila de emergencia y preparación comunitaria
+          <div className="min-w-0">
+            <span className="inline-block rounded-md bg-[#F0F9FF] px-2 py-0.5 text-[11px] font-bold text-[#0369A1] dark:bg-sky-950 dark:text-[#38BDF8]">
+              Pasan a internet
             </span>
-            <p className="text-xs text-[#475569] dark:text-slate-300">
-              Checklist preventivo y brigadas universitarias
+            <h3 className="mt-1 text-base font-extrabold text-[#0F172A] dark:text-white">
+              Clases teóricas
+            </h3>
+            <p className="mt-0.5 text-xs leading-relaxed text-[#475569] dark:text-slate-300">
+              Si hay alerta, te conectas desde casa por <strong>Aula Virtual UNT</strong>.
             </p>
           </div>
-          <ChevronDown
-            className={`h-4 w-4 text-[#475569] transition-transform ${extraOpen ? "rotate-180" : ""}`}
-          />
-        </button>
-        {extraOpen && (
-          <div className="border-t border-slate-200 p-5 dark:border-slate-800">
-            <CommunityPreparednessSection />
+        </div>
+
+        <div className="flex items-start gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/70 dark:text-emerald-400">
+            <FlaskConical className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <span className="inline-block rounded-md bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-bold text-[#059669] dark:bg-emerald-950 dark:text-emerald-300">
+              No pierdes nota
+            </span>
+            <h3 className="mt-1 text-base font-extrabold text-[#0F172A] dark:text-white">
+              Laboratorios y exámenes
+            </h3>
+            <p className="mt-0.5 text-xs leading-relaxed text-[#475569] dark:text-slate-300">
+              Se cambian de fecha automáticamente <strong>sin contar tardanza ni falta</strong>.
+            </p>
           </div>
-        )}
+        </div>
+
+        <div className="flex items-start gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#FFFBEB] text-[#D97706] dark:bg-amber-950/70 dark:text-amber-300">
+            <FileText className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <span className="inline-block rounded-md bg-[#FFFBEB] px-2 py-0.5 text-[11px] font-bold text-[#B45309] dark:bg-amber-950 dark:text-amber-300">
+              Sin ir en persona
+            </span>
+            <h3 className="mt-1 text-base font-extrabold text-[#0F172A] dark:text-white">
+              Trámites y documentos
+            </h3>
+            <p className="mt-0.5 text-xs leading-relaxed text-[#475569] dark:text-slate-300">
+              Envía todo por <strong>Mesa de Partes virtual</strong> sin salir bajo la lluvia.
+            </p>
+          </div>
+        </div>
       </section>
 
-      <OfficialChannelsSection />
+      {/* BLOQUE 2: Selector grande e intuitivo de 3 momentos + 3 pasos súper fáciles para tu rol */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545] sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F0F9FF] text-[#0369A1] dark:bg-sky-950/70 dark:text-[#38BDF8]">
+              {isAdminProfile ? (
+                <Briefcase className="h-4.5 w-4.5" />
+              ) : (
+                <GraduationCap className="h-4.5 w-4.5" />
+              )}
+            </span>
+            <div>
+              <h2 className="text-lg font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-xl">
+                Elige el momento para ver qué hacer ({profileLabel})
+              </h2>
+              <p className="text-xs text-[#64748B] dark:text-slate-400">
+                Toca una de las 3 tarjetas de abajo:
+              </p>
+            </div>
+          </div>
+
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate(userRole === "admin" ? "map" : "student_map")}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B2545] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
+            >
+              <MapIcon className="h-4 w-4" />
+              <span>Ver mi ruta en el Mapa</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* 3 Botones grandes, visuales y súper fáciles de tocar */}
+        <div
+          role="tablist"
+          aria-label="Elige el momento"
+          className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3"
+        >
+          {MOMENT_OPTIONS.map((m) => {
+            const Icon = m.icon;
+            const active = selectedPhase === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setSelectedPhase(m.id)}
+                className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition ${
+                  active
+                    ? m.activeStyle
+                    : "border-slate-200 bg-[#F8FAFC]/70 text-[#475569] hover:border-slate-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300"
+                }`}
+              >
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    active
+                      ? m.iconBg
+                      : "bg-white text-[#475569] ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm font-extrabold text-[#0F172A] dark:text-white">
+                    {m.stepNum}. {m.title}
+                  </div>
+                  <div className="truncate text-xs text-[#64748B] dark:text-slate-400">
+                    {m.subtitle}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 3 Pasos en lenguaje cotidiano y directo */}
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          {friendlyCards.map((card, idx) => (
+            <div
+              key={idx}
+              className="rounded-2xl border border-slate-200/80 bg-[#F8FAFC]/70 p-4 dark:border-slate-800 dark:bg-slate-900/50"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0B2545] font-mono text-xs font-bold text-white dark:bg-[#0369A1]">
+                  {idx + 1}
+                </span>
+                <h3 className="text-sm font-extrabold text-[#0F172A] dark:text-white">
+                  {card.title}
+                </h3>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-[#475569] dark:text-slate-300 sm:text-sm">
+                {card.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* BLOQUE 3: Desplegables de ancho completo (nunca aplastados en columnas estrechas) */}
+      <div className="space-y-2.5">
+        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+          <button
+            type="button"
+            onClick={() => setMochilaOpen((v) => !v)}
+            aria-expanded={mochilaOpen}
+            className="flex w-full items-center justify-between px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/60 dark:text-emerald-400">
+                <Backpack className="h-4.5 w-4.5" />
+              </span>
+              <div>
+                <span className="text-sm font-bold text-[#0F172A] dark:text-white">
+                  ¿Qué llevar en mi mochila de emergencia y quién ayuda en la UNT?
+                </span>
+                <p className="text-xs text-[#64748B] dark:text-slate-400">
+                  Lista fácil para marcar lo que ya tienes listo + equipos de ayuda
+                </p>
+              </div>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-[#475569] transition-transform ${
+                mochilaOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {mochilaOpen && (
+            <div className="border-t border-slate-200 p-5 dark:border-slate-800">
+              <CommunityPreparednessSection />
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+          <button
+            type="button"
+            onClick={() => setChannelsOpen((v) => !v)}
+            aria-expanded={channelsOpen}
+            className="flex w-full items-center justify-between px-5 py-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F0F9FF] text-[#0369A1] dark:bg-sky-950/60 dark:text-[#38BDF8]">
+                <ShieldCheck className="h-4.5 w-4.5" />
+              </span>
+              <div>
+                <span className="text-sm font-bold text-[#0F172A] dark:text-white">
+                  ¿Dónde ver noticias oficiales sin caer en rumores?
+                </span>
+                <p className="text-xs text-[#64748B] dark:text-slate-400">
+                  Accesos directos a SENAMHI, COER La Libertad, INDECI y ENFEN
+                </p>
+              </div>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-[#475569] transition-transform ${
+                channelsOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {channelsOpen && (
+            <div className="border-t border-slate-200 p-5 dark:border-slate-800">
+              <OfficialChannelsSection />
+            </div>
+          )}
+        </section>
+
+        {/* Acordeón discreto que conserva el texto normativo íntegro PLANAGERD 2022–2030 */}
+        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+          <button
+            type="button"
+            onClick={() => setFullProtocolOpen((v) => !v)}
+            aria-expanded={fullProtocolOpen}
+            className="flex w-full items-center justify-between px-5 py-3.5 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <FileCheck2 className="h-4 w-4 shrink-0 text-[#64748B]" />
+              <span className="text-xs font-bold text-[#475569] dark:text-slate-300">
+                Ver detalle normativo completo ({officialAllItems.length} lineamientos · PLANAGERD 2022–2030)
+              </span>
+            </div>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-[#475569] transition-transform ${
+                fullProtocolOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+          {fullProtocolOpen && (
+            <div className="grid grid-cols-1 gap-2.5 border-t border-slate-200 p-5 text-xs dark:border-slate-800 md:grid-cols-2">
+              {officialAllItems.map((line, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-slate-200/70 bg-[#F8FAFC] p-3 text-[#334155] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300"
+                >
+                  {i + 1}. {line}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

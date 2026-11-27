@@ -21,25 +21,10 @@ import WhereAmISafeRouteBar from "./ui/WhereAmISafeRouteBar";
 import { findNearestSafeRoute } from "../utils/safeRouteHelper";
 import { renderEvacuationLayers, resolveAlternativeMeetingPoint } from "../utils/evacuationLayers";
 import SimulationHyetograph from "./ui/SimulationHyetograph";
+import { HD_BASEMAPS, attachHdBaseLayer } from "../utils/mapTiles";
 
 const UNT_CENTER = [-8.11473, -79.03923];
-
-const BASEMAPS = {
-  calles: {
-    label: "Calles",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; colaboradores de OpenStreetMap",
-  },
-  satelite: {
-    label: "Satélite",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Imagery &copy; Esri",
-  },
-  vectorial: {
-    label: "Solo vectorial",
-    title: "Solo vectorial (sin internet)",
-  },
-};
+const BASEMAPS = HD_BASEMAPS;
 
 const EVACUATION_DISCLAIMER =
   "Rutas y puntos referenciales (TRL 3–4). No reemplazan la señalización oficial de Defensa Civil UNT ni alertas de SENAMHI/COEN.";
@@ -137,6 +122,9 @@ export default function StudentSimpleSimulation({
   const [showSafeAreas, setShowSafeAreas] = useState(true);
   const [showMeetingPoints, setShowMeetingPoints] = useState(true);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [layersMenuOpen, setLayersMenuOpen] = useState(false);
+  const [hyetographOpen, setHyetographOpen] = useState(false);
+  const [scenarioNoteOpen, setScenarioNoteOpen] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("evento_2017_03");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -146,6 +134,7 @@ export default function StudentSimpleSimulation({
   const [selectedFacility, setSelectedFacility] = useState(null);
   const [myLocationId, setMyLocationId] = useState("");
   const notifiedDetourRef = useRef("");
+  const lastFlownOriginRef = useRef("");
 
   // Blindaje offline: cambia automáticamente a Solo vectorial cuando no hay internet o se activa modo offline
   useEffect(() => {
@@ -219,7 +208,9 @@ export default function StudentSimpleSimulation({
     const map = L.map(mapContainerRef.current, {
       center: UNT_CENTER,
       zoom: 17,
-      maxZoom: 20,
+      maxZoom: 19,
+      zoomSnap: 1,
+      zoomDelta: 1,
       zoomControl: false,
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -243,7 +234,7 @@ export default function StudentSimpleSimulation({
     };
   }, []);
 
-  // Mapa base seleccionable con degradación automática si fallan los mosaicos
+  // Mapa base HD (@2x Retina) seleccionable con degradación automática si fallan los mosaicos
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -253,24 +244,10 @@ export default function StudentSimpleSimulation({
     }
     tileErrorsRef.current = 0;
     setTilesFailed(false);
-    const cfg = BASEMAPS[basemap];
-    if (!cfg?.url) return;
-    const layer = L.tileLayer(cfg.url, {
-      attribution: cfg.attribution,
-      maxZoom: 20,
-      maxNativeZoom: 19,
+    tileLayerRef.current = attachHdBaseLayer(map, basemap, {
+      onFallbackOffline: () => setTilesFailed(true),
+      onTileLoaded: () => setTilesFailed(false),
     });
-    layer.on("tileerror", () => {
-      tileErrorsRef.current += 1;
-      if (tileErrorsRef.current >= 4) setTilesFailed(true);
-    });
-    layer.on("tileload", () => {
-      tileErrorsRef.current = 0;
-      setTilesFailed(false);
-    });
-    layer.addTo(map);
-    layer.bringToBack();
-    tileLayerRef.current = layer;
   }, [basemap]);
 
   // Perímetro, vías, áreas verdes y edificios del campus (clickeables para ver resultado exploratorio)
@@ -367,13 +344,16 @@ export default function StudentSimpleSimulation({
     });
   }, [campusLayers, showSafeAreas, showMeetingPoints, affectedGates, mySafeRoute]);
 
-  // Dibujar ruta segura personalizada en la simulación
+  // Dibujar ruta segura personalizada en la simulación (encuadra solo al cambiar de facultad, evitando interrumpir zoom durante animación horaria)
   useEffect(() => {
     const map = mapInstanceRef.current;
     const group = myRouteGroupRef.current;
     if (!map || !group) return;
     group.clearLayers();
-    if (!mySafeRoute) return;
+    if (!mySafeRoute) {
+      lastFlownOriginRef.current = "";
+      return;
+    }
 
     const { origin, safePoint } = mySafeRoute;
     L.polyline(
@@ -400,8 +380,17 @@ export default function StudentSimpleSimulation({
       .bindTooltip(`Tu ubicación: ${esc(origin.name)}`, { direction: "top" })
       .addTo(group);
 
-    map.flyTo([origin.lat, origin.lon], 18, { duration: 0.9 });
-  }, [mySafeRoute]);
+    if (lastFlownOriginRef.current !== myLocationId) {
+      lastFlownOriginRef.current = myLocationId;
+      const routeBounds = L.latLngBounds([
+        [origin.lat, origin.lon],
+        [safePoint.lat, safePoint.lon],
+      ]);
+      if (routeBounds.isValid()) {
+        map.fitBounds(routeBounds, { padding: [56, 56], maxZoom: 18, animate: false });
+      }
+    }
+  }, [mySafeRoute, myLocationId]);
 
   // Pre-construir capas de agua por hora para animar sin parpadeos ni recargas
   useEffect(() => {
@@ -483,91 +472,99 @@ export default function StudentSimpleSimulation({
 
   return (
     <div className="space-y-4">
-      {/* Cabecera limpia y directa para el usuario */}
-      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
-        <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
-            Simulación de lluvias
-          </h2>
-          <p className="text-sm text-[#475569] dark:text-slate-300">
-            Explora cómo podría acumularse el agua en la UNT según lluvias pasadas (2017 y 2023).
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onNavigate("student_map")}
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-[#0B2545] transition hover:border-[#00B4D8] hover:bg-[#F0F9FF] dark:border-slate-700 dark:bg-[#0B2545] dark:text-white"
-        >
-          <span>Volver al pronóstico actual (48 h)</span>
-        </button>
-      </div>
-
-      {/* Selector visual de escenarios históricos + botón reproducir */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-stretch">
-        {PUBLIC_SCENARIOS.map((sc) => {
-          const active = selectedPreset === sc.id;
-          return (
-            <button
-              key={sc.id}
-              type="button"
-              onClick={() => handleSelectScenario(sc)}
-              aria-pressed={active}
-              className={`rounded-2xl border p-4 text-left transition md:col-span-5 ${
-                active
-                  ? "border-[#0369A1] bg-[#F0F9FF] shadow-sm ring-1 ring-[#0369A1] dark:border-[#00B4D8] dark:bg-sky-950/40"
-                  : "border-slate-200 bg-white hover:border-[#00B4D8] dark:border-slate-800 dark:bg-[#0B2545]"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+      {/* Barra única compacta de escenarios + reproducción */}
+      <section className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545] sm:p-4">
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-12 md:items-stretch">
+          {PUBLIC_SCENARIOS.map((sc) => {
+            const active = selectedPreset === sc.id;
+            return (
+              <button
+                key={sc.id}
+                type="button"
+                onClick={() => handleSelectScenario(sc)}
+                aria-pressed={active}
+                title={sc.description}
+                className={`flex items-center justify-between gap-2.5 rounded-xl border px-3.5 py-2.5 text-left transition md:col-span-4 ${
+                  active
+                    ? "border-[#0369A1] bg-[#F0F9FF]/80 ring-1 ring-[#0369A1]/40 dark:border-[#00B4D8] dark:bg-sky-950/45"
+                    : "border-slate-200 bg-[#F8FAFC]/70 hover:border-slate-300 hover:bg-white dark:border-slate-700 dark:bg-slate-900/50"
+                }`}
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
                   <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                       active
                         ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
-                        : "bg-slate-100 text-[#0369A1] dark:bg-slate-800 dark:text-[#38BDF8]"
+                        : "bg-white text-[#0369A1] ring-1 ring-slate-200 dark:bg-slate-800 dark:text-[#38BDF8] dark:ring-slate-700"
                     }`}
                   >
                     <CloudRain className="h-4 w-4" />
                   </span>
-                  <div>
-                    <div className="text-sm font-extrabold text-[#0F172A] dark:text-white">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold text-[#0F172A] dark:text-white">
                       {sc.title}
                     </div>
-                    <div className="font-mono text-xs font-bold text-[#0369A1] dark:text-[#38BDF8]">
+                    <div className="truncate font-mono text-[11px] font-semibold text-[#475569] dark:text-slate-300">
                       {sc.tag}
                     </div>
                   </div>
                 </div>
                 {active && (
-                  <span className="rounded-full bg-[#0B2545] px-2.5 py-0.5 text-xs font-bold text-white dark:bg-[#0369A1]">
+                  <span className="shrink-0 rounded-md bg-[#0B2545] px-2 py-0.5 text-[10px] font-bold text-white dark:bg-[#0369A1]">
                     Activo
                   </span>
                 )}
-              </div>
-              <p className="mt-2 text-xs leading-snug text-[#475569] dark:text-slate-300">
-                {sc.description}
-              </p>
-            </button>
-          );
-        })}
+              </button>
+            );
+          })}
 
-        <div className="flex items-stretch md:col-span-2">
+          <div className="flex items-center gap-2 md:col-span-4">
+            <button
+              type="button"
+              onClick={() => handleRunScenario(selectedPreset)}
+              disabled={loading}
+              className="inline-flex h-full min-h-[48px] flex-1 items-center justify-center gap-2 rounded-xl bg-[#0B2545] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#0369A1] disabled:opacity-60 dark:bg-[#0369A1] dark:hover:bg-[#00B4D8] sm:text-sm"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              <span>{result ? "Reiniciar escenario" : "Reproducir simulación"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate("student_map")}
+              title="Volver al mapa con pronóstico actual"
+              className="inline-flex h-full min-h-[48px] shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 text-xs font-semibold text-[#0F172A] transition hover:border-slate-300 hover:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            >
+              Mapa actual
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#64748B] dark:text-slate-400">
+          <span className="inline-flex items-center gap-1.5 font-medium text-[#475569] dark:text-slate-300">
+            <FlaskConical className="h-3.5 w-3.5 text-[#0369A1] dark:text-[#38BDF8]" />
+            <span>Simulación educativa con datos históricos (no es una alerta activa)</span>
+          </span>
           <button
             type="button"
-            onClick={() => handleRunScenario(selectedPreset)}
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0B2545] px-4 py-3 text-sm font-extrabold text-white shadow-sm transition hover:bg-[#0369A1] disabled:opacity-60 dark:bg-[#0369A1] dark:hover:bg-[#00B4D8]"
+            onClick={() => setScenarioNoteOpen((v) => !v)}
+            aria-expanded={scenarioNoteOpen}
+            className="font-semibold text-[#0369A1] hover:underline dark:text-[#38BDF8]"
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Waves className="h-4 w-4" />
-            )}
-            <span>Ver simulación</span>
+            {scenarioNoteOpen ? "Ocultar nota metodológica" : "Ver nota metodológica"}
           </button>
         </div>
-      </div>
+
+        {scenarioNoteOpen && (
+          <div className="mt-2 rounded-xl bg-[#F8FAFC] px-3.5 py-2 text-xs leading-relaxed text-[#475569] dark:bg-slate-900/60 dark:text-slate-300">
+            {PUBLIC_SCENARIOS.find((s) => s.id === selectedPreset)?.description} {EVACUATION_DISCLAIMER}
+          </div>
+        )}
+      </section>
 
       {error && (
         <div role="alert" className="rounded-xl border border-[#DC2626]/30 bg-[#FEF2F2] px-4 py-2.5 text-xs font-semibold text-[#991B1B]">
@@ -575,13 +572,13 @@ export default function StudentSimpleSimulation({
         </div>
       )}
 
-      {/* Mapa principal Map-First + Reproductor moderno + Ficha lateral */}
+      {/* Misma proporción 8/4 que Mapa UNT para coherencia visual total */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-9">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-subtle dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-8">
           <div className="relative">
             <div
               ref={mapContainerRef}
-              className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[600px] 2xl:h-[700px]"
+              className="h-[420px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[500px] 2xl:h-[620px]"
             />
 
             {(basemap === "vectorial" || tilesFailed) && (
@@ -591,66 +588,70 @@ export default function StudentSimpleSimulation({
               </div>
             )}
 
-            {/* Controles flotantes translúcidos — 3 capas independientes */}
-            <div className="absolute right-3 top-3 z-[400] flex flex-wrap items-center justify-end gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1.5 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
+            {/* Control agrupado «Capas y mapa base» arriba a la derecha (coherente con Mapa UNT, sin 6 botones sueltos) */}
+            <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
               <button
                 type="button"
-                onClick={() => setShowRiskZones((v) => !v)}
-                aria-pressed={showRiskZones}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                  showRiskZones
-                    ? "bg-[#0284C7] text-white shadow-sm"
-                    : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                }`}
+                onClick={() => setLayersMenuOpen((v) => !v)}
+                aria-expanded={layersMenuOpen}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3.5 py-2 text-xs font-bold text-[#0F172A] shadow-sm backdrop-blur-md hover:bg-white dark:border-slate-700 dark:bg-[#0B2545]/95 dark:text-white"
               >
-                Zonas de riesgo
+                <span>Capas y mapa base</span>
+                {layersMenuOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               </button>
-              <button
-                type="button"
-                onClick={() => setShowSafeAreas((v) => !v)}
-                aria-pressed={showSafeAreas}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                  showSafeAreas
-                    ? "bg-[#10B981] text-white shadow-sm"
-                    : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                }`}
-              >
-                Áreas elevadas ref.
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowMeetingPoints((v) => !v)}
-                aria-pressed={showMeetingPoints}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                  showMeetingPoints
-                    ? "bg-[#059669] text-white shadow-sm"
-                    : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
-                }`}
-              >
-                Puntos y rutas ref.
-              </button>
-              <div
-                role="group"
-                aria-label="Mapa base"
-                className="inline-flex rounded-lg border border-slate-200 bg-[#F8FAFC] p-0.5 dark:border-slate-700 dark:bg-slate-900"
-              >
-                {Object.entries(BASEMAPS).map(([key, cfg]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    title={cfg.title || cfg.label}
-                    onClick={() => setBasemap(key)}
-                    aria-pressed={basemap === key}
-                    className={`rounded-md px-2 py-1 text-xs font-bold transition ${
-                      basemap === key
-                        ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
-                        : "text-[#475569] hover:text-[#0F172A] dark:text-slate-300"
-                    }`}
-                  >
-                    {cfg.label}
-                  </button>
-                ))}
-              </div>
+
+              {layersMenuOpen && (
+                <div className="w-64 space-y-3 rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur-md dark:border-slate-700 dark:bg-[#0B2545]/95">
+                  <div className="flex gap-1" role="group" aria-label="Mapa base">
+                    {Object.entries(BASEMAPS).map(([key, cfg]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        title={cfg.title || cfg.label}
+                        onClick={() => setBasemap(key)}
+                        aria-pressed={basemap === key}
+                        className={`flex-1 rounded-lg px-2 py-1 text-[11px] font-bold transition ${
+                          basemap === key
+                            ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
+                            : "border border-slate-200 text-[#475569] dark:border-slate-700 dark:text-slate-300"
+                        }`}
+                      >
+                        {cfg.shortLabel || cfg.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2 text-[#0F172A] dark:text-slate-200">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={showRiskZones}
+                        onChange={(e) => setShowRiskZones(e.target.checked)}
+                        className="rounded accent-[#0369A1]"
+                      />
+                      <span>Agua acumulada modelada</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={showSafeAreas}
+                        onChange={(e) => setShowSafeAreas(e.target.checked)}
+                        className="rounded accent-[#0369A1]"
+                      />
+                      <span>Zonas altas seguras (ref.)</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={showMeetingPoints}
+                        onChange={(e) => setShowMeetingPoints(e.target.checked)}
+                        className="rounded accent-[#0369A1]"
+                      />
+                      <span>Puntos de encuentro y rutas</span>
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Leyenda colapsable flotante */}
@@ -711,58 +712,33 @@ export default function StudentSimpleSimulation({
             </div>
           </div>
 
-          {/* Reproductor moderno de simulación + Máximo 3 indicadores principales */}
+          {/* Reproductor limpio + 3 chips compactos + Hietograma desplegable */}
           <div className="space-y-3 border-t border-slate-200 bg-[#F8FAFC] px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900/60">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
-                <div className="text-xs font-semibold text-[#475569] dark:text-slate-300">
-                  Hora simulada
-                </div>
-                <div className="font-mono text-lg font-extrabold text-[#0B2545] tabular-nums dark:text-white">
-                  {currentFrame ? `${currentFrame.label} de ${frames.length}` : "Información no disponible"}
-                </div>
-              </div>
-              <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
-                <div className="text-xs font-semibold text-[#475569] dark:text-slate-300">
-                  Lámina máxima modelada
-                </div>
-                <div className="font-mono text-lg font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8]">
-                  {currentFrame ? `${currentFrame.max_depth_cm} cm` : "Información no disponible"}
-                </div>
-              </div>
-              <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
-                <div className="text-xs font-semibold text-[#475569] dark:text-slate-300">
-                  Instalaciones intersectadas
-                </div>
-                <div className="font-mono text-lg font-extrabold text-[#D97706] tabular-nums dark:text-amber-300">
-                  {result ? `${affectedElements.length}` : "Información no disponible"}
-                </div>
-              </div>
-            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPlaying((p) => !p)}
+                  disabled={!frames.length}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B2545] px-4 text-xs font-extrabold text-white shadow-sm transition hover:bg-[#0369A1] disabled:opacity-50 dark:bg-[#0369A1]"
+                >
+                  {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  <span>{playing ? "Pausar" : "Reproducir"}</span>
+                </button>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setPlaying((p) => !p)}
-                disabled={!frames.length}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0B2545] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#0369A1] disabled:opacity-50 dark:bg-[#0369A1]"
-              >
-                {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                <span>{playing ? "Pausar" : "Reproducir"}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setPlaying(false);
-                  setHour(1);
-                }}
-                disabled={!frames.length}
-                className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-[#0F172A] transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-[#0B2545] dark:text-slate-100"
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span>Reiniciar</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlaying(false);
+                    setHour(1);
+                  }}
+                  disabled={!frames.length}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-[#0F172A] transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-[#0B2545] dark:text-slate-100"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reiniciar</span>
+                </button>
+              </div>
 
               <div className="flex min-w-[180px] flex-1 items-center gap-3">
                 <input
@@ -780,93 +756,153 @@ export default function StudentSimpleSimulation({
                   className="h-2.5 flex-1 cursor-pointer accent-[#0369A1]"
                 />
                 <span className="shrink-0 rounded-lg bg-[#0B2545] px-2.5 py-1 font-mono text-xs font-extrabold text-white tabular-nums dark:bg-[#0369A1]">
-                  {currentFrame ? currentFrame.label : "h+1"}
+                  {currentFrame ? currentFrame.label : "Pulsa «Reproducir simulación»"}
                 </span>
               </div>
             </div>
 
-            {/* Hietograma horario real (mm/h) sincronizado hora por hora */}
+            {/* 3 chips escaneables de resumen horario (visibles al ejecutar el escenario) */}
+            {result && (
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
+                  <div className="text-[11px] font-semibold text-[#64748B] dark:text-slate-400">
+                    Hora simulada
+                  </div>
+                  <div className="font-mono text-sm font-extrabold text-[#0F172A] tabular-nums dark:text-white sm:text-base">
+                    {currentFrame ? `${currentFrame.label} / ${frames.length}` : "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
+                  <div className="text-[11px] font-semibold text-[#64748B] dark:text-slate-400">
+                    Lámina máxima
+                  </div>
+                  <div className="font-mono text-sm font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8] sm:text-base">
+                    {currentFrame ? `${currentFrame.max_depth_cm} cm` : "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
+                  <div className="text-[11px] font-semibold text-[#64748B] dark:text-slate-400">
+                    Edificios expuestos
+                  </div>
+                  <div className="font-mono text-sm font-extrabold text-[#D97706] tabular-nums dark:text-amber-300 sm:text-base">
+                    {affectedElements.length}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hietograma horario bajo demanda (sin saturar la pantalla) */}
             {frames.length > 0 && (
-              <SimulationHyetograph
-                rainfallSeries={result?.parameters?.rainfall_mm_h || []}
-                frames={frames}
-                activeHour={hour}
-                onSelectHour={(hr) => {
-                  setPlaying(false);
-                  setHour(hr);
-                }}
-                compact
-              />
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setHyetographOpen((v) => !v)}
+                  aria-expanded={hyetographOpen}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#0369A1] hover:underline dark:text-[#38BDF8]"
+                >
+                  <span>
+                    {hyetographOpen
+                      ? "Ocultar gráfico horario de lluvia (mm/h)"
+                      : "Ver gráfico horario de lluvia (mm/h)"}
+                  </span>
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition-transform ${
+                      hyetographOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                {hyetographOpen && (
+                  <div className="mt-2">
+                    <SimulationHyetograph
+                      rainfallSeries={result?.parameters?.rainfall_mm_h || []}
+                      frames={frames}
+                      activeHour={hour}
+                      onSelectHour={(hr) => {
+                        setPlaying(false);
+                        setHour(hr);
+                      }}
+                      compact
+                    />
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
 
-        {/* Columna derecha compacta: ficha por instalación */}
-        <div className="space-y-3 lg:col-span-3">
+        {/* Columna derecha guiada: ruta segura desde mi facultad + instalaciones expuestas */}
+        <div className="min-w-0 space-y-3.5 lg:col-span-4">
+          <WhereAmISafeRouteBar
+            options={facultyOptions}
+            selectedId={myLocationId}
+            onSelectOrigin={(id) => setMyLocationId(id)}
+            safeRoute={mySafeRoute}
+            onClear={() => setMyLocationId("")}
+          />
+
           {selectedFacility ? (
-            <section className="rounded-xl border border-[#2563EB]/40 bg-white p-4 shadow-sm dark:border-blue-800 dark:bg-[#0B1F33]">
+            <section className="rounded-2xl border border-[#0369A1]/40 bg-white p-4 shadow-panel dark:border-sky-800 dark:bg-[#0B2545]">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-sm font-bold text-[#101828] dark:text-white">
+                <h3 className="text-sm font-extrabold text-[#0F172A] dark:text-white">
                   {selectedFacility.name}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setSelectedFacility(null)}
                   aria-label="Cerrar ficha de instalación"
-                  className="rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="mt-2 rounded-lg bg-[#F7F9FC] p-2.5 text-xs dark:bg-slate-900/60">
+              <div className="mt-2 rounded-xl bg-[#F8FAFC] p-3 text-xs dark:bg-slate-900/60">
                 {selectedFacility.impact && selectedFacility.impact.first_hour_affected !== null ? (
                   <>
-                    <div className="font-semibold text-amber-800 dark:text-amber-300">
-                      Intersección modelada desde h+{selectedFacility.impact.first_hour_affected}
+                    <div className="font-extrabold text-[#B45309] dark:text-amber-300">
+                      Agua cercana desde h+{selectedFacility.impact.first_hour_affected}
                     </div>
-                    <div className="mt-0.5 text-[#475467] dark:text-slate-300">
-                      Lámina máxima modelada en su entorno: <strong>{selectedFacility.impact.max_depth_cm} cm</strong>.
+                    <div className="mt-0.5 text-[#475569] dark:text-slate-300">
+                      Lámina máxima estimada: <strong>{selectedFacility.impact.max_depth_cm} cm</strong>.
                     </div>
                   </>
                 ) : (
-                  <div className="text-[#475467] dark:text-slate-300">
-                    Sin lámina visible en el entorno de esta instalación durante este escenario exploratorio.
+                  <div className="text-[#475569] dark:text-slate-300">
+                    Sin acumulación visible en su entorno durante este escenario.
                   </div>
                 )}
               </div>
-              <p className="mt-2 text-[11px] leading-snug text-[#64748B] dark:text-slate-400">
-                Resultado exploratorio; no declara una instalación como inundada ni sustituye avisos oficiales.
-              </p>
               <button
                 type="button"
                 onClick={() => onNavigate("prevention")}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#0B1F33] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8] dark:bg-[#2563EB]"
+                className="mt-3 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#0B2545] px-3 text-xs font-extrabold text-white transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
                 <span>Ver recomendaciones</span>
               </button>
             </section>
           ) : (
-            <section className="rounded-xl border border-[#E2E8F0] bg-white p-4 text-xs text-[#475467] dark:border-slate-800 dark:bg-[#0B1F33] dark:text-slate-300">
-              <div className="font-bold text-[#101828] dark:text-white">
-                Instalaciones en el escenario
+            <section className="rounded-2xl border border-slate-200/90 bg-white p-4 text-xs shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+              <div className="font-extrabold text-[#0F172A] dark:text-white">
+                {result ? `Edificios con exposición (${affectedElements.length})` : "¿Cómo explorar?"}
               </div>
-              <p className="mt-1 text-[11px] text-[#64748B] dark:text-slate-400">
-                Toca cualquier edificio en el mapa o en la lista para consultar su resultado exploratorio.
+              <p className="mt-1 text-[11px] leading-relaxed text-[#64748B] dark:text-slate-400">
+                {result
+                  ? "Toca un edificio para ver en qué hora llega el agua y cuántos centímetros alcanza:"
+                  : "Pulsa «Reproducir simulación» arriba para ver cómo evoluciona el agua hora por hora en el campus."}
               </p>
               {affectedElements.length > 0 && (
-                <div className="mt-2.5 max-h-56 space-y-1 overflow-y-auto">
+                <div className="mt-2.5 max-h-52 space-y-1 overflow-y-auto">
                   {affectedElements.slice(0, 7).map((el) => (
                     <button
                       key={el.id}
                       type="button"
                       onClick={() => setSelectedFacility({ name: el.name, impact: el })}
-                      className="flex w-full items-center justify-between rounded-md bg-[#F7F9FC] px-2.5 py-1.5 text-left text-[11px] hover:bg-blue-50 dark:bg-slate-900/60 dark:hover:bg-slate-800"
+                      className="flex w-full items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-left text-xs transition hover:bg-[#F0F9FF] dark:bg-slate-900/60 dark:hover:bg-slate-800"
                     >
-                      <span className="truncate font-medium text-[#101828] dark:text-slate-200">
+                      <span className="truncate font-semibold text-[#0F172A] dark:text-slate-200">
                         {el.name}
                       </span>
-                      <span className="ml-2 shrink-0 font-mono text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                      <span className="ml-2 shrink-0 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] font-extrabold text-[#B45309] dark:bg-amber-950 dark:text-amber-300">
                         {el.max_depth_cm} cm
                       </span>
                     </button>
@@ -875,10 +911,6 @@ export default function StudentSimpleSimulation({
               )}
             </section>
           )}
-
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F7F9FC] p-3 text-xs leading-relaxed text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-            {EVACUATION_DISCLAIMER}
-          </div>
         </div>
       </div>
     </div>

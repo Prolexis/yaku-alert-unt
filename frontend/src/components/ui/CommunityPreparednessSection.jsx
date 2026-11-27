@@ -7,7 +7,6 @@ import {
   Megaphone,
   HardDrive,
   Backpack,
-  CheckCircle2,
   RotateCcw,
   Lock,
   MapPin,
@@ -17,61 +16,45 @@ import { BackpackItemIcon } from "./StudentIllustrations";
 const BRIGADES = [
   {
     id: "evacuacion",
-    title: "Evacuación y puntos seguros",
+    title: "Evacuación",
     icon: MapPin,
     accent: "text-[#059669] bg-[#ECFDF5] dark:bg-emerald-950/60 dark:text-emerald-300",
-    tasks: [
-      "Orientar el flujo ordenado hacia cotas altas (Explanada Sociales, Parque Max Díaz, Parque Economía).",
-      "Señalizar desvíos si Puerta 4 (Av. Jesús de Nazareth) o Puerta 3 presentan anegamiento.",
-      "Verificar el despeje de pasillos y escaleras en pabellones de mayor aforo.",
-    ],
+    summary: "Te guían hacia las zonas altas y seguras.",
   },
   {
     id: "auxilios",
     title: "Primeros auxilios",
     icon: HeartPulse,
     accent: "text-[#DC2626] bg-[#FEF2F2] dark:bg-red-950/60 dark:text-red-300",
-    tasks: [
-      "Brindar atención básica ante caídas, cortes o estrés por lluvia intensa.",
-      "Priorizar el acompañamiento de personas con movilidad reducida o adultos mayores.",
-      "Coordinar derivación rápida con Bienestar Universitario y SAMU / Bomberos.",
-    ],
+    summary: "Te atienden rápido ante caídas o golpes.",
   },
   {
     id: "comunicacion",
-    title: "Comunicación verificada",
+    title: "Avisos reales",
     icon: Megaphone,
     accent: "text-[#0369A1] bg-[#F0F9FF] dark:bg-sky-950/60 dark:text-sky-300",
-    tasks: [
-      "Replicar únicamente comunicados oficiales de UNT, SENAMHI, COER La Libertad y COEN.",
-      "Evitar cadenas no verificadas que generen pánico o falsas alarmas en la comunidad.",
-      "Reportar puntos de aniego observados a Defensa Civil UNT y delegados de facultad.",
-    ],
+    summary: "Comparten solo alertas verificadas de la UNT.",
   },
   {
     id: "resguardo",
-    title: "Resguardo de laboratorios y equipos",
+    title: "Aulas seguras",
     icon: HardDrive,
     accent: "text-[#B45309] bg-[#FFFBEB] dark:bg-amber-950/60 dark:text-amber-300",
-    tasks: [
-      "Elevar equipos de cómputo, reactivos y expedientes en oficinas y laboratorios de primer piso.",
-      "Desconectar tableros o equipos eléctricos si se detectan filtraciones o humedad.",
-      "Documentar incidencias de canaletas y drenajes para mantenimiento preventivo.",
-    ],
+    summary: "Cortan la luz y cuidan equipos si entra agua.",
   },
 ];
 
 const BACKPACK_ITEMS = [
-  { id: "agua", label: "Agua potable (mín. 2 litros por persona)", tag: "Esencial" },
-  { id: "linterna", label: "Linterna con pilas de repuesto", tag: "Iluminación" },
-  { id: "radio", label: "Radio portátil a pilas (para avisos sin internet)", tag: "Comunicación" },
-  { id: "botiquin", label: "Botiquín básico de primeros auxilios y medicación personal", tag: "Salud" },
-  { id: "documentos", label: "Documentos personales en bolsa hermética (DNI, carné UNT)", tag: "Identidad" },
-  { id: "silbato", label: "Silbato de emergencia", tag: "Rescate" },
-  { id: "powerbank", label: "Batería externa (powerbank) cargada y cable USB", tag: "Energía" },
-  { id: "alimentos", label: "Alimentos no perecibles (enlatados, galletas, barras)", tag: "Alimentación" },
-  { id: "mascarillas", label: "Mascarillas y alcohol en gel", tag: "Higiene" },
-  { id: "manta", label: "Manta ligera o poncho impermeable", tag: "Abrigo" },
+  { id: "agua", label: "Agua (2 litros)" },
+  { id: "linterna", label: "Linterna con pilas" },
+  { id: "radio", label: "Radio a pilas" },
+  { id: "botiquin", label: "Botiquín personal" },
+  { id: "documentos", label: "DNI y carné en bolsa" },
+  { id: "silbato", label: "Silbato de ayuda" },
+  { id: "powerbank", label: "Batería portátil" },
+  { id: "alimentos", label: "Comida no perecible" },
+  { id: "mascarillas", label: "Alcohol y mascarilla" },
+  { id: "manta", label: "Poncho para lluvia" },
 ];
 
 export default function CommunityPreparednessSection() {
@@ -83,8 +66,8 @@ export default function CommunityPreparednessSection() {
     setCheckedIds((prev) => {
       const next = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
       if (next.length === totalCount && prev.length < totalCount) {
-        toast.success("¡Mochila de emergencia completa al 100%!", {
-          description: "Tu kit preventivo cumple con los artículos esenciales INDECI.",
+        toast.success("¡Mochila lista al 100%!", {
+          description: "Completaste todos los artículos recomendados por INDECI.",
         });
       }
       return next;
@@ -95,68 +78,22 @@ export default function CommunityPreparednessSection() {
   const progressPct = Math.round((completedCount / totalCount) * 100);
 
   return (
-    <section aria-label="Acción comunitaria y mochila de emergencia" className="space-y-6">
-      {/* Bloque 1: Brigadas Universitarias y Articulación Vecinal */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B2545]">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h3 className="flex items-center gap-2 text-base font-extrabold text-[#0F172A] dark:text-white">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#F0F9FF] text-[#0369A1] dark:bg-sky-950/60 dark:text-[#38BDF8]">
-                <Users className="h-4 w-4" />
-              </span>
-              <span>Brigadas Universitarias y Articulación Vecinal</span>
-            </h3>
-            <p className="mt-1.5 text-xs leading-relaxed text-[#475569] dark:text-slate-300">
-              Roles prácticos de preparación comunitaria dentro de la Ciudad Universitaria UNT,
-              articulados con los <strong className="text-[#0F172A] dark:text-white">territorios vecinales de Trujillo</strong> (Urb. San
-              Andrés, El Porvenir, La Esperanza y sectores aledaños) en el marco del SINAGERD.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-          {BRIGADES.map((b) => {
-            const Icon = b.icon;
-            return (
-              <div
-                key={b.id}
-                className="rounded-xl border border-slate-200/90 bg-[#F8FAFC] p-4 transition hover:border-[#00B4D8]/60 dark:border-slate-700/80 dark:bg-slate-900/60"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className={`inline-flex rounded-lg p-2 ${b.accent}`}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <h4 className="text-sm font-extrabold text-[#0F172A] dark:text-white">
-                    {b.title}
-                  </h4>
-                </div>
-                <ul className="mt-3 space-y-2 text-xs leading-relaxed text-[#475569] dark:text-slate-300">
-                  {b.tasks.map((task, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0369A1] dark:text-[#38BDF8]" />
-                      <span>{task}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Bloque 2: Mochila de Emergencia (Checklist interactivo animado) */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B2545]">
+    <section aria-label="Mochila de emergencia y brigadas UNT" className="space-y-5">
+      {/* 1. PRIMERO LO INTERACTIVO Y VISUAL: Tu Mochila de Emergencia */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="flex items-center gap-2 text-base font-extrabold text-[#0F172A] dark:text-white">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/60 dark:text-emerald-400">
-                <Backpack className="h-4 w-4" />
-              </span>
-              <span>Mochila de Emergencia (Checklist interactivo)</span>
-            </h3>
-            <p className="mt-1 text-xs text-[#475569] dark:text-slate-300">
-              Marca los artículos que ya tienes listos en casa o en tu facultad (referencia INDECI).
-            </p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/60 dark:text-emerald-400">
+              <Backpack className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white">
+                Arma tu mochila de emergencia (toca lo que ya tienes)
+              </h3>
+              <p className="text-xs text-[#64748B] dark:text-slate-300">
+                Marca cada dibujo para ver cuánto te falta completar:
+              </p>
+            </div>
           </div>
 
           {completedCount > 0 && (
@@ -166,20 +103,20 @@ export default function CommunityPreparednessSection() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-[#475569] transition hover:bg-slate-50 hover:text-[#0F172A] dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span>Reiniciar lista</span>
+              <span>Empezar de cero</span>
             </button>
           )}
         </div>
 
-        {/* Barra de progreso animada con framer-motion */}
-        <div className="mt-4 rounded-xl border border-slate-200/80 bg-[#F8FAFC] p-4 dark:border-slate-700/80 dark:bg-slate-900/60">
+        {/* Barra de progreso súper clara */}
+        <div className="mt-4 rounded-xl border border-slate-200/80 bg-[#F8FAFC] p-3.5 dark:border-slate-700/80 dark:bg-slate-900/60">
           <div className="flex items-center justify-between text-xs font-bold">
             <span className="text-[#0F172A] dark:text-slate-100">
-              Avance de preparación:{" "}
-              <span className="font-mono tabular-nums">
-                {completedCount} / {totalCount}
+              Tienes listos{" "}
+              <span className="font-mono text-sm font-extrabold text-[#059669] tabular-nums">
+                {completedCount}
               </span>{" "}
-              artículos
+              de {totalCount} artículos
             </span>
             <span
               className={`font-mono text-sm font-extrabold tabular-nums ${
@@ -197,13 +134,13 @@ export default function CommunityPreparednessSection() {
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label="Progreso de mochila de emergencia"
-            className="mt-2.5 h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+            className="mt-2 h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
           >
             <motion.div
               className={`h-full rounded-full ${
                 progressPct === 100
                   ? "bg-gradient-to-r from-[#059669] to-emerald-400"
-                  : "bg-gradient-to-r from-[#0B2545] to-[#00B4D8]"
+                  : "bg-gradient-to-r from-[#0369A1] to-[#00B4D8]"
               }`}
               initial={{ width: 0 }}
               animate={{ width: `${progressPct}%` }}
@@ -212,46 +149,78 @@ export default function CommunityPreparednessSection() {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
           {BACKPACK_ITEMS.map((item) => {
             const isChecked = checkedIds.includes(item.id);
             return (
-              <motion.label
+              <label
                 key={item.id}
-                whileTap={{ scale: 0.99 }}
-                className={`flex cursor-pointer items-center justify-between gap-2.5 rounded-xl border px-3.5 py-2.5 text-xs transition ${
+                className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border p-3.5 text-center text-xs transition ${
                   isChecked
-                    ? "border-[#059669]/40 bg-[#ECFDF5]/80 text-[#065F46] dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-100"
-                    : "border-slate-200 bg-white text-[#0F172A] hover:border-[#00B4D8] dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-100"
+                    ? "border-[#059669] bg-[#ECFDF5] text-[#065F46] ring-1 ring-[#059669]/30 dark:border-emerald-600 dark:bg-emerald-950/45 dark:text-emerald-100"
+                    : "border-slate-200 bg-[#F8FAFC]/70 text-[#0F172A] hover:border-[#0369A1]/50 hover:bg-white dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
                 }`}
               >
-                <span className="flex min-w-0 items-center gap-2.5">
+                <div className="flex w-full items-center justify-between">
+                  <BackpackItemIcon id={item.id} />
                   <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={() => toggleItem(item.id)}
                     className="h-4 w-4 shrink-0 rounded accent-[#059669]"
                   />
-                  <BackpackItemIcon id={item.id} />
-                  <span className={isChecked ? "font-semibold line-through opacity-80" : "font-semibold"}>
-                    {item.label}
-                  </span>
+                </div>
+                <span className={`w-full text-left font-bold leading-snug ${isChecked ? "line-through opacity-80" : ""}`}>
+                  {item.label}
                 </span>
-                <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-[#475569] dark:bg-slate-800 dark:text-slate-300">
-                  {item.tag}
-                </span>
-              </motion.label>
+              </label>
             );
           })}
         </div>
 
-        <p className="mt-3.5 flex items-center gap-1.5 text-xs text-[#475569] dark:text-slate-400">
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-[#64748B] dark:text-slate-400">
           <Lock className="h-3.5 w-3.5 shrink-0 text-[#059669]" />
-          <span>
-            Checklist 100 % local en memoria del navegador: no recopila datos personales ni envía
-            información al servidor (Ley N.° 29733).
-          </span>
+          <span>Lista privada en tu pantalla: no guarda ni pide tus datos personales.</span>
         </p>
+      </div>
+
+      {/* 2. Brigadas explicadas en palabras sencillas (sin párrafos largos) */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#F0F9FF] text-[#0369A1] dark:bg-sky-950/60 dark:text-[#38BDF8]">
+            <Users className="h-5 w-5" />
+          </span>
+          <div>
+            <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white">
+              ¿Quiénes ayudan dentro del campus? (Brigadas UNT)
+            </h3>
+            <p className="text-xs text-[#64748B] dark:text-slate-300">
+              Equipos de apoyo universitario coordinados con zonas vecinas de Trujillo (San Andrés, El Porvenir y La Esperanza):
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {BRIGADES.map((b) => {
+            const Icon = b.icon;
+            return (
+              <div
+                key={b.id}
+                className="rounded-2xl border border-slate-200/80 bg-[#F8FAFC]/80 p-4 dark:border-slate-800 dark:bg-slate-900/50"
+              >
+                <span className={`inline-flex h-11 w-11 items-center justify-center rounded-xl ${b.accent}`}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                <h4 className="mt-3 text-sm font-extrabold text-[#0F172A] dark:text-white">
+                  {b.title}
+                </h4>
+                <p className="mt-1 text-xs leading-relaxed text-[#475569] dark:text-slate-300">
+                  {b.summary}
+                </p>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

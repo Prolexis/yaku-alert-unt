@@ -57,6 +57,7 @@ const DEFAULT_SIM_PARAMS = {
 export default function App() {
   const [userRole, setUserRole] = useState("student"); // "student" (público) | "admin" (gestión UNT)
   const [activeView, setActiveView] = useState("dashboard");
+  const [preventionTabRequest, setPreventionTabRequest] = useState(null);
   const [theme, setTheme] = useState("light"); // Modo claro priorizado para proyector y jurado
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -358,6 +359,19 @@ export default function App() {
     setActiveView(userRole === "admin" ? "map" : "student_map");
   };
 
+  const handleNavigate = (viewId, options = null) => {
+    if (viewId === "prevention") {
+      setPreventionTabRequest({
+        tab: options?.tab || "accion",
+        nonce: Date.now(),
+      });
+    }
+    setActiveView(viewId);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   const handleChangeRole = (nextRole) => {
     if (nextRole === userRole) return;
     setUserRole(nextRole);
@@ -566,10 +580,10 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="flex min-h-screen bg-[#F8FAFC] text-[#0F172A] dark:bg-[#071524] dark:text-slate-100">
+      <div className="flex min-h-screen bg-[#F4F7FA] text-[#0F172A] dark:bg-[#071524] dark:text-slate-100">
         <Sidebar
           activeView={activeView}
-          onSelectView={setActiveView}
+          onSelectView={handleNavigate}
           mobileOpen={mobileMenuOpen}
           onCloseMobile={() => setMobileMenuOpen(false)}
           collapsed={sidebarCollapsed}
@@ -626,10 +640,10 @@ export default function App() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${userRole}-${activeView}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.14, ease: "easeOut" }}
               >
                 {activeView === "dashboard" && (
                   <DashboardView
@@ -673,8 +687,9 @@ export default function App() {
                     onResolveAlert={handleResolveAlert}
                     onSendWhatsApp={handleSendAlertWhatsApp}
                     whatsappStatus={whatsappStatus}
+                    onNavigate={handleNavigate}
                     onOpenSafeRoutes={() =>
-                      setActiveView(userRole === "admin" ? "map" : "student_map")
+                      handleNavigate(userRole === "admin" ? "map" : "student_map")
                     }
                   />
                 )}
@@ -756,6 +771,8 @@ export default function App() {
                     userRole={userRole}
                     activeDemoRole={activeDemoRole}
                     onIssueAlert={handleIssueAlert}
+                    onNavigate={handleNavigate}
+                    tabRequest={preventionTabRequest}
                     activeAlerts={
                       userRole === "admin"
                         ? activeAlerts
@@ -816,6 +833,7 @@ export default function App() {
                     continuityDecisions={continuityDecisions}
                     onCreateDecision={handleCreateDecision}
                     onResolveDecision={handleResolveDecision}
+                    onNavigate={setActiveView}
                   />
                 )}
               </motion.div>

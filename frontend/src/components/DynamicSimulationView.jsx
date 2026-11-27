@@ -43,22 +43,10 @@ import SimulationHyetograph from "./ui/SimulationHyetograph";
 import { SENSOR_STATUS_STYLES, resolveSensorReading } from "../utils/sensorFormatters";
 import { getFeatureDisplayName } from "../utils/campusCatalog";
 import { renderEvacuationLayers, resolveAlternativeMeetingPoint } from "../utils/evacuationLayers";
+import { HD_BASEMAPS, attachHdBaseLayer } from "../utils/mapTiles";
 
 const UNT_CENTER = [-8.11473, -79.03923];
-
-const BASEMAPS = {
-  calles: {
-    label: "Calles",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; colaboradores de OpenStreetMap",
-  },
-  satelite: {
-    label: "Satélite",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Imagery &copy; Esri",
-  },
-  vectorial: { label: "Solo vectorial" },
-};
+const BASEMAPS = HD_BASEMAPS;
 
 // Leyenda física comprensible para humanos
 const WATER_CLASSES = {
@@ -497,7 +485,9 @@ export default function DynamicSimulationView({
     const map = L.map(mapContainerRef.current, {
       center: UNT_CENTER,
       zoom: 17,
-      maxZoom: 20,
+      maxZoom: 19,
+      zoomSnap: 1,
+      zoomDelta: 1,
       zoomControl: false,
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -533,24 +523,10 @@ export default function DynamicSimulationView({
     }
     tileErrorsRef.current = 0;
     setTilesFailed(false);
-    const cfg = BASEMAPS[basemap];
-    if (!cfg?.url) return;
-    const layer = L.tileLayer(cfg.url, {
-      attribution: cfg.attribution,
-      maxZoom: 20,
-      maxNativeZoom: 19,
+    tileLayerRef.current = attachHdBaseLayer(map, basemap, {
+      onFallbackOffline: () => setTilesFailed(true),
+      onTileLoaded: () => setTilesFailed(false),
     });
-    layer.on("tileerror", () => {
-      tileErrorsRef.current += 1;
-      if (tileErrorsRef.current >= 4) setTilesFailed(true);
-    });
-    layer.on("tileload", () => {
-      tileErrorsRef.current = 0;
-      setTilesFailed(false);
-    });
-    layer.addTo(map);
-    layer.bringToBack();
-    tileLayerRef.current = layer;
   }, [basemap]);
 
   const frames = result?.frames || [];

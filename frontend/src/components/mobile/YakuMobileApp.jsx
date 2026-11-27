@@ -42,6 +42,7 @@ import {
 } from "../../services/api";
 import { buildCampusCatalog, getFeatureDisplayName } from "../../utils/campusCatalog";
 import { renderEvacuationLayers } from "../../utils/evacuationLayers";
+import { attachHdBaseLayer } from "../../utils/mapTiles";
 import { formatLimaTime, normalizeText } from "../../utils/formatters";
 import BrandLogo from "../ui/BrandLogo";
 
@@ -939,17 +940,18 @@ export default function YakuMobileApp() {
     };
   }, [applyDrillSnapshot, wsConnected]);
 
-  // Inicializar mapa Leaflet una sola vez
+  // Inicializar mapa Leaflet una sola vez en alta resolución (@2x Retina)
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
     const map = L.map(mapContainerRef.current, {
       center: UNT_CENTER,
-      zoom: 16.5,
-      maxZoom: 20,
+      zoom: 17,
+      maxZoom: 19,
+      zoomSnap: 1,
+      zoomDelta: 1,
       zoomControl: false,
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
-    map.attributionControl.addAttribution("&copy; OpenStreetMap");
 
     baseGroupRef.current = L.layerGroup().addTo(map);
     attentionGroupRef.current = L.layerGroup().addTo(map);
@@ -957,13 +959,7 @@ export default function YakuMobileApp() {
     evacuationGroupRef.current = L.layerGroup().addTo(map);
     focusGroupRef.current = L.layerGroup().addTo(map);
 
-    const tile = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 20,
-      maxNativeZoom: 19,
-    });
-    tile.addTo(map);
-    tile.bringToBack();
-    tileLayerRef.current = tile;
+    tileLayerRef.current = attachHdBaseLayer(map, "calles");
     mapInstanceRef.current = map;
 
     return () => {

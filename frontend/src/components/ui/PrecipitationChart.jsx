@@ -53,44 +53,38 @@ export default function PrecipitationChart({ points = [], height = 250 }) {
         probabilidad de cada hora.
       </span>
 
-      {/* Barra de inspección interactiva (hover y teclado Tab) */}
-      <div className="flex min-h-[34px] flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/90 bg-[#F8FAFC] px-3.5 py-1.5 text-xs dark:border-slate-700/80 dark:bg-slate-900/70">
-        {activePoint ? (
-          <>
-            <span className="font-mono font-bold text-[#0B2545] tabular-nums dark:text-white">
-              {String(activePoint.time || "").replace("T", " · ")}
-            </span>
-            <div className="flex flex-wrap items-center gap-4 text-[#475569] dark:text-slate-300">
-              <span>
-                Lluvia:{" "}
-                <strong className="font-mono font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8]">
-                  {(activePoint.precipitation_mm ?? 0).toFixed(1)} mm/h
-                </strong>
-              </span>
-              <span>
-                Probabilidad:{" "}
-                <strong className="font-mono font-extrabold text-[#059669] tabular-nums dark:text-emerald-400">
-                  {activePoint.precipitation_probability_pct ?? "N/D"}%
-                </strong>
-              </span>
-              <span>
-                Humedad:{" "}
-                <strong className="font-mono font-bold text-[#0F172A] tabular-nums dark:text-white">
-                  {activePoint.relative_humidity_2m_pct ?? "N/D"}%
-                </strong>
-              </span>
-            </div>
-          </>
-        ) : (
-          <span className="text-xs font-medium text-[#475569] dark:text-slate-300">
-            Inspección horaria interactiva: pasa el cursor o usa la tecla{" "}
-            <kbd className="rounded border border-slate-300 bg-white px-1.5 py-0.5 font-mono text-xs font-bold text-[#0B2545] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-              Tab
-            </kbd>{" "}
-            sobre las barras.
+      {/* Barra de inspección interactiva limpia (solo muestra valores al pasar el cursor, sin ruido fijo) */}
+      {activePoint ? (
+        <div className="flex min-h-[32px] flex-wrap items-center justify-between gap-2 rounded-xl border border-[#0369A1]/25 bg-[#F0F9FF]/80 px-3.5 py-1.5 text-xs dark:border-sky-800 dark:bg-sky-950/50">
+          <span className="font-mono font-bold text-[#0B2545] tabular-nums dark:text-white">
+            {String(activePoint.time || "").replace("T", " · ")}
           </span>
-        )}
-      </div>
+          <div className="flex flex-wrap items-center gap-4 text-[#475569] dark:text-slate-300">
+            <span>
+              Lluvia:{" "}
+              <strong className="font-mono font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8]">
+                {(activePoint.precipitation_mm ?? 0).toFixed(1)} mm/h
+              </strong>
+            </span>
+            <span>
+              Probabilidad:{" "}
+              <strong className="font-mono font-extrabold text-[#059669] tabular-nums dark:text-emerald-400">
+                {activePoint.precipitation_probability_pct ?? "N/D"}%
+              </strong>
+            </span>
+            <span>
+              Humedad:{" "}
+              <strong className="font-mono font-bold text-[#0F172A] tabular-nums dark:text-white">
+                {activePoint.relative_humidity_2m_pct ?? "N/D"}%
+              </strong>
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="text-[11px] text-[#64748B] dark:text-slate-400">
+          Pasa el cursor sobre cualquier hora para ver el detalle.
+        </div>
+      )}
 
       <div className="w-full overflow-x-auto">
         <svg

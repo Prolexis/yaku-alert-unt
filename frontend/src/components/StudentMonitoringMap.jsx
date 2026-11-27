@@ -23,6 +23,7 @@ import { REPORT_CATEGORIES } from "./ui/CampusReportModal";
 import WhereAmISafeRouteBar from "./ui/WhereAmISafeRouteBar";
 import { findNearestSafeRoute } from "../utils/safeRouteHelper";
 import { renderEvacuationLayers } from "../utils/evacuationLayers";
+import { HD_BASEMAPS, attachHdBaseLayer } from "../utils/mapTiles";
 
 const LIVE_WATER_STYLES = {
   leve: { color: "#38BDF8", weight: 0.8, fillColor: "#BAE6FD", fillOpacity: 0.65 },
@@ -38,23 +39,7 @@ const BUILDING_RISK_FILL = {
 };
 
 const UNT_CENTER = [-8.11473, -79.03923];
-
-const BASEMAPS = {
-  calles: {
-    label: "Calles",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; colaboradores de OpenStreetMap",
-  },
-  satelite: {
-    label: "Satélite",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "Imagery &copy; Esri",
-  },
-  vectorial: {
-    label: "Solo vectorial",
-    title: "Solo vectorial (sin internet)",
-  },
-};
+const BASEMAPS = HD_BASEMAPS;
 
 const EVACUATION_DISCLAIMER =
   "Rutas y puntos referenciales (TRL 3–4). No reemplazan la señalización oficial de Defensa Civil UNT ni alertas de SENAMHI/COEN.";
@@ -153,10 +138,13 @@ export default function StudentMonitoringMap({
   const [showTrujilloContext, setShowTrujilloContext] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
+  const [frequentOpen, setFrequentOpen] = useState(false);
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [myLocationId, setMyLocationId] = useState("");
+  const lastFlownOriginRef = useRef("");
 
   // Blindaje offline: al activarse modo sin conexión, cambia automáticamente a Solo vectorial
   useEffect(() => {
@@ -242,7 +230,9 @@ export default function StudentMonitoringMap({
     const map = L.map(mapContainerRef.current, {
       center: UNT_CENTER,
       zoom: 17,
-      maxZoom: 20,
+      maxZoom: 19,
+      zoomSnap: 1,
+      zoomDelta: 1,
       zoomControl: false,
     });
     L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -273,7 +263,7 @@ export default function StudentMonitoringMap({
     };
   }, []);
 
-  // Mapa base
+  // Mapa base HD (@2x Retina)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -283,24 +273,10 @@ export default function StudentMonitoringMap({
     }
     tileErrorsRef.current = 0;
     setTilesFailed(false);
-    const cfg = BASEMAPS[basemap];
-    if (!cfg?.url) return;
-    const layer = L.tileLayer(cfg.url, {
-      attribution: cfg.attribution,
-      maxZoom: 20,
-      maxNativeZoom: 19,
+    tileLayerRef.current = attachHdBaseLayer(map, basemap, {
+      onFallbackOffline: () => setTilesFailed(true),
+      onTileLoaded: () => setTilesFailed(false),
     });
-    layer.on("tileerror", () => {
-      tileErrorsRef.current += 1;
-      if (tileErrorsRef.current >= 4) setTilesFailed(true);
-    });
-    layer.on("tileload", () => {
-      tileErrorsRef.current = 0;
-      setTilesFailed(false);
-    });
-    layer.addTo(map);
-    layer.bringToBack();
-    tileLayerRef.current = layer;
   }, [basemap]);
 
   // Capas del campus (sin sensores IoT ni elementos administrativos)
@@ -706,13 +682,16 @@ export default function StudentMonitoringMap({
     });
   }, [campusReports]);
 
-  // Dibujar ruta segura personalizada + flyTo suave cuando el estudiante elige su facultad
+  // Dibujar ruta segura personalizada (encuadra solo cuando el usuario cambia de facultad, sin re-disparar zoom en cada refresco)
   useEffect(() => {
     const map = mapInstanceRef.current;
     const group = myRouteGroupRef.current;
     if (!map || !group) return;
     group.clearLayers();
-    if (!mySafeRoute) return;
+    if (!mySafeRoute) {
+      lastFlownOriginRef.current = "";
+      return;
+    }
 
     const { origin, safePoint } = mySafeRoute;
     L.polyline(
@@ -749,8 +728,17 @@ export default function StudentMonitoringMap({
       .bindTooltip(`Tu ubicación: ${esc(origin.name)}`, { permanent: false, direction: "top" })
       .addTo(group);
 
-    map.flyTo([origin.lat, origin.lon], 18, { duration: 0.9 });
-  }, [mySafeRoute]);
+    if (lastFlownOriginRef.current !== myLocationId) {
+      lastFlownOriginRef.current = myLocationId;
+      const routeBounds = L.latLngBounds([
+        [origin.lat, origin.lon],
+        [safePoint.lat, safePoint.lon],
+      ]);
+      if (routeBounds.isValid()) {
+        map.fitBounds(routeBounds, { padding: [56, 56], maxZoom: 18, animate: false });
+      }
+    }
+  }, [mySafeRoute, myLocationId]);
 
   // Enfocar edificio seleccionado desde Inicio / Asistente YAKU
   useEffect(() => {
@@ -814,20 +802,24 @@ export default function StudentMonitoringMap({
       {topAlert && (
         <section
           aria-label="Aviso institucional activo"
-          className={`flex flex-col justify-between gap-2 rounded-xl border px-3.5 py-2 shadow-subtle sm:flex-row sm:items-center ${topAlertTone}`}
+          className={`flex flex-col justify-between gap-2 rounded-xl border px-4 py-2.5 sm:flex-row sm:items-center ${topAlertTone}`}
         >
           <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
             <span
-              className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${topAlertBadge}`}
+              className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold ${topAlertBadge}`}
             >
               <BellRing className="h-3 w-3" />
-              <span>{topAlertSev}</span>
+              <span>
+                {/escenario|simulac/i.test(String(topAlert.what_happens || topAlert.title || ""))
+                  ? "Simulacro activo"
+                  : `Aviso ${topAlertSev.toLowerCase()}`}
+              </span>
             </span>
-            <span className="truncate font-extrabold">
+            <span className="truncate font-semibold">
               {topAlert.what_happens || topAlert.title}
             </span>
             {activeAlerts.length > 1 && (
-              <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 font-mono text-[11px] font-extrabold text-[#0B2545] dark:bg-slate-900/80 dark:text-white">
+              <span className="shrink-0 rounded-full bg-white/80 px-2 py-0.5 font-mono text-[11px] font-bold text-[#0B2545] dark:bg-slate-900/80 dark:text-white">
                 +{activeAlerts.length - 1} más
               </span>
             )}
@@ -835,84 +827,23 @@ export default function StudentMonitoringMap({
           <button
             type="button"
             onClick={() => onNavigate?.("notifications")}
-            className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-[#0B2545] px-3 text-xs font-extrabold text-white transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
+            className="inline-flex shrink-0 items-center gap-1 text-xs font-bold underline decoration-current/40 underline-offset-4 hover:decoration-current"
           >
-            <BellRing className="h-3.5 w-3.5" />
-            <span>Ver notificaciones</span>
+            <span>Ver aviso</span>
+            <span>→</span>
           </button>
         </section>
       )}
 
-      {/* Cabecera inequívoca de PRONÓSTICO (distinta de Simulación histórica) */}
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-0.5 text-[11px] font-bold text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
-              {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              <span>Estado actual y pronóstico probabilístico (48 h)</span>
-            </span>
-            {!isLive && (
-              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
-                Caché offline
-              </span>
-            )}
-            {liveSimulation?.active && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#0369A1]/40 bg-[#F0F9FF] px-3 py-0.5 text-[11px] font-bold text-[#0B2545] dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-[#0284C7]" />
-                <span>Simulación en vivo activa · Datos sintéticos</span>
-              </span>
-            )}
-          </div>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
-            Mapa de monitoreo UNT
-          </h2>
-          <p className="text-sm text-[#475467] dark:text-slate-400">
-            Busca cualquier facultad o instalación, revisa las zonas de atención y ubica puntos de encuentro referenciales.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {onOpenReportModal && (
-            <button
-              type="button"
-              onClick={onOpenReportModal}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D97706]/40 bg-[#FFFBEB] px-3.5 text-xs font-bold text-[#92400E] transition hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200"
-            >
-              <Megaphone className="h-4 w-4" />
-              <span>Reportar incidente</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onNavigate("student_sim")}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0B2545] px-4 text-xs font-bold text-white transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
-          >
-            <Waves className="h-4 w-4" />
-            <span>Simular lluvias (2017 / 2023)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Buscador protagonista: PRIMERO BUSCAR, DESPUÉS EXPLORAR */}
+      {/* Barra compacta de búsqueda + chips rápidos + acciones */}
       <section
         aria-label="¿Qué lugar de la UNT buscas?"
-        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-800 dark:bg-[#0B2545]"
+        className="rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-subtle dark:border-slate-800 dark:bg-[#0B2545] sm:p-4"
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <label
-              htmlFor="student-map-search"
-              className="block text-base font-extrabold text-[#0F172A] dark:text-white"
-            >
-              ¿Qué lugar de la UNT buscas?
-            </label>
-            <p className="text-xs text-[#475569] dark:text-slate-300">
-              Escribe tu facultad, pabellón, biblioteca, comedor, auditorio o puerta para centrarlo en el mapa.
-            </p>
-          </div>
-
-          <div className="relative flex-1 lg:max-w-xl">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          {/* Buscador conectado también a la ruta segura */}
+          <div className="relative flex-1 xl:max-w-md">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0369A1] dark:text-[#38BDF8]" />
             <input
               id="student-map-search"
               type="text"
@@ -922,9 +853,9 @@ export default function StudentMonitoringMap({
                 setQuery(e.target.value);
                 setSearchOpen(true);
               }}
-              placeholder="Ej. Comedor Universitario, Ingeniería, Biblioteca Central, Puerta 4..."
+              placeholder="Busca tu facultad, comedor, biblioteca o puerta..."
               aria-label="Buscar facultad o instalación en el mapa"
-              className="h-11 w-full rounded-xl border border-slate-300 bg-[#F8FAFC] pl-10 pr-9 text-sm font-medium text-[#0F172A] focus:border-[#0369A1] focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="h-10 w-full rounded-xl border border-slate-200 bg-[#F8FAFC] pl-10 pr-9 text-xs font-semibold text-[#0F172A] outline-none transition focus:border-[#0369A1] focus:bg-white focus:ring-2 focus:ring-[#0369A1]/15 dark:border-slate-700 dark:bg-slate-900 dark:text-white sm:text-sm"
             />
             {query && (
               <button
@@ -934,7 +865,7 @@ export default function StudentMonitoringMap({
                   setSearchOpen(false);
                 }}
                 aria-label="Limpiar búsqueda"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -943,7 +874,7 @@ export default function StudentMonitoringMap({
             {searchOpen && filteredCatalog.length > 0 && (
               <div
                 role="listbox"
-                className="absolute left-0 right-0 top-12 z-[500] max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-[#0B2545]"
+                className="absolute left-0 right-0 top-11 z-[500] max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-[#0B2545]"
               >
                 {filteredCatalog.map((item) => (
                   <button
@@ -953,9 +884,10 @@ export default function StudentMonitoringMap({
                     onClick={() => {
                       setQuery(item.displayLabel);
                       setSearchOpen(false);
+                      setMyLocationId(item.id);
                       onSelectBuilding?.(item.id);
                     }}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition hover:bg-[#F0F9FF] dark:hover:bg-slate-800"
+                    className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs transition hover:bg-[#F0F9FF] dark:hover:bg-slate-800"
                   >
                     <div className="min-w-0">
                       <div className="truncate font-bold text-[#0F172A] dark:text-white">
@@ -971,26 +903,73 @@ export default function StudentMonitoringMap({
               </div>
             )}
           </div>
+
+          {/* Chips rápidos de 1 clic */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {["Comedor Universitario", "Biblioteca Central", "Ingeniería", "Rectorado", "Puerta 4"].map(
+              (quick) => (
+                <button
+                  key={quick}
+                  type="button"
+                  onClick={() => {
+                    const found = catalog.find((c) =>
+                      normalizeText(c.displayLabel).includes(normalizeText(quick))
+                    );
+                    setQuery(found ? found.displayLabel : quick);
+                    setSearchOpen(false);
+                    if (found) {
+                      setMyLocationId(found.id);
+                      onSelectBuilding?.(found.id);
+                    }
+                  }}
+                  className="rounded-full border border-slate-200 bg-[#F8FAFC] px-2.5 py-1 text-[11px] font-bold text-[#0369A1] transition hover:border-[#00B4D8] hover:bg-[#F0F9FF] dark:border-slate-700 dark:bg-slate-900 dark:text-[#38BDF8]"
+                >
+                  {quick}
+                </button>
+              )
+            )}
+          </div>
+
+          {/* Botones de acción alineados */}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {onOpenReportModal && (
+              <button
+                type="button"
+                onClick={onOpenReportModal}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#D97706]/40 bg-[#FFFBEB] px-3 text-xs font-bold text-[#92400E] transition hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200"
+              >
+                <Megaphone className="h-3.5 w-3.5" />
+                <span>Reportar</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onNavigate("student_sim")}
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#0B2545] px-3.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
+            >
+              <Waves className="h-3.5 w-3.5" />
+              <span>Simular lluvias</span>
+            </button>
+          </div>
         </div>
 
-        {/* Franja meteorológica compacta y clara (sin 5 tarjetas separadas) */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 pt-3 text-xs text-[#475569] dark:border-slate-700/80 dark:text-slate-300">
+        {/* Estado climático resumido en 1 línea limpia */}
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-xs dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${studentNow.dot}`} />
-            <span className="font-semibold text-[#0F172A] dark:text-white">{studentNow.text}</span>
+            <span className={`h-2 w-2 shrink-0 rounded-full ${studentNow.dot}`} />
+            <span className="font-semibold text-[#0F172A] dark:text-slate-100">{studentNow.text}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3 font-mono text-[11px]">
-            <span>
-              Lluvia 24 h: <strong>{weather?.summary ? `${weather.summary.accumulated_24h_mm} mm` : "—"}</strong>
-            </span>
-            <span>
-              Intensidad máx.: <strong>{weather?.summary ? `${weather.summary.max_intensity_mm_h} mm/h` : "—"}</strong>
-            </span>
-            <span>
-              Prob. llovizna: <strong>{maxProb24 !== null && maxProb24 !== undefined ? `${maxProb24}%` : "N/D"}</strong>
-            </span>
-            <span className="text-[#64748B] dark:text-slate-400">Open-Meteo · {updatedLima}</span>
-          </div>
+          <span className="font-mono text-[11px] text-[#64748B] dark:text-slate-400">
+            {isLive ? "Pronóstico 48 h" : "Caché offline"} · 24 h:{" "}
+            <strong className="text-[#0F172A] dark:text-white">
+              {weather?.summary ? `${weather.summary.accumulated_24h_mm} mm` : "—"}
+            </strong>{" "}
+            · Máx:{" "}
+            <strong className="text-[#0F172A] dark:text-white">
+              {weather?.summary ? `${weather.summary.max_intensity_mm_h} mm/h` : "—"}
+            </strong>{" "}
+            ({updatedLima})
+          </span>
         </div>
       </section>
 
@@ -1046,7 +1025,7 @@ export default function StudentMonitoringMap({
                           : "border border-slate-200 text-[#475569] dark:border-slate-700 dark:text-slate-300"
                       }`}
                     >
-                      {key === "vectorial" ? "Offline" : cfg.label}
+                      {cfg.shortLabel || cfg.label}
                     </button>
                   ))}
                 </div>
@@ -1146,8 +1125,19 @@ export default function StudentMonitoringMap({
           </div>
         </div>
 
-        {/* Panel derecho: estado dinámico del edificio + ruta referencial + lugares frecuentes */}
-        <div className="space-y-4 lg:col-span-4">
+        {/* Panel derecho jerarquizado: 1) ¿Dónde estás / Ruta segura -> 2) Edificio seleccionado -> 3) Lugares colapsables */}
+        <div className="min-w-0 space-y-3.5 lg:col-span-4">
+          <WhereAmISafeRouteBar
+            options={facultyOptions}
+            selectedId={myLocationId}
+            onSelectOrigin={(id) => {
+              setMyLocationId(id);
+              if (id) onSelectBuilding?.(id);
+            }}
+            safeRoute={mySafeRoute}
+            onClear={() => setMyLocationId("")}
+          />
+
           {activeBuildingStatus ? (
             <BuildingDynamicCard
               buildingStatus={activeBuildingStatus}
@@ -1162,13 +1152,13 @@ export default function StudentMonitoringMap({
               }}
             />
           ) : selectedCard ? (
-            <section className="rounded-2xl border border-[#2563EB]/40 bg-white p-4 shadow-sm dark:border-blue-800 dark:bg-[#0B2545]">
+            <section className="rounded-2xl border border-[#0369A1]/40 bg-white p-4 shadow-panel dark:border-sky-800 dark:bg-[#0B2545]">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="inline-block rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-[#2563EB] dark:bg-blue-950/60 dark:text-blue-300">
+                  <span className="inline-block rounded-full bg-[#F0F9FF] px-2.5 py-0.5 text-[10px] font-bold text-[#0369A1] dark:bg-sky-950/60 dark:text-[#38BDF8]">
                     {selectedCard.infoType}
                   </span>
-                  <h3 className="mt-1 text-base font-extrabold text-[#101828] dark:text-white">
+                  <h3 className="mt-1 text-base font-extrabold text-[#0F172A] dark:text-white">
                     {selectedCard.name}
                   </h3>
                 </div>
@@ -1176,66 +1166,83 @@ export default function StudentMonitoringMap({
                   type="button"
                   onClick={() => setSelectedCard(null)}
                   aria-label="Cerrar tarjeta"
-                  className="rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <p className="mt-1.5 text-xs leading-relaxed text-[#475467] dark:text-slate-300">
+              <p className="mt-1.5 text-xs leading-relaxed text-[#475569] dark:text-slate-300">
                 {selectedCard.explanation}
               </p>
               <button
                 type="button"
                 onClick={() => onNavigate("prevention")}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0B2545] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#0369A1] dark:bg-[#0369A1]"
+                className="mt-3 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-[#0B2545] px-3 text-xs font-extrabold text-white transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
-                <span>Ver recomendaciones</span>
+                <span>Ver recomendaciones preventivas</span>
               </button>
             </section>
-          ) : (
-            <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#0B2545]">
-              <h3 className="text-sm font-extrabold text-[#0F172A] dark:text-white">
-                Lugares frecuentes del campus
-              </h3>
-              <p className="mt-0.5 text-xs text-[#475569] dark:text-slate-300">
-                Selecciona uno para ver su estado real y trazar tu ruta segura:
-              </p>
-              <div className="mt-2.5 max-h-52 space-y-1 overflow-y-auto">
+          ) : null}
+
+          {/* Lista de lugares frecuentes como acordeón limpio */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white shadow-subtle dark:border-slate-800 dark:bg-[#0B2545]">
+            <button
+              type="button"
+              onClick={() => setFrequentOpen((v) => !v)}
+              aria-expanded={frequentOpen}
+              className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+            >
+              <div>
+                <h3 className="text-sm font-bold text-[#0F172A] dark:text-white">
+                  Directorio del campus ({filteredCatalog.length})
+                </h3>
+                <p className="text-xs text-[#64748B] dark:text-slate-400">
+                  Facultades, bibliotecas, comedor y puertas
+                </p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-[#475569] transition-transform ${
+                  frequentOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {frequentOpen && (
+              <div className="max-h-56 space-y-1 overflow-y-auto border-t border-slate-100 p-2.5 dark:border-slate-800">
                 {filteredCatalog.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => onSelectBuilding?.(item.id)}
-                    className="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition hover:bg-[#F8FAFC] dark:hover:bg-slate-900"
+                    className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs transition hover:bg-[#F0F9FF] dark:hover:bg-slate-800"
                   >
-                    <span className="truncate font-semibold text-[#101828] dark:text-white">
+                    <span className="truncate font-semibold text-[#0F172A] dark:text-white">
                       {item.displayLabel}
                     </span>
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" />
                   </button>
                 ))}
               </div>
-            </section>
-          )}
+            )}
+          </section>
 
-          <WhereAmISafeRouteBar
-            options={facultyOptions}
-            selectedId={myLocationId}
-            onSelectOrigin={(id) => {
-              setMyLocationId(id);
-              if (id) onSelectBuilding?.(id);
-            }}
-            safeRoute={mySafeRoute}
-            onClear={() => setMyLocationId("")}
-          />
-
-          <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3 text-[11px] leading-snug text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-            <div className="flex items-center gap-1.5 font-semibold text-[#101828] dark:text-slate-200">
-              <CloudRain className="h-3.5 w-3.5 text-[#0369A1]" />
-              Pronóstico (Open-Meteo) · Puntos y rutas referenciales
-            </div>
-            <p className="mt-1">{EVACUATION_DISCLAIMER}</p>
+          {/* Nota metodológica compacta desplegable */}
+          <div className="rounded-2xl border border-slate-200/80 bg-[#F8FAFC] px-3.5 py-2.5 text-[11px] text-[#475569] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+            <button
+              type="button"
+              onClick={() => setDisclaimerOpen((v) => !v)}
+              aria-expanded={disclaimerOpen}
+              className="flex w-full items-center justify-between text-left font-bold text-[#0F172A] dark:text-slate-200"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <CloudRain className="h-3.5 w-3.5 text-[#0369A1]" />
+                <span>Fuente y alcance referencial (TRL 3–4)</span>
+              </span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${disclaimerOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {disclaimerOpen && <p className="mt-1.5 leading-relaxed">{EVACUATION_DISCLAIMER}</p>}
           </div>
         </div>
       </div>

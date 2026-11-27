@@ -363,46 +363,12 @@ export default function Sidebar({
           ))}
         </nav>
 
-        {/* Pie del sidebar: Acceso Comunidad vs Gestión UNT + firma NexoRisk */}
+        {/* Pie minimalista del sidebar (sin duplicar los selectores de la barra superior) */}
         <div className="border-t border-white/10 p-3">
           {!collapsed ? (
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => onChangeRole?.(userRole === "admin" ? "student" : "admin")}
-                className="flex w-full items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
-              >
-                <span className="flex items-center gap-2">
-                  {userRole === "admin" ? (
-                    <GraduationCap className="h-3.5 w-3.5 text-[#38BDF8]" />
-                  ) : (
-                    <Building2 className="h-3.5 w-3.5 text-[#38BDF8]" />
-                  )}
-                  <span>{roleLabel}</span>
-                </span>
-                <span className="text-[11px] font-bold text-[#38BDF8]">
-                  {userRole === "admin" ? "Comunidad" : "Gestión"}
-                </span>
-              </button>
-              <NexoRiskBadge variant="dark" className="w-full" />
-              <div className="flex items-center justify-between px-1 text-xs font-medium text-slate-300">
-                <span className="font-mono">TRL 3–4 · SINAGERD</span>
-                <span
-                  title="Sistema operativo"
-                  className="h-2 w-2 rounded-full bg-emerald-400"
-                />
-              </div>
-            </div>
+            <NexoRiskBadge variant="dark" className="w-full" />
           ) : (
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onChangeRole?.(userRole === "admin" ? "student" : "admin")}
-                title={userRole === "admin" ? "Volver a Comunidad UNT" : "Acceso Gestión UNT"}
-                className="rounded-lg p-2 text-slate-300 hover:bg-white/10"
-              >
-                {userRole === "admin" ? <GraduationCap className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
-              </button>
+            <div className="flex justify-center">
               <NexoRiskBadge variant="dark" compact />
             </div>
           )}

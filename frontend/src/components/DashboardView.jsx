@@ -1,10 +1,54 @@
 import React, { useState } from "react";
-import { ArrowRight, Map as MapIcon, BookOpen, Sliders, AlertCircle, Info, ShieldCheck } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  Map as MapIcon,
+  BookOpen,
+  Sliders,
+  AlertCircle,
+  Info,
+  ShieldCheck,
+  CloudRain,
+  Gauge,
+  Percent,
+  Waves,
+  ShieldAlert,
+} from "lucide-react";
 import PrecipitationChart from "./ui/PrecipitationChart";
 import SkeletonCard from "./ui/SkeletonCard";
 import FacultyLookupCard from "./ui/FacultyLookupCard";
 import ExecutiveDecisionCard from "./ui/ExecutiveDecisionCard";
 import { formatLimaTime, humanPreventiveTitle } from "../utils/formatters";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.22, ease: "easeOut" },
+  },
+};
+
+const LEVEL_BADGE_MAP = {
+  INFORMATIVO:
+    "border-[#059669]/30 bg-[#ECFDF5] text-[#059669] dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
+  VIGILANCIA_PREVENTIVA:
+    "border-[#0284C7]/30 bg-[#F0F9FF] text-[#0284C7] dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300",
+  ATENCION_PREVENTIVA:
+    "border-[#D97706]/35 bg-[#FFFBEB] text-[#B45309] dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+  PREPARACION_CRITICA:
+    "border-[#DC2626]/35 bg-[#FEF2F2] text-[#DC2626] dark:border-red-800 dark:bg-red-950/50 dark:text-red-300",
+};
 
 function buildWeatherPhrase(summary) {
   if (!summary) return "Consultando condiciones para la Ciudad Universitaria UNT...";
@@ -55,8 +99,8 @@ export default function DashboardView({
 
   if (weatherError && !weather) {
     return (
-      <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
-        <div className="flex items-center gap-2 text-base font-semibold">
+      <div className="rounded-2xl border border-[#DC2626]/30 bg-[#FEF2F2] p-6 text-[#991B1B] dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+        <div className="flex items-center gap-2 text-base font-bold">
           <AlertCircle className="h-5 w-5" />
           No se pudo obtener el pronóstico
         </div>
@@ -64,7 +108,7 @@ export default function DashboardView({
         <button
           type="button"
           onClick={onRefresh}
-          className="mt-4 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white"
+          className="mt-4 rounded-xl bg-[#DC2626] px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
         >
           Reintentar
         </button>
@@ -76,197 +120,332 @@ export default function DashboardView({
   const units = weather?.units || {};
   const next24 = weather?.hourly?.slice(0, 24) || [];
   const { local, utc } = formatLimaTime(weather?.fetched_at_utc);
+  const preventiveLevel = liveEvaluation?.preventive_level || "INFORMATIVO";
   const statusTitle = liveEvaluation
-    ? humanPreventiveTitle(liveEvaluation.preventive_level, false).split(" — ")[0]
+    ? humanPreventiveTitle(preventiveLevel, false).split(" — ")[0]
     : "Evaluando";
+  const maxProb24 =
+    summary?.max_probability_24h_pct ?? summary?.max_probability_pct ?? "N/D";
+  const levelBadgeStyle =
+    LEVEL_BADGE_MAP[preventiveLevel] || LEVEL_BADGE_MAP.INFORMATIVO;
 
   return (
-    <div className="space-y-7">
-      {/* 0. Semáforo Ejecutivo para Directivos (solo vista Gestión / Administrador) */}
-      {userRole === "admin" && (
-        <ExecutiveDecisionCard
-          weather={weather}
-          liveEvaluation={liveEvaluation}
-          simResult={simResult}
-          hydroResult={hydroResult}
-          onPrepareNotice={() => onNavigate("prevention")}
-          onOpenMap={() => onNavigate("map")}
-        />
-      )}
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
+    >
+      {/* 0. Pieza principal según perfil */}
+      {userRole === "admin" ? (
+        <motion.div variants={itemVariants}>
+          <ExecutiveDecisionCard
+            weather={weather}
+            liveEvaluation={liveEvaluation}
+            simResult={simResult}
+            hydroResult={hydroResult}
+            onPrepareNotice={() => onNavigate("prevention")}
+            onOpenMap={() => onNavigate("map")}
+          />
+        </motion.div>
+      ) : (
+        <motion.section
+          variants={itemVariants}
+          aria-label="Bienvenida y estado rápido para estudiantes"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B2545] sm:p-6"
+        >
+          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-extrabold ${levelBadgeStyle}`}
+                >
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{
+                      backgroundColor: liveEvaluation?.level_color || "#059669",
+                    }}
+                  />
+                  <span>{statusTitle}</span>
+                </span>
 
-      {/* 1. Resumen meteorológico */}
-      <section className="space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight text-[#101828] dark:text-white">
-          Condiciones en la UNT
-        </h2>
-        <p className="text-base text-[#475467] dark:text-slate-300">
-          {buildWeatherPhrase(summary)}
-        </p>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[#475467] dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-900 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-200">
-            <ShieldCheck className="h-3.5 w-3.5 text-[#2563EB] dark:text-blue-400" />
-            <span>
-              Confianza del pronóstico:{" "}
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-[#F8FAFC] px-3 py-1 text-xs font-bold text-[#0B2545] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                  <CloudRain className="h-3.5 w-3.5 text-[#0369A1]" />
+                  <span>Probabilidad máx. 24 h:</span>
+                  <span className="font-mono font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8]">
+                    {maxProb24}%
+                  </span>
+                </span>
+              </div>
+
+              <h2 className="text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
+                Estado del campus UNT hoy
+              </h2>
+              <p className="max-w-2xl text-sm leading-relaxed text-[#475569] dark:text-slate-300">
+                {buildWeatherPhrase(summary)}
+              </p>
+            </div>
+
+            {/* 2 botones grandes y directos para el estudiante */}
+            <div className="flex shrink-0 flex-col gap-2.5 sm:flex-row lg:flex-col xl:flex-row">
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                type="button"
+                onClick={() => onNavigate("student_map")}
+                className="inline-flex h-12 items-center justify-center gap-2.5 rounded-xl bg-[#0B2545] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0369A1] dark:bg-[#0369A1] dark:hover:bg-[#00B4D8]"
+              >
+                <MapIcon className="h-4 w-4 shrink-0" />
+                <span>Ver zonas seguras y rutas</span>
+              </motion.button>
+
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                type="button"
+                onClick={() => onNavigate("student_sim")}
+                className="inline-flex h-12 items-center justify-center gap-2.5 rounded-xl border border-[#0369A1]/35 bg-[#F0F9FF] px-5 text-sm font-bold text-[#0369A1] transition hover:bg-[#E0F2FE] dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-200 dark:hover:bg-sky-900/60"
+              >
+                <Waves className="h-4 w-4 shrink-0" />
+                <span>Explorar simulación educativa 2017 / 2023</span>
+              </motion.button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-slate-200/80 pt-3 text-xs text-[#475569] dark:border-slate-700/80 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-[#0369A1] dark:text-[#38BDF8]">
+              <ShieldCheck className="h-3.5 w-3.5" />
               {summary?.forecast_confidence_label || "Pronóstico probabilístico 48 h — Open-Meteo"}
             </span>
-          </span>
-          <span title={utc}>
-            No es medición de pluviómetro local · {local}
-          </span>
-          <button
-            type="button"
-            onClick={() => setLimitsOpen((v) => !v)}
-            className="inline-flex items-center gap-1 font-medium text-[#2563EB] hover:underline dark:text-blue-400"
-          >
-            <Info className="h-3.5 w-3.5" />
-            {limitsOpen ? "Ocultar limitaciones" : "Ver limitaciones"}
-          </button>
-        </div>
+            <span className="font-mono tabular-nums" title={utc}>
+              {local}
+            </span>
+            <button
+              type="button"
+              onClick={() => setLimitsOpen((v) => !v)}
+              className="inline-flex items-center gap-1 font-semibold text-[#0369A1] hover:underline dark:text-[#38BDF8]"
+            >
+              <Info className="h-3.5 w-3.5" />
+              {limitsOpen ? "Ocultar limitaciones" : "Ver limitaciones"}
+            </button>
+          </div>
 
-        {limitsOpen && weather?.limitations && (
-          <ul className="mt-2 list-disc space-y-1 rounded-lg border border-[#E2E8F0] bg-white px-6 py-3 text-xs text-[#475467] dark:border-slate-800 dark:bg-[#0B1F33] dark:text-slate-300">
-            {weather.limitations.map((lim, idx) => (
-              <li key={idx}>{lim}</li>
-            ))}
-          </ul>
-        )}
-      </section>
+          {limitsOpen && weather?.limitations && (
+            <ul className="mt-3 list-disc space-y-1 rounded-xl border border-slate-200 bg-[#F8FAFC] px-6 py-3 text-xs text-[#475569] dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+              {weather.limitations.map((lim, idx) => (
+                <li key={idx}>{lim}</li>
+              ))}
+            </ul>
+          )}
+        </motion.section>
+      )}
 
-      {/* 2. Explora tu campus */}
-      <FacultyLookupCard
-        campusLayers={campusLayers}
-        simResult={simResult}
-        onLocateInMap={onLocateInMap}
-        onNavigate={onNavigate}
-      />
+      {/* 1. Resumen meteorológico para Gestión UNT (en Estudiante ya va integrado arriba) */}
+      {userRole === "admin" && (
+        <motion.section variants={itemVariants} className="space-y-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white">
+              Condiciones meteorológicas en la UNT
+            </h2>
+            <span
+              title={utc}
+              className="font-mono text-xs font-medium text-[#475569] tabular-nums dark:text-slate-300"
+            >
+              Actualizado: {local}
+            </span>
+          </div>
+          <p className="text-sm text-[#475569] dark:text-slate-300">
+            {buildWeatherPhrase(summary)}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-[#475569] dark:text-slate-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#0284C7]/25 bg-[#F0F9FF] px-2.5 py-0.5 font-semibold text-[#0369A1] dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-200">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>
+                {summary?.forecast_confidence_label || "Pronóstico probabilístico 48 h — Open-Meteo"}
+              </span>
+            </span>
+            <span>No es medición de pluviómetro local</span>
+            <button
+              type="button"
+              onClick={() => setLimitsOpen((v) => !v)}
+              className="inline-flex items-center gap-1 font-semibold text-[#0369A1] hover:underline dark:text-[#38BDF8]"
+            >
+              <Info className="h-3.5 w-3.5" />
+              {limitsOpen ? "Ocultar limitaciones" : "Ver limitaciones"}
+            </button>
+          </div>
 
-      {/* 3. Sección horizontal integrada: Gráfico protagonista (75%) + Indicadores compactos (25%) */}
-      <section
+          {limitsOpen && weather?.limitations && (
+            <ul className="mt-2 list-disc space-y-1 rounded-xl border border-slate-200 bg-white px-6 py-3 text-xs text-[#475569] dark:border-slate-700 dark:bg-[#0B2545] dark:text-slate-300">
+              {weather.limitations.map((lim, idx) => (
+                <li key={idx}>{lim}</li>
+              ))}
+            </ul>
+          )}
+        </motion.section>
+      )}
+
+      {/* 2. Sección horizontal integrada 75/25: Gráfico protagonista + KPIs compactos */}
+      <motion.section
+        variants={itemVariants}
         aria-label="Evolución e indicadores de las próximas 24 horas"
         className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-stretch"
       >
-        {/* Columna izquierda (~75%): Gráfico protagonista */}
-        <div className="flex flex-col justify-between rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-9">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-lg font-semibold text-[#101828] dark:text-white">
-              Evolución próximas 24 horas
-            </h3>
+        {/* Columna izquierda (75%): Gráfico protagonista */}
+        <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-9">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-lg font-extrabold tracking-tight text-[#0F172A] dark:text-white">
+                Evolución próximas 24 horas
+              </h3>
+              <p className="text-xs font-medium text-[#475569] dark:text-slate-300">
+                Precipitación horaria (mm/h) y probabilidad estimada (%)
+              </p>
+            </div>
             <button
               type="button"
-              onClick={() => onNavigate("monitoring")}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:underline dark:text-blue-400"
+              onClick={() => onNavigate(userRole === "admin" ? "monitoring" : "prevention")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-[#F8FAFC] px-3 py-1.5 text-xs font-bold text-[#0369A1] transition hover:border-[#00B4D8] hover:bg-[#F0F9FF] dark:border-slate-700 dark:bg-slate-900 dark:text-[#38BDF8]"
             >
-              Monitoreo 24h / 48h <ArrowRight className="h-3.5 w-3.5" />
+              <span>{userRole === "admin" ? "Monitoreo 24h / 48h" : "Ver prevención"}</span>
+              <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
-          <PrecipitationChart points={next24} height={225} />
+          <PrecipitationChart points={next24} height={240} />
         </div>
 
-        {/* Columna derecha (~25%): 4 indicadores compactos en un único contenedor vertical */}
+        {/* Columna derecha (25%): 4 indicadores compactos con íconos tintados y JetBrains Mono */}
         {summary && (
           <aside
             aria-label="Indicadores principales"
-            className="flex flex-col justify-between divide-y divide-[#E2E8F0] rounded-xl border border-[#E2E8F0] bg-white px-4 py-1 dark:divide-slate-800 dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-3"
+            className="flex flex-col justify-between divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white px-4 py-1 shadow-panel dark:divide-slate-800 dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-3"
           >
             <CompactKpiRow
+              icon={<CloudRain className="h-4 w-4 text-[#0369A1] dark:text-[#38BDF8]" />}
+              iconBg="bg-[#F0F9FF] dark:bg-sky-950/60"
               label="Lluvia 24 h"
               value={`${summary.accumulated_24h_mm}`}
-              unit={units.precipitation}
-              note={`48 h: ${summary.accumulated_48h_mm} ${units.precipitation}`}
+              unit={units.precipitation || "mm"}
+              note={`48 h: ${summary.accumulated_48h_mm} ${units.precipitation || "mm"}`}
             />
             <CompactKpiRow
-              label="Intensidad máxima"
+              icon={<Gauge className="h-4 w-4 text-[#0B2545] dark:text-cyan-300" />}
+              iconBg="bg-slate-100 dark:bg-slate-800"
+              label="Intensidad máx."
               value={`${summary.max_intensity_mm_h}`}
-              unit={`${units.precipitation}/h`}
+              unit={`${units.precipitation || "mm"}/h`}
             />
             <CompactKpiRow
-              label="Probabilidad máx. de lluvia"
-              value={`${summary.max_probability_24h_pct ?? summary.max_probability_pct ?? "N/D"}`}
+              icon={<Percent className="h-4 w-4 text-[#D97706] dark:text-amber-400" />}
+              iconBg="bg-[#FFFBEB] dark:bg-amber-950/50"
+              label="Probabilidad máx."
+              value={`${maxProb24}`}
               unit="%"
               note={
-                summary.max_probability_48h_pct !== null && summary.max_probability_48h_pct !== undefined
+                summary.max_probability_48h_pct !== null &&
+                summary.max_probability_48h_pct !== undefined
                   ? `48 h: ${summary.max_probability_48h_pct}%`
                   : "Modelo numérico"
               }
             />
-            <div className="py-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-xs font-medium text-[#475467] dark:text-slate-400">
-                  Nivel preventivo
-                </span>
-                <span className="text-[11px] font-semibold text-[#2563EB] dark:text-blue-400">
-                  Prob. {summary.max_probability_24h_pct ?? summary.max_probability_pct ?? "N/D"}%
-                </span>
+            <div className="py-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ECFDF5] text-[#059669] dark:bg-emerald-950/60 dark:text-emerald-400">
+                    <ShieldAlert className="h-4 w-4" />
+                  </span>
+                  <span className="text-xs font-bold text-[#475569] dark:text-slate-300">
+                    Nivel preventivo
+                  </span>
+                </div>
               </div>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-2">
                 {liveEvaluation && (
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ backgroundColor: liveEvaluation.level_color }}
                   />
                 )}
-                <span className="text-base font-bold text-[#101828] dark:text-white">
+                <span className="text-base font-extrabold text-[#0F172A] dark:text-white">
                   {statusTitle}
                 </span>
               </div>
-              <p className="mt-0.5 text-[11px] text-[#64748B] dark:text-slate-400">
-                Orientativo (no es alerta oficial ni confirmación determinista de lluvia).
+              <p className="mt-1 text-xs leading-snug text-[#475569] dark:text-slate-400">
+                Orientativo (no sustituye alerta oficial SENAMHI/COER).
               </p>
               <button
                 type="button"
                 onClick={() => onNavigate("prevention")}
-                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#2563EB] hover:underline dark:text-blue-400"
+                className="mt-1.5 inline-flex items-center gap-1 text-xs font-bold text-[#0369A1] hover:underline dark:text-[#38BDF8]"
               >
-                Ver ficha explicable <ArrowRight className="h-3 w-3" />
+                Ver ficha explicable <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </aside>
         )}
-      </section>
+      </motion.section>
 
-      {/* 4. Acciones claras */}
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* 3. Explora tu facultad / pabellón */}
+      <motion.div variants={itemVariants}>
+        <FacultyLookupCard
+          campusLayers={campusLayers}
+          simResult={simResult}
+          onLocateInMap={onLocateInMap}
+          onNavigate={onNavigate}
+        />
+      </motion.div>
+
+      {/* 4. Accesos rápidos */}
+      <motion.section variants={itemVariants} className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <ActionLink
-          icon={<MapIcon className="h-4 w-4 text-[#2563EB]" />}
+          icon={<MapIcon className="h-4 w-4 text-[#0369A1] dark:text-[#38BDF8]" />}
+          iconBg="bg-[#F0F9FF] dark:bg-sky-950/60"
           title="Ver mapa del campus"
-          desc="Ubica facultades, accesos y puntos referenciales."
+          desc="Ubica facultades, accesos, puntos seguros y Ruta del Agua."
           onClick={() => onNavigate(userRole === "admin" ? "map" : "student_map")}
         />
         <ActionLink
-          icon={<BookOpen className="h-4 w-4 text-[#2563EB]" />}
-          title="Consultar orientaciones"
-          desc="Medidas antes, durante y después de lluvias."
+          icon={<BookOpen className="h-4 w-4 text-[#059669] dark:text-emerald-400" />}
+          iconBg="bg-[#ECFDF5] dark:bg-emerald-950/60"
+          title="Continuidad y brigadas"
+          desc="Protocolos preventivos, brigadas y checklist de mochila."
           onClick={() => onNavigate("continuity")}
         />
         <ActionLink
-          icon={<Sliders className="h-4 w-4 text-[#2563EB]" />}
-          title="Explorar simulaciones"
-          desc="Ensaya escenarios experimentales sin conexión."
+          icon={<Sliders className="h-4 w-4 text-[#D97706] dark:text-amber-400" />}
+          iconBg="bg-[#FFFBEB] dark:bg-amber-950/50"
+          title={userRole === "admin" ? "Simulación dinámica 10 m" : "Simulación educativa"}
+          desc={
+            userRole === "admin"
+              ? "Modelado horario en malla de 10 m y escenarios A/B/C/D."
+              : "Explora lluvias históricas 2017 y 2023 sin conexión."
+          }
           onClick={() => onNavigate(userRole === "admin" ? "hydro" : "student_sim")}
         />
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   );
 }
 
-function CompactKpiRow({ label, value, unit, note }) {
+function CompactKpiRow({ icon, iconBg, label, value, unit, note }) {
   return (
-    <div className="py-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs font-medium text-[#475467] dark:text-slate-400">
-          {label}
-        </span>
+    <div className="py-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+            {icon}
+          </span>
+          <span className="text-xs font-bold text-[#475569] dark:text-slate-300">{label}</span>
+        </div>
         {note && (
-          <span className="text-xs text-[#64748B] dark:text-slate-400">
+          <span className="font-mono text-xs font-medium text-[#475569] tabular-nums dark:text-slate-400">
             {note}
           </span>
         )}
       </div>
-      <div className="mt-0.5 flex items-baseline gap-1">
-        <span className="text-2xl font-bold tracking-tight text-[#101828] tabular-nums dark:text-white">
+      <div className="mt-1.5 flex items-baseline gap-1.5 pl-9">
+        <span className="font-mono text-2xl font-extrabold tracking-tight text-[#0F172A] tabular-nums dark:text-white">
           {value}
         </span>
-        <span className="text-xs font-semibold text-[#475467] dark:text-slate-400">
+        <span className="font-mono text-xs font-bold text-[#475569] dark:text-slate-300">
           {unit}
         </span>
       </div>
@@ -274,21 +453,25 @@ function CompactKpiRow({ label, value, unit, note }) {
   );
 }
 
-function ActionLink({ icon, title, desc, onClick }) {
+function ActionLink({ icon, iconBg, title, desc, onClick }) {
   return (
-    <button
+    <motion.button
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.99 }}
       type="button"
       onClick={onClick}
-      className="group flex items-start justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-white p-5 text-left transition hover:border-[#2563EB] dark:border-slate-800 dark:bg-[#0B1F33] dark:hover:border-blue-500"
+      className="group flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-subtle transition hover:border-[#00B4D8] hover:shadow-panel dark:border-slate-800 dark:bg-[#0B2545] dark:hover:border-[#00B4D8]"
     >
-      <div>
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#101828] dark:text-white">
-          {icon}
-          <span>{title}</span>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2.5">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
+            {icon}
+          </span>
+          <span className="text-sm font-extrabold text-[#0F172A] dark:text-white">{title}</span>
         </div>
-        <p className="mt-1 text-xs text-[#475467] dark:text-slate-400">{desc}</p>
+        <p className="text-xs leading-relaxed text-[#475569] dark:text-slate-300">{desc}</p>
       </div>
-      <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-[#475467] transition group-hover:translate-x-0.5 group-hover:text-[#2563EB] dark:text-slate-400" />
-    </button>
+      <ArrowRight className="mt-2 h-4 w-4 shrink-0 text-[#475569] transition group-hover:translate-x-1 group-hover:text-[#0369A1] dark:text-slate-400 dark:group-hover:text-[#38BDF8]" />
+    </motion.button>
   );
 }

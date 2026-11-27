@@ -753,36 +753,36 @@ export default function CampusMapView({
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
         {/* Mapa protagonista (~67-70% en escritorio) */}
-        <div className="relative overflow-hidden rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-8">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-8">
           <div className="relative">
             <div
               ref={mapContainerRef}
-              className="h-[440px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[calc(100vh-215px)] lg:min-h-[520px]"
+              className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[calc(100vh-195px)] lg:min-h-[560px]"
             />
 
             {(basemap === "vectorial" || tilesFailed) && (
               <div
                 role="status"
-                className="absolute left-3 top-3 z-[400] flex max-w-[15rem] items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/95 px-3 py-2 text-xs font-medium text-amber-900"
+                className="absolute left-3 top-3 z-[400] flex max-w-[16rem] items-start gap-2 rounded-xl border border-[#D97706]/35 bg-[#FFFBEB]/95 px-3 py-2 text-xs font-bold text-[#92400E] shadow-sm backdrop-blur-md"
               >
                 <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>Sin mapa base. Capas vectoriales locales activas.</span>
+                <span>Solo vectorial (sin internet). Capas locales activas.</span>
               </div>
             )}
 
-            {/* Control flotante discreto de capas + acceso rápido YAKU SENSE */}
+            {/* Control flotante translúcido de capas + acceso rápido YAKU SENSE */}
             <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
                 <button
                   type="button"
                   onClick={() =>
                     setVisibleLayers((prev) => ({ ...prev, sensores_iot: !prev.sensores_iot }))
                   }
                   aria-pressed={visibleLayers.sensores_iot}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold backdrop-blur transition ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
                     visibleLayers.sensores_iot
-                      ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                      : "border-[#E2E8F0] bg-white/95 text-[#101828] hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                      ? "bg-[#0369A1] text-white shadow-sm"
+                      : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                   }`}
                 >
                   <Radio className="h-3.5 w-3.5" />
@@ -792,15 +792,15 @@ export default function CampusMapView({
                   type="button"
                   onClick={() => setLayersOpen((v) => !v)}
                   aria-expanded={layersOpen}
-                  className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#101828] backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold text-[#0F172A] transition hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                 >
-                  <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
+                  <Layers className="h-3.5 w-3.5 text-[#0369A1] dark:text-[#38BDF8]" />
                   <span>Capas</span>
                 </button>
               </div>
 
               {layersOpen && (
-                <div className="w-64 rounded-xl border border-[#E2E8F0] bg-white/95 p-3 text-xs backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+                <div className="w-64 rounded-2xl border border-slate-200/90 bg-white/92 p-3 text-xs shadow-elevated backdrop-blur-md dark:border-slate-700 dark:bg-[#0B2545]/95">
                   <div className="mb-2.5 flex gap-1" role="group" aria-label="Mapa base">
                     {Object.entries(BASEMAPS).map(([key, cfg]) => (
                       <button

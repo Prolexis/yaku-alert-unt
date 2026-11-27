@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { CheckCircle2, Copy, Check, Download, Printer, Send, Mail, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
+import { CheckCircle2, Copy, Check, CheckCheck, Download, Printer, Send, Mail, MessageSquare } from "lucide-react";
 import { formatLimaTime, humanPreventiveTitle } from "../../utils/formatters";
 import { downloadBulletin, printBulletin } from "../../utils/bulletin";
 
@@ -196,6 +197,7 @@ export default function PreventiveMessageCard({
     const ok = await copyToClipboardSafe(draftText);
     if (ok) {
       setCopied(true);
+      toast.success("Aviso preventivo copiado al portapapeles");
       window.setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -358,9 +360,59 @@ export default function PreventiveMessageCard({
             </div>
           </div>
 
-          <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-[#E2E8F0] bg-white p-3.5 font-sans text-xs leading-relaxed text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33] dark:text-slate-200">
-            {draftText}
-          </pre>
+          {/* Vista previa estilizada tipo WhatsApp o Correo institucional UNT */}
+          {channelId === "whatsapp" ? (
+            <div className="mt-3.5 overflow-hidden rounded-2xl border border-emerald-200 bg-[#EFEAE2] shadow-subtle dark:border-emerald-900/60 dark:bg-slate-950">
+              <div className="flex items-center justify-between bg-[#075E54] px-4 py-2 text-white">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-xs font-extrabold">
+                    YA
+                  </span>
+                  <div>
+                    <div className="text-xs font-bold leading-tight">Yaku Alert · Difusión UNT</div>
+                    <div className="text-[11px] text-emerald-100">
+                      Vista previa WhatsApp / Telegram · {PROFILES.find((p) => p.id === profileId)?.label}
+                    </div>
+                  </div>
+                </div>
+                <span className="rounded-full bg-white/15 px-2 py-0.5 font-mono text-[11px] font-semibold">
+                  SIM
+                </span>
+              </div>
+              <div className="p-3.5">
+                <div className="ml-auto max-w-2xl rounded-2xl rounded-tr-sm bg-[#DCF8C6] p-3.5 shadow-sm dark:bg-emerald-950/80">
+                  <pre className="max-h-60 overflow-auto whitespace-pre-wrap font-sans text-xs leading-relaxed text-[#0F172A] dark:text-emerald-50">
+                    {draftText}
+                  </pre>
+                  <div className="mt-1.5 flex items-center justify-end gap-1 font-mono text-[11px] text-[#475569] dark:text-emerald-300/80">
+                    <span>{local.split(" ")[0] || "Ahora"}</span>
+                    <CheckCheck className="h-3.5 w-3.5 text-[#0284C7]" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3.5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-subtle dark:border-slate-700 dark:bg-[#0B2545]">
+              <div className="flex items-center justify-between bg-[#0B2545] px-4 py-2.5 text-white dark:bg-[#071524]">
+                <div className="flex items-center gap-2 text-xs font-bold">
+                  <Mail className="h-4 w-4 text-[#38BDF8]" />
+                  <span>Correo Institucional UNT — Borrador Preventivo</span>
+                </div>
+                <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-[#38BDF8]">
+                  TRL 3–4
+                </span>
+              </div>
+              <div className="border-b border-slate-200 bg-[#F8FAFC] px-4 py-2 text-xs text-[#475569] dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+                <div>
+                  <strong className="text-[#0F172A] dark:text-white">Para:</strong>{" "}
+                  {PROFILES.find((p) => p.id === profileId)?.label} — Universidad Nacional de Trujillo
+                </div>
+              </div>
+              <pre className="max-h-60 overflow-auto whitespace-pre-wrap p-4 font-sans text-xs leading-relaxed text-[#0F172A] dark:text-slate-100">
+                {draftText}
+              </pre>
+            </div>
+          )}
         </div>
       )}
     </section>

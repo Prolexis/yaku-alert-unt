@@ -10,9 +10,12 @@ import {
   WifiOff,
   Info,
   X,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { formatLimaTime, normalizeText } from "../utils/formatters";
 import { buildCampusCatalog, getFeatureDisplayName } from "../utils/campusCatalog";
+import ExplainabilityStrip from "./ui/ExplainabilityStrip";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -98,6 +101,7 @@ export default function StudentMonitoringMap({
   const [showAttentionZones, setShowAttentionZones] = useState(true);
   const [showEvacuation, setShowEvacuation] = useState(true);
   const [showTrujilloContext, setShowTrujilloContext] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedCard, setSelectedCard] = useState(null);
 
@@ -255,14 +259,31 @@ export default function StudentMonitoringMap({
             fillOpacity: 0.45,
           },
           onEachFeature: (_feat, lyr) => {
-            lyr.bindTooltip(esc(name), { sticky: true, direction: "top" });
+            const statusBadge = isNamed
+              ? `<span style="display:inline-block;padding:1px 6px;border-radius:999px;background:#ECFDF5;color:#059669;font:700 10px/1.4 system-ui,sans-serif;border:1px solid #A7F3D0;">Campus UNT</span>`
+              : `<span style="display:inline-block;padding:1px 6px;border-radius:999px;background:#F1F5F9;color:#475569;font:700 10px/1.4 system-ui,sans-serif;">Referencia</span>`;
+            lyr.bindTooltip(
+              `<div style="min-width:140px;">
+                <div style="font-weight:800;color:#0F172A;font-size:12px;">${esc(name)}</div>
+                <div style="margin-top:2px;">${statusBadge}</div>
+              </div>`,
+              { sticky: true, direction: "top" }
+            );
+            lyr.bindPopup(
+              `<div class="space-y-1.5 max-w-[235px]">
+                <div class="flex items-center justify-between gap-2">${statusBadge}</div>
+                <div class="font-extrabold text-[#0F172A] text-xs">${esc(name)}</div>
+                <div class="text-xs text-[#475569]">Ubica el punto seguro verde más cercano y revisa el pronóstico 48 h antes de desplazarte.</div>
+              </div>`,
+              { className: "yaku-popup" }
+            );
             lyr.on("click", () => {
               onSelectBuilding?.(f.properties?.id || "");
               setSelectedCard({
                 name,
                 infoType: f.properties?.verified ? "Instalación verificada" : "Referencia cartográfica",
                 explanation:
-                  "Instalación registrada en la Ciudad Universitaria UNT. Consulta las zonas de atención o la Simulación sencilla (2017 / 2023) para explorar escenarios referenciales.",
+                  "Instalación registrada en la Ciudad Universitaria UNT. Consulta las zonas de atención o la Simulación educativa (2017 / 2023) para explorar escenarios referenciales.",
               });
             });
           },
@@ -429,9 +450,9 @@ export default function StudentMonitoringMap({
         const [lon, lat] = f.geometry.coordinates;
         const icon = L.divIcon({
           className: "yaku-safe-point-marker",
-          html: `<div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:#16A34A;color:#ffffff;font:700 12px/1 system-ui,sans-serif;border:2.5px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.32);">S</div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
+          html: `<div class="yaku-safe-pulse" style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:999px;background:#059669;color:#ffffff;font:800 12px/1 system-ui,sans-serif;border:2.5px solid #ffffff;box-shadow:0 2px 8px rgba(5,150,105,0.42);">S</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
         });
         L.marker([lat, lon], { icon, zIndexOffset: 450 })
           .bindTooltip(`${esc(p.name)} (referencial)`, { direction: "top", offset: [0, -10] })
@@ -678,43 +699,43 @@ export default function StudentMonitoringMap({
         </div>
       )}
 
-      {/* Mapa protagonista + Panel lateral sencillo */}
+      {/* Mapa protagonista Map-First + Panel lateral sencillo */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <div className="relative overflow-hidden rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-8">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-8">
           <div
             ref={mapContainerRef}
-            className="h-[420px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[540px]"
+            className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[620px]"
           />
 
           {(basemap === "vectorial" || tilesFailed) && (
-            <div className="absolute left-3 top-3 z-[400] flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50/95 px-2.5 py-1.5 text-xs font-medium text-amber-900">
+            <div className="absolute left-3 top-3 z-[400] flex items-center gap-1.5 rounded-xl border border-[#D97706]/35 bg-[#FFFBEB]/95 px-3 py-1.5 text-xs font-bold text-[#92400E] shadow-sm backdrop-blur-md">
               <WifiOff className="h-3.5 w-3.5 shrink-0" />
               <span>Solo vectorial (sin internet). Capas locales activas.</span>
             </div>
           )}
 
-          {/* Controles compactos arriba a la derecha */}
-          <div className="absolute right-3 top-3 z-[400] flex flex-wrap items-center justify-end gap-1.5">
+          {/* Controles flotantes translúcidos arriba a la derecha */}
+          <div className="absolute right-3 top-3 z-[400] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-end gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1.5 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
             <button
               type="button"
               onClick={() => setShowEvacuation((v) => !v)}
               aria-pressed={showEvacuation}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
                 showEvacuation
-                  ? "border-emerald-600 bg-emerald-600 text-white"
-                  : "border-[#E2E8F0] bg-white/95 text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                  ? "bg-[#059669] text-white shadow-sm"
+                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
               }`}
             >
-              Puntos seguros y rutas ref.
+              Puntos seguros y rutas
             </button>
             <button
               type="button"
               onClick={() => setShowAttentionZones((v) => !v)}
               aria-pressed={showAttentionZones}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
                 showAttentionZones
-                  ? "border-amber-500 bg-amber-500 text-white"
-                  : "border-[#E2E8F0] bg-white/95 text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                  ? "bg-[#D97706] text-white shadow-sm"
+                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
               }`}
             >
               Zonas de atención
@@ -724,18 +745,18 @@ export default function StudentMonitoringMap({
               onClick={() => setShowTrujilloContext((v) => !v)}
               aria-pressed={showTrujilloContext}
               title="Capa referencial: Ruta del Agua, Av. Jesús de Nazareth y Urb. San Andrés"
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
                 showTrujilloContext
-                  ? "border-indigo-600 bg-indigo-600 text-white"
-                  : "border-[#E2E8F0] bg-white/95 text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                  ? "bg-[#0369A1] text-white shadow-sm"
+                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
               }`}
             >
-              Contexto Trujillo (Ruta del Agua y entorno) · Ref.
+              Ruta del Agua
             </button>
             <div
               role="group"
               aria-label="Mapa base"
-              className="inline-flex rounded-lg border border-[#E2E8F0] bg-white/95 p-0.5 backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95"
+              className="inline-flex rounded-lg border border-slate-200 bg-[#F8FAFC] p-0.5 dark:border-slate-700 dark:bg-slate-900"
             >
               {Object.entries(BASEMAPS).map(([key, cfg]) => (
                 <button
@@ -744,10 +765,10 @@ export default function StudentMonitoringMap({
                   title={cfg.title || cfg.label}
                   onClick={() => setBasemap(key)}
                   aria-pressed={basemap === key}
-                  className={`rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+                  className={`rounded-md px-2 py-1 text-xs font-bold transition ${
                     basemap === key
-                      ? "bg-[#2563EB] text-white"
-                      : "text-[#475467] dark:text-slate-300"
+                      ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
+                      : "text-[#475569] hover:text-[#0F172A] dark:text-slate-300"
                   }`}
                 >
                   {cfg.label}
@@ -756,32 +777,45 @@ export default function StudentMonitoringMap({
             </div>
           </div>
 
-          {/* Leyenda simple */}
-          <div className="absolute bottom-3 left-3 z-[400] flex flex-wrap gap-3 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-[11px] text-[#101828] backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-slate-200">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm border border-amber-600 bg-amber-400/70" /> Antecedente histórico
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm border border-sky-600 bg-sky-400/60" /> Relieve bajo (DEM)
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> Punto seguro ref.
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta referencial
-            </span>
-            {showTrujilloContext && (
-              <>
+          {/* Leyenda flotante colapsable */}
+          <div className="absolute bottom-3 left-3 z-[400] max-w-[85%] rounded-xl border border-slate-200/90 bg-white/92 px-3 py-2 text-xs text-[#0F172A] shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92 dark:text-slate-100">
+            <button
+              type="button"
+              onClick={() => setLegendOpen((v) => !v)}
+              aria-expanded={legendOpen}
+              className="flex items-center gap-2 font-bold text-[#0B2545] dark:text-white"
+            >
+              <span>Leyenda</span>
+              {legendOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+            </button>
+            {legendOpen && (
+              <div className="mt-2 flex flex-wrap gap-3">
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-4 border-t-2 border-dashed border-sky-600" /> Ruta del Agua (ref.)
+                  <span className="h-2.5 w-2.5 rounded-sm border border-amber-600 bg-amber-400/70" /> Antecedente histórico
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="inline-block w-4 border-t-2 border-dotted border-indigo-600" /> Av. J. de Nazareth (ref.)
+                  <span className="h-2.5 w-2.5 rounded-sm border border-sky-600 bg-sky-400/60" /> Relieve bajo (DEM)
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm border border-amber-700 bg-amber-400/40" /> Urb. San Andrés (ref.)
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Punto seguro ref.
                 </span>
-              </>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta referencial
+                </span>
+                {showTrujilloContext && (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block w-4 border-t-2 border-dashed border-sky-600" /> Ruta del Agua (ref.)
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block w-4 border-t-2 border-dotted border-indigo-600" /> Av. J. de Nazareth (ref.)
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm border border-amber-700 bg-amber-400/40" /> Urb. San Andrés (ref.)
+                    </span>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -874,6 +908,14 @@ export default function StudentMonitoringMap({
           </div>
         </div>
       </div>
+
+      {/* Explicabilidad visual: ¿Por qué este nivel? */}
+      <ExplainabilityStrip
+        evaluation={liveEvaluation}
+        weather={weather}
+        evalSourceMode="live"
+        hasVirtualSensors={false}
+      />
     </div>
   );
 }

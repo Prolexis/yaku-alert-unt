@@ -73,7 +73,7 @@ export default function ContinuityView({ protocols }) {
         <div
           role="tablist"
           aria-label="Categorías de orientaciones"
-          className="inline-flex flex-wrap rounded-lg border border-[#E2E8F0] bg-white p-1 dark:border-slate-700 dark:bg-[#0B1F33]"
+          className="inline-flex flex-wrap rounded-xl border border-slate-200 bg-white p-1 shadow-subtle dark:border-slate-700 dark:bg-[#0B2545]"
         >
           {[
             { id: "phases", label: "Antes / Durante / Después" },
@@ -87,10 +87,10 @@ export default function ContinuityView({ protocols }) {
               role="tab"
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
                 activeTab === tab.id
-                  ? "bg-[#2563EB] text-white"
-                  : "text-[#475467] hover:text-[#101828] dark:text-slate-300"
+                  ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
+                  : "text-[#475569] hover:text-[#0F172A] dark:text-slate-300"
               }`}
             >
               {tab.label}

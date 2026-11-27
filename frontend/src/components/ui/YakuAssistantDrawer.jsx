@@ -1,25 +1,25 @@
 import React, { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { MessageSquare, X, Send, MapPin, Sliders, BookOpen, Radio } from "lucide-react";
 import { buildCampusCatalog } from "../../utils/campusCatalog";
 import { formatLimaTime, humanPreventiveTitle, normalizeText } from "../../utils/formatters";
 import { resolveSensorReading } from "../../utils/sensorFormatters";
+import { YakuAlertLogo } from "./BrandLogo";
 
 const STUDENT_QUICK_PROMPTS = [
+  "¿Qué hago si se inunda Puerta 4?",
+  "¿Dónde está el punto seguro más cercano?",
+  "¿Cómo se decide pasar a clases virtuales?",
   "¿Cómo está el pronóstico de lluvia?",
-  "¿Qué zonas aparecen en el mapa?",
-  "¿Qué representa el escenario 2017?",
-  "¿Dónde está el Comedor Universitario?",
-  "¿Es una simulación o una medición real?",
-  "¿Qué debería hacer ante lluvias intensas?",
+  "¿Qué representa el escenario 2023?",
 ];
 
 const ADMIN_QUICK_PROMPTS = [
-  "¿Va a llover hoy en la UNT?",
+  "¿Qué hago si se inunda Puerta 4?",
+  "¿Cómo se decide pasar a clases virtuales?",
+  "¿Dónde está el punto seguro más cercano?",
   "¿Dónde están los sensores?",
-  "¿Qué indica el sensor del comedor?",
   "¿Qué indica el sensor de Puerta 4?",
-  "¿Cómo se conectarían los sensores?",
-  "¿Dónde está el Comedor Universitario?",
 ];
 
 export default function YakuAssistantDrawer({
@@ -148,8 +148,26 @@ export default function YakuAssistantDrawer({
         }
       }
     }
-    // 0b. Preguntas frecuentes específicas de estudiantes (diferencia simulación vs real, escenarios 2017/2023, zonas del mapa)
-    else if (norm.includes("simulacion o una medicion") || norm.includes("medicion real")) {
+    // 0b. Preguntas frecuentes de demo/Q&A (Puerta 4, punto seguro, virtualidad, diferencia simulación vs real)
+    else if (norm.includes("inunda") && (norm.includes("puerta 4") || norm.includes("p4"))) {
+      reply = {
+        role: "assistant",
+        text: "Si Puerta 4 (Av. Jesús de Nazareth) presenta acumulación de agua, evita cruzar la vía anegada y utiliza la ruta alterna referencial hacia Explanada Sociales o Parque Max Díaz (cotas altas). En el mapa de simulación se activa automáticamente el desvío resaltado en verde/ámbar.",
+        action: { label: "Ver rutas seguras en Mapa UNT", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
+      };
+    } else if (norm.includes("punto seguro") || norm.includes("zona segura")) {
+      reply = {
+        role: "assistant",
+        text: "El campus cuenta con 5 puntos seguros referenciales de cota elevada (marcados con «S» verde pulsante en el mapa): Explanada Sociales, Parque Max Díaz, Parque Economía, Explanada Ingeniería y Zona Deportiva Alta. Sigue siempre la señalización de Defensa Civil UNT.",
+        action: { label: "Ubicar puntos seguros", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
+      };
+    } else if (norm.includes("clases virtuales") || norm.includes("virtualidad") || norm.includes("como se decide")) {
+      reply = {
+        role: "assistant",
+        text: "El Semáforo Ejecutivo traduce reglas explicables (R-MET y R-HID): Verde = operación normal; Ámbar = vigilancia y resguardo de laboratorios en planta baja; Rojo (Atención o Preparación Crítica) = recomienda activar virtualidad preventiva y reprogramar laboratorios, sujeto siempre a resolución oficial de la UNT.",
+        action: { label: "Ver continuidad y reglas", type: "nav", target: "prevention" },
+      };
+    } else if (norm.includes("simulacion o una medicion") || norm.includes("medicion real")) {
       reply = {
         role: "assistant",
         text: "El Mapa de monitoreo UNT muestra el pronóstico numérico de Open-Meteo (no sensores locales instalados). En cambio, «Simulación sencilla» (tipo 2017 y tipo 2023) es una simulación experimental para explorar escenarios y no representa la situación actual del campus.",
@@ -298,114 +316,127 @@ export default function YakuAssistantDrawer({
   return (
     <>
       {/* Botón flotante discreto */}
-      {!open && (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Abrir asistente informativo YAKU"
-          className="fixed bottom-5 right-5 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-[#0B1F33] px-4 text-sm font-semibold text-white shadow-lg transition hover:bg-[#1D4ED8] dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8]"
-        >
-          <MessageSquare className="h-4 w-4" />
-          <span>Asistente YAKU</span>
-        </button>
-      )}
-
-      {/* Panel del asistente */}
-      {open && (
-        <aside
-          aria-label="Asistente informativo YAKU"
-          className="fixed bottom-4 right-4 z-50 flex h-[500px] max-h-[82vh] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-2xl dark:border-slate-700 dark:bg-[#0B1F33]"
-        >
-          <div className="flex items-center justify-between border-b border-[#E2E8F0] bg-[#0B1F33] px-4 py-3 text-white dark:border-slate-800">
-            <div>
-              <div className="text-sm font-bold">Asistente YAKU</div>
-              <div className="text-[11px] text-slate-300">
-                Guía informativa offline · No reemplaza alertas oficiales
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Cerrar asistente"
-              className="rounded-lg p-1 text-slate-300 hover:bg-white/10 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          {/* Historial */}
-          <div className="flex-1 space-y-3 overflow-y-auto p-4 text-xs">
-            {messages.map((m, idx) => (
-              <div
-                key={idx}
-                className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}
-              >
-                <div
-                  className={`max-w-[88%] rounded-xl px-3 py-2 leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-[#2563EB] text-white"
-                      : "bg-[#F7F9FC] text-[#101828] dark:bg-slate-900 dark:text-slate-200"
-                  }`}
-                >
-                  {m.text}
-                </div>
-                {m.action && (
-                  <button
-                    type="button"
-                    onClick={() => executeAction(m.action)}
-                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-[#2563EB] bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300"
-                  >
-                    {m.action.type === "locate" && <MapPin className="h-3 w-3" />}
-                    {m.action.type === "sensor" && <Radio className="h-3 w-3" />}
-                    {m.action.type === "sim" && <Sliders className="h-3 w-3" />}
-                    {m.action.type === "nav" && <BookOpen className="h-3 w-3" />}
-                    {m.action.label}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Botones rápidos */}
-          <div className="flex gap-1.5 overflow-x-auto border-t border-[#E2E8F0] px-3 py-2 dark:border-slate-800">
-            {quickPrompts.map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => handleQuery(q)}
-                className="shrink-0 rounded-full border border-[#E2E8F0] bg-[#F7F9FC] px-2.5 py-1 text-[11px] font-medium text-[#101828] hover:border-[#2563EB] hover:text-[#2563EB] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-
-          {/* Input */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleQuery(input);
-            }}
-            className="flex items-center gap-2 border-t border-[#E2E8F0] p-3 dark:border-slate-800"
+      <AnimatePresence>
+        {!open && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Abrir asistente informativo YAKU"
+            className="fixed bottom-5 right-5 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-[#0B2545] px-4 text-sm font-bold text-white shadow-elevated ring-1 ring-white/15 transition hover:bg-[#0369A1] dark:bg-[#0369A1] dark:hover:bg-[#00B4D8]"
           >
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Escribe tu consulta..."
-              aria-label="Escribir consulta al asistente YAKU"
-              className="h-9 flex-1 rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] px-3 text-xs text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-            />
-            <button
-              type="submit"
-              aria-label="Enviar consulta"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+            <MessageSquare className="h-4 w-4 text-[#38BDF8]" />
+            <span>Asistente YAKU</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Panel del asistente con animación spring */}
+      <AnimatePresence>
+        {open && (
+          <motion.aside
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.96 }}
+            transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            aria-label="Asistente informativo YAKU"
+            className="fixed bottom-4 right-4 z-50 flex h-[520px] max-h-[82vh] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-[#0B2545]"
+          >
+            <div className="flex items-center justify-between border-b border-white/10 bg-[#0B2545] px-4 py-3 text-white">
+              <div className="min-w-0">
+                <YakuAlertLogo size="sm" variant="dark" />
+                <div className="mt-1 text-xs text-slate-300">
+                  Guía informativa offline · No reemplaza alertas oficiales
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Cerrar asistente"
+                className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Historial */}
+            <div className="flex-1 space-y-3 overflow-y-auto p-4 text-xs">
+              {messages.map((m, idx) => (
+                <div
+                  key={idx}
+                  className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}
+                >
+                  <div
+                    className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 leading-relaxed ${
+                      m.role === "user"
+                        ? "bg-[#0B2545] font-medium text-white dark:bg-[#0369A1]"
+                        : "border border-slate-200/80 bg-[#F8FAFC] text-[#0F172A] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    }`}
+                  >
+                    {m.text}
+                  </div>
+                  {m.action && (
+                    <button
+                      type="button"
+                      onClick={() => executeAction(m.action)}
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-[#0369A1]/40 bg-[#F0F9FF] px-3 py-1.5 text-xs font-bold text-[#0369A1] hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/60 dark:text-[#38BDF8]"
+                    >
+                      {m.action.type === "locate" && <MapPin className="h-3.5 w-3.5" />}
+                      {m.action.type === "sensor" && <Radio className="h-3.5 w-3.5" />}
+                      {m.action.type === "sim" && <Sliders className="h-3.5 w-3.5" />}
+                      {m.action.type === "nav" && <BookOpen className="h-3.5 w-3.5" />}
+                      {m.action.label}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Preguntas rápidas sugeridas (1 clic para Q&A) */}
+            <div className="flex gap-1.5 overflow-x-auto border-t border-slate-200 bg-[#F8FAFC] px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900/60">
+              {quickPrompts.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => handleQuery(q)}
+                  className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-[#0B2545] transition hover:border-[#00B4D8] hover:bg-[#F0F9FF] hover:text-[#0369A1] dark:border-slate-700 dark:bg-[#0B2545] dark:text-slate-200"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+
+            {/* Input */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleQuery(input);
+              }}
+              className="flex items-center gap-2 border-t border-slate-200 p-3 dark:border-slate-800"
             >
-              <Send className="h-3.5 w-3.5" />
-            </button>
-          </form>
-        </aside>
-      )}
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Escribe tu consulta..."
+                aria-label="Escribir consulta al asistente YAKU"
+                className="h-10 flex-1 rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 text-xs text-[#0F172A] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              />
+              <button
+                type="submit"
+                aria-label="Enviar consulta"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B2545] text-white transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </form>
+          </motion.aside>
+        )}
+      </AnimatePresence>
     </>
   );
 }

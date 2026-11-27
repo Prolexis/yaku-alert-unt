@@ -2,14 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --brand-navy: #0B2545;
+  --brand-cyan: #00B4D8;
+  --brand-cyan-dark: #0369A1;
+  --brand-amber: #F59E0B;
+  --surface-canvas: #F8FAFC;
+  --surface-card: #FFFFFF;
+  --ink-primary: #0F172A;
+  --ink-secondary: #475569;
+
+  /* Semántica estricta de alertas (reservada solo para niveles preventivos) */
+  --alert-informativo: #059669;
+  --alert-informativo-bg: #ECFDF5;
+  --alert-vigilancia: #0284C7;
+  --alert-vigilancia-bg: #F0F9FF;
+  --alert-atencion: #D97706;
+  --alert-atencion-bg: #FFFBEB;
+  --alert-critica: #DC2626;
+  --alert-critica-bg: #FEF2F2;
+}
+
 @layer base {
   html {
-    font-family: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+    font-family: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink-primary);
+    background-color: var(--surface-canvas);
+  }
+
+  code,
+  pre,
+  .font-mono {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
   }
 
   :focus-visible {
-    outline: 2px solid #2563EB;
+    outline: 2px solid #00B4D8;
     outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -22,7 +58,7 @@
 .yaku-popup .leaflet-popup-content-wrapper {
   border-radius: 12px;
   padding: 2px;
-  box-shadow: 0 10px 25px -5px rgba(11, 31, 51, 0.18);
+  box-shadow: 0 10px 25px -5px rgba(11, 37, 69, 0.18);
   border: 1px solid #E2E8F0;
 }
 
@@ -45,6 +81,39 @@
 
 .sim-hazard-polygon {
   animation: sim-pulse 3s ease-in-out infinite;
+}
+
+/* Subtle pulsing ring for safe points and alert access markers on Leaflet maps */
+@keyframes yaku-ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 11px rgba(22, 163, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+@keyframes yaku-alert-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+.yaku-safe-pulse {
+  animation: yaku-ring-pulse 2.4s ease-out infinite;
+}
+
+.yaku-alert-pulse {
+  animation: yaku-alert-pulse 2s ease-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

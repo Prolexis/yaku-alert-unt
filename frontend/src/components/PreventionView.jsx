@@ -3,6 +3,7 @@ import { ChevronDown, AlertTriangle } from "lucide-react";
 import PreventiveMessageCard from "./ui/PreventiveMessageCard";
 import OfficialChannelsSection from "./ui/OfficialChannelsSection";
 import CommunityPreparednessSection from "./ui/CommunityPreparednessSection";
+import ExplainabilityStrip from "./ui/ExplainabilityStrip";
 
 export default function PreventionView({
   evaluation,
@@ -125,6 +126,16 @@ export default function PreventionView({
             simResult={simResult}
             hydroResult={hydroResult}
             userRole={userRole}
+          />
+
+          {/* Explicabilidad visual: ¿Por qué este nivel? */}
+          <ExplainabilityStrip
+            evaluation={evaluation}
+            hydroEvaluation={hydroResult?.evaluation}
+            weather={weather}
+            evalSourceMode={evalSourceMode}
+            hasVirtualSensors={userRole === "admin"}
+            defaultOpen
           />
 
           {/* Fuentes y limitaciones */}

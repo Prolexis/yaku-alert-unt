@@ -11,20 +11,104 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
-BG_NAVY = RGBColor(11, 31, 51)       # #0B1F33
-CARD_BG = RGBColor(18, 45, 74)       # #122D4A
-CARD_BORDER = RGBColor(36, 75, 115)  # #244B73
-ACCENT_CYAN = RGBColor(56, 189, 248) # #38BDF8
-ACCENT_BLUE = RGBColor(37, 99, 235)  # #2563EB
-ACCENT_GREEN = RGBColor(16, 185, 129)# #10B981
+BG_NAVY = RGBColor(11, 37, 69)       # #0B2545
+CARD_BG = RGBColor(18, 50, 90)       # #12325A
+CARD_BORDER = RGBColor(36, 82, 130)  # #245282
+ACCENT_CYAN = RGBColor(0, 180, 216)  # #00B4D8
+ACCENT_BLUE = RGBColor(3, 105, 161)  # #0369A1
+ACCENT_GREEN = RGBColor(5, 150, 105) # #059669
 ACCENT_AMBER = RGBColor(245, 158, 11)# #F59E0B
 TEXT_WHITE = RGBColor(248, 250, 252) # #F8FAFC
 TEXT_LIGHT = RGBColor(203, 213, 225) # #CBD5E1
 TEXT_MUTED = RGBColor(148, 163, 184) # #94A3B8
+PURE_WHITE = RGBColor(255, 255, 255) # #FFFFFF
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCIAS_DIR = ROOT / "docs" / "evidencias"
-FOOTER_TEXT = "YAKU ALERT — UNT · Hackathon Innova Norte 3G 2026 · Desafío 3 (TRL 3–4)"
+FOOTER_TEXT = "Yaku Alert — UNT · Desarrollado por NexoRisk · Hackathon Innova Norte 3G 2026 (TRL 3–4)"
+
+
+def _resolve_brand_asset(filename: str) -> Path | None:
+    for candidate in (
+        Path(__file__).resolve().parent / "assets" / filename,
+        ROOT / "frontend" / "public" / "assets" / filename,
+    ):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _add_logo_badge(slide, filename: str, left: float, top: float, size: float) -> None:
+    asset = _resolve_brand_asset(filename)
+    if not asset:
+        return
+    pad = 0.06
+    bg = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Inches(left),
+        Inches(top),
+        Inches(size),
+        Inches(size),
+    )
+    bg.fill.solid()
+    bg.fill.fore_color.rgb = PURE_WHITE
+    bg.line.color.rgb = ACCENT_CYAN
+    bg.line.width = Pt(1.0)
+    slide.shapes.add_picture(
+        str(asset),
+        Inches(left + pad),
+        Inches(top + pad),
+        width=Inches(size - 2 * pad),
+        height=Inches(size - 2 * pad),
+    )
+
+
+def _add_nexorisk_signature(slide, left: float = 9.55, top: float = 6.9) -> None:
+    asset = _resolve_brand_asset("nexorisk-icon.png")
+    pill = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Inches(left),
+        Inches(top),
+        Inches(2.15),
+        Inches(0.42),
+    )
+    pill.fill.solid()
+    pill.fill.fore_color.rgb = CARD_BG
+    pill.line.color.rgb = CARD_BORDER
+    pill.line.width = Pt(1.0)
+
+    if asset:
+        icon_bg = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(left + 0.08),
+            Inches(top + 0.06),
+            Inches(0.30),
+            Inches(0.30),
+        )
+        icon_bg.fill.solid()
+        icon_bg.fill.fore_color.rgb = PURE_WHITE
+        icon_bg.line.fill.background()
+        slide.shapes.add_picture(
+            str(asset),
+            Inches(left + 0.11),
+            Inches(top + 0.09),
+            width=Inches(0.24),
+            height=Inches(0.24),
+        )
+
+    tb = slide.shapes.add_textbox(
+        Inches(left + 0.44),
+        Inches(top + 0.08),
+        Inches(1.65),
+        Inches(0.28),
+    )
+    tf = tb.text_frame
+    tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
+    p = tf.paragraphs[0]
+    p.text = "by NexoRisk"
+    p.font.size = Pt(10.5)
+    p.font.bold = True
+    p.font.color.rgb = TEXT_WHITE
 
 
 def _set_bg(slide) -> None:
@@ -56,7 +140,7 @@ def _add_chrome(slide, badge_text: str, title: str, subtitle: str, slide_num: in
     bp.font.color.rgb = ACCENT_CYAN
 
     # Title
-    tb = slide.shapes.add_textbox(Inches(0.7), Inches(0.68), Inches(11.9), Inches(0.62))
+    tb = slide.shapes.add_textbox(Inches(0.7), Inches(0.68), Inches(10.9), Inches(0.62))
     tf = tb.text_frame
     tf.word_wrap = True
     tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
@@ -67,7 +151,7 @@ def _add_chrome(slide, badge_text: str, title: str, subtitle: str, slide_num: in
     p.font.color.rgb = TEXT_WHITE
 
     # Subtitle
-    sb = slide.shapes.add_textbox(Inches(0.7), Inches(1.26), Inches(11.9), Inches(0.4))
+    sb = slide.shapes.add_textbox(Inches(0.7), Inches(1.26), Inches(10.9), Inches(0.4))
     stf = sb.text_frame
     stf.word_wrap = True
     stf.margin_left = stf.margin_top = stf.margin_right = stf.margin_bottom = 0
@@ -76,14 +160,20 @@ def _add_chrome(slide, badge_text: str, title: str, subtitle: str, slide_num: in
     sp.font.size = Pt(13.5)
     sp.font.color.rgb = TEXT_LIGHT
 
+    # Yaku Alert brand isotipo in header (top-right, zero overlap)
+    _add_logo_badge(slide, "yaku-alert-icon.png", left=11.88, top=0.32, size=0.72)
+
     # Footer
-    fb = slide.shapes.add_textbox(Inches(0.7), Inches(7.02), Inches(10.5), Inches(0.32))
+    fb = slide.shapes.add_textbox(Inches(0.7), Inches(7.02), Inches(8.6), Inches(0.32))
     fp = fb.text_frame.paragraphs[0]
     fp.text = FOOTER_TEXT
     fp.font.size = Pt(10)
     fp.font.color.rgb = TEXT_MUTED
 
-    nb = slide.shapes.add_textbox(Inches(11.6), Inches(7.02), Inches(1.0), Inches(0.32))
+    if slide_num in (1, 7):
+        _add_nexorisk_signature(slide, left=9.45, top=6.92)
+
+    nb = slide.shapes.add_textbox(Inches(11.7), Inches(7.02), Inches(0.9), Inches(0.32))
     np_ = nb.text_frame.paragraphs[0]
     np_.text = f"{slide_num} / 7"
     np_.font.size = Pt(10.5)

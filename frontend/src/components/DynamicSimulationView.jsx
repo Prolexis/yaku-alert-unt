@@ -3,6 +3,7 @@ import L from "leaflet";
 import {
   AlertTriangle,
   ChevronDown,
+  ChevronUp,
   Droplets,
   Layers,
   Loader2,
@@ -10,6 +11,7 @@ import {
   Pause,
   Play,
   Radio,
+  RotateCcw,
   WifiOff,
 } from "lucide-react";
 import { fetchHydroForecast, fetchHydroPresets, fetchHydroRun } from "../services/api";
@@ -151,6 +153,7 @@ export default function DynamicSimulationView({
   onToggleDisconnectSensor,
   onLocateBuildingInMap,
   onNavigate,
+  offline: offlineProp = false,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -176,8 +179,18 @@ export default function DynamicSimulationView({
     typeof navigator !== "undefined" && navigator.onLine === false
   );
   const [basemap, setBasemap] = useState(
-    typeof navigator !== "undefined" && navigator.onLine === false ? "vectorial" : "calles"
+    offlineProp || (typeof navigator !== "undefined" && navigator.onLine === false)
+      ? "vectorial"
+      : "calles"
   );
+  const [legendOpen, setLegendOpen] = useState(false);
+
+  // Blindaje offline: cambia automáticamente a Solo vectorial cuando se activa modo sin conexión
+  useEffect(() => {
+    if (offlineProp) {
+      setBasemap("vectorial");
+    }
+  }, [offlineProp]);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
 
@@ -683,43 +696,43 @@ export default function DynamicSimulationView({
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        {/* Mapa + capa de agua */}
+        {/* Mapa + capa de agua (Map-First) */}
         <div className="min-w-0 lg:col-span-8">
-          <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33]">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B2545]">
             <div className="relative">
               <div
                 ref={mapContainerRef}
-                className="h-[360px] w-full bg-slate-100 dark:bg-slate-900 sm:h-[420px] lg:h-[calc(100vh-290px)] lg:min-h-[460px]"
+                className="h-[420px] w-full bg-slate-100 dark:bg-slate-900 sm:h-[480px] lg:h-[calc(100vh-250px)] lg:min-h-[520px]"
               />
 
               <div className="pointer-events-none absolute left-3 top-3 z-[400] flex max-w-[calc(100%-5.5rem)] flex-col gap-1.5">
-                <span className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white/95 px-2.5 py-1.5 text-[11px] font-semibold text-[#101828] backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white">
-                  <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
+                <span className="inline-flex w-fit items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white/92 px-3 py-1.5 font-mono text-xs font-bold text-[#0B2545] shadow-sm backdrop-blur-md dark:border-slate-700 dark:bg-[#0B2545]/92 dark:text-white">
+                  <Layers className="h-3.5 w-3.5 text-[#0369A1] dark:text-[#38BDF8]" />
                   {currentFrame?.label || "Sin marco"}
-                  {maxClass && <span className="font-normal text-[#475467] dark:text-slate-300">· clase {classLabel(maxClass)}</span>}
+                  {maxClass && <span className="font-sans font-semibold text-[#475569] dark:text-slate-300">· {classLabel(maxClass)}</span>}
                 </span>
               </div>
 
               {(basemap === "vectorial" || tilesFailed) && (
                 <div
                   role="status"
-                  className="absolute left-3 top-16 z-[400] flex max-w-[15rem] items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/95 px-3 py-2 text-[11px] font-medium text-amber-900"
+                  className="absolute left-3 top-14 z-[400] flex max-w-[16rem] items-start gap-2 rounded-xl border border-[#D97706]/35 bg-[#FFFBEB]/95 px-3 py-1.5 text-xs font-bold text-[#92400E] shadow-sm backdrop-blur-md"
                 >
                   <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>Sin mapa base. Capas vectoriales locales activas.</span>
+                  <span>Solo vectorial (sin internet). Capas locales activas.</span>
                 </div>
               )}
 
               <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
                   <button
                     type="button"
                     onClick={() => setShowSensorsLayer((v) => !v)}
                     aria-pressed={showSensorsLayer}
-                    className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold backdrop-blur transition ${
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
                       showSensorsLayer
-                        ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                        : "border-[#E2E8F0] bg-white/95 text-[#101828] hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                        ? "bg-[#0369A1] text-white shadow-sm"
+                        : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                     }`}
                   >
                     <Radio className="h-3.5 w-3.5" />
@@ -729,14 +742,14 @@ export default function DynamicSimulationView({
                     type="button"
                     onClick={() => setLayersOpen((value) => !value)}
                     aria-expanded={layersOpen}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-xs font-semibold text-[#101828] backdrop-blur hover:bg-white dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold text-[#0F172A] transition hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                   >
-                    <Layers className="h-3.5 w-3.5 text-[#2563EB]" />
+                    <Layers className="h-3.5 w-3.5 text-[#0369A1] dark:text-[#38BDF8]" />
                     <span>Capas</span>
                   </button>
                 </div>
                 {layersOpen && (
-                  <div className="w-40 rounded-xl border border-[#E2E8F0] bg-white/95 p-2 text-xs backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+                  <div className="w-44 rounded-xl border border-slate-200/90 bg-white/92 p-2 text-xs shadow-elevated backdrop-blur-md dark:border-slate-700 dark:bg-[#0B2545]/95">
                     <div className="flex gap-1" role="group" aria-label="Mapa base">
                       {Object.entries(BASEMAPS).map(([key, cfg]) => (
                         <button
@@ -744,10 +757,10 @@ export default function DynamicSimulationView({
                           type="button"
                           onClick={() => setBasemap(key)}
                           aria-pressed={basemap === key}
-                          className={`flex-1 rounded-md px-1.5 py-1 text-[11px] font-semibold transition ${
+                          className={`flex-1 rounded-md px-1.5 py-1 text-xs font-bold transition ${
                             basemap === key
-                              ? "bg-[#2563EB] text-white"
-                              : "border border-[#E2E8F0] text-[#475467] dark:border-slate-700 dark:text-slate-300"
+                              ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
+                              : "border border-slate-200 text-[#475569] dark:border-slate-700 dark:text-slate-300"
                           }`}
                         >
                           {cfg.label}
@@ -758,45 +771,99 @@ export default function DynamicSimulationView({
                 )}
               </div>
 
-              {/* Leyenda: la etiqueta de clase no depende del color */}
-              <div className="absolute bottom-3 left-3 z-[400] max-w-[calc(100%-1.5rem)] rounded-lg border border-[#E2E8F0] bg-white/95 px-3 py-2 text-[11px] backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
-                <div className="mb-1 font-semibold text-[#101828] dark:text-slate-100">Agua modelada</div>
-                <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-[#101828] dark:text-slate-200 sm:grid-cols-3">
-                  {WATER_CLASS_ORDER.map((cls) => (
-                    <span key={cls} className="flex items-center gap-1.5">
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-sm border border-slate-400/50"
-                        style={{ background: WATER_CLASSES[cls].style.fillColor }}
-                      />
-                      {WATER_CLASSES[cls].label} · {WATER_CLASSES[cls].range}
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-1.5 flex items-center gap-1.5 text-[10px] leading-snug text-[#64748B] dark:text-slate-400">
-                  <MapPin className="h-3 w-3 shrink-0" />
-                  estimación exploratoria; el DEM tiene ±4 m de error
-                </div>
+              {/* Leyenda colapsable flotante */}
+              <div className="absolute bottom-3 left-3 z-[400] max-w-[calc(100%-1.5rem)] rounded-xl border border-slate-200/90 bg-white/92 px-3 py-2 text-xs shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
+                <button
+                  type="button"
+                  onClick={() => setLegendOpen((v) => !v)}
+                  aria-expanded={legendOpen}
+                  className="flex items-center gap-2 font-bold text-[#0B2545] dark:text-white"
+                >
+                  <span>Leyenda · Agua modelada</span>
+                  {legendOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+                </button>
+                {legendOpen && (
+                  <>
+                    <div className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[#0F172A] dark:text-slate-200 sm:grid-cols-3">
+                      {WATER_CLASS_ORDER.map((cls) => (
+                        <span key={cls} className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-sm border border-slate-400/50"
+                            style={{ background: WATER_CLASSES[cls].style.fillColor }}
+                          />
+                          {WATER_CLASSES[cls].label} · {WATER_CLASSES[cls].range}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs leading-snug text-[#475569] dark:text-slate-400">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      Estimación exploratoria en malla 10 m (DEM ±4 m)
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Línea de tiempo y mini-gráfico de lluvia (sin llamadas extra a la API) */}
-            <div className="space-y-2.5 border-t border-[#E2E8F0] px-3 py-3 dark:border-slate-800">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {/* Reproductor moderno + mini-gráfico de lluvia */}
+            <div className="space-y-3 border-t border-slate-200 bg-[#F8FAFC] px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900/60">
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
+                  <div className="text-xs font-semibold text-[#475569] dark:text-slate-300">
+                    Hora simulada
+                  </div>
+                  <div className="font-mono text-lg font-extrabold text-[#0B2545] tabular-nums dark:text-white">
+                    {currentFrame?.label || "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
+                  <div className="text-xs font-semibold text-[#475569] dark:text-slate-300">
+                    Lluvia acumulada
+                  </div>
+                  <div className="font-mono text-lg font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8]">
+                    {rain
+                      .slice(0, Math.min(hour, rain.length))
+                      .reduce((s, v) => s + (v || 0), 0)
+                      .toFixed(1)}{" "}
+                    mm
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
+                  <div className="text-xs font-semibold text-[#475569] dark:text-slate-300">
+                    Zonas afectadas
+                  </div>
+                  <div className="font-mono text-lg font-extrabold text-[#D97706] tabular-nums dark:text-amber-300">
+                    {wetElements.length}
+                    <span className="ml-1 text-xs font-semibold text-[#475569] dark:text-slate-400">
+                      / {affectedElements.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
                 <button
                   type="button"
                   onClick={togglePlayback}
                   disabled={!frames.length}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#0B1F33] px-3 text-[11px] font-semibold text-white transition hover:bg-[#122C46] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#2563EB]"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#0B2545] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#0369A1] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#0369A1]"
                 >
                   {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                  {playing ? "Pausa" : "Reproducir"}
+                  {playing ? "Pausar" : "Reproducir"}
                 </button>
-                <span className="text-[11px] font-semibold text-[#101828] tabular-nums dark:text-white">
-                  {currentFrame?.label || "Sin marco"}
-                </span>
-                <span className="text-[10px] text-[#64748B] dark:text-slate-400">1 h por segundo</span>
-                <span className="ml-auto text-[10px] text-[#64748B] dark:text-slate-400">
-                  Lluvia de la hora: ≈ {Math.round(currentRain)} mm
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlaying(false);
+                    setHour(1);
+                  }}
+                  disabled={!frames.length}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-[#0F172A] transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:bg-[#0B2545] dark:text-slate-100"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reiniciar</span>
+                </button>
+                <span className="ml-auto font-mono text-xs font-semibold text-[#475569] tabular-nums dark:text-slate-300">
+                  Lluvia en hora: ≈ {Math.round(currentRain)} mm
                 </span>
               </div>
 

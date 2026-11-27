@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { Toaster, toast } from "sonner";
 import {
   fetchCampusLayers,
   fetchConditionsCatalog,
@@ -36,9 +38,9 @@ const DEFAULT_SIM_PARAMS = {
 };
 
 export default function App() {
-  const [userRole, setUserRole] = useState("student"); // "student" (público) | "admin" (técnico)
+  const [userRole, setUserRole] = useState("student"); // "student" (público) | "admin" (gestión UNT)
   const [activeView, setActiveView] = useState("dashboard");
-  const [theme, setTheme] = useState("light"); // Modo claro priorizado para jurado
+  const [theme, setTheme] = useState("light"); // Modo claro priorizado para proyector y jurado
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -86,14 +88,34 @@ export default function App() {
   };
 
   const handleChangeRole = (nextRole) => {
+    if (nextRole === userRole) return;
     setUserRole(nextRole);
     if (nextRole === "student") {
       if (activeView === "map" || activeView === "monitoring") setActiveView("student_map");
       else if (activeView === "hydro" || activeView === "simulator") setActiveView("student_sim");
       setEvalSourceMode("live");
+      toast.info("Vista Estudiante activada", {
+        description: "Interfaz simplificada para consulta rápida y rutas seguras.",
+      });
     } else {
       if (activeView === "student_map") setActiveView("map");
       else if (activeView === "student_sim") setActiveView("hydro");
+      toast.success("Vista Gestión UNT activada", {
+        description: "Semáforo ejecutivo, monitoreo sinóptico y simuladores habilitados.",
+      });
+    }
+  };
+
+  const handleToggleOffline = (nextOffline) => {
+    setForceOffline(nextOffline);
+    if (nextOffline) {
+      toast.info("Modo Respaldo Offline activado", {
+        description: "Operando con caché local verificada de Open-Meteo.",
+      });
+    } else {
+      toast.success("Reconectando pronóstico en vivo", {
+        description: "Consultando servicio meteorológico Open-Meteo.",
+      });
     }
   };
 
@@ -219,193 +241,210 @@ export default function App() {
     (activeView === "prevention" && evalSourceMode === "simulated");
 
   return (
-    <div className="flex min-h-screen bg-[#F6F8FC] text-[#111827] dark:bg-[#071524] dark:text-slate-100">
-      <Sidebar
-        activeView={activeView}
-        onSelectView={setActiveView}
-        mobileOpen={mobileMenuOpen}
-        onCloseMobile={() => setMobileMenuOpen(false)}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
-        simActive={isSimulationContext}
-        userRole={userRole}
-        onChangeRole={handleChangeRole}
-      />
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopHeader
+    <MotionConfig reducedMotion="user">
+      <div className="flex min-h-screen bg-[#F8FAFC] text-[#0F172A] dark:bg-[#071524] dark:text-slate-100">
+        <Sidebar
           activeView={activeView}
+          onSelectView={setActiveView}
+          mobileOpen={mobileMenuOpen}
+          onCloseMobile={() => setMobileMenuOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+          simActive={isSimulationContext}
+          userRole={userRole}
+        />
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <TopHeader
+            activeView={activeView}
+            weather={weather}
+            forceOffline={forceOffline}
+            onToggleOffline={handleToggleOffline}
+            onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
+            loading={weatherLoading}
+            theme={theme}
+            onToggleTheme={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
+            onOpenHelp={() => setHelpOpen(true)}
+            onOpenMobileMenu={() => setMobileMenuOpen(true)}
+            isSimulationContext={isSimulationContext}
+            userRole={userRole}
+            onChangeRole={handleChangeRole}
+            preventiveLevel={currentEvaluation?.preventive_level || currentEvaluation?.level}
+          />
+
+          <DataStatusBanner
+            isSimulationContext={isSimulationContext}
+            weatherStatus={weather?.data_status}
+            fallbackReason={weather?.fallback_reason}
+            cachePeriod={weather?.cache_period}
+            browserOffline={browserOffline}
+          />
+
+          {backendError && !campusLayers && (
+            <div
+              role="alert"
+              className="border-b border-[#DC2626]/30 bg-[#FEF2F2] px-4 py-2 text-xs font-semibold text-[#991B1B] dark:border-red-900/70 dark:bg-red-950/50 dark:text-red-200 sm:px-6 lg:px-8"
+            >
+              {backendError}
+            </div>
+          )}
+
+          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${userRole}-${activeView}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              >
+                {activeView === "dashboard" && (
+                  <DashboardView
+                    weather={weather}
+                    weatherLoading={weatherLoading}
+                    weatherError={weatherError}
+                    liveEvaluation={liveEvaluation}
+                    campusLayers={campusLayers}
+                    simResult={simResult}
+                    hydroResult={hydroResult}
+                    onLocateInMap={handleLocateBuildingInMap}
+                    onNavigate={setActiveView}
+                    onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
+                    userRole={userRole}
+                  />
+                )}
+
+                {activeView === "monitoring" && (
+                  <MonitoringView
+                    weather={weather}
+                    loading={weatherLoading}
+                    error={weatherError}
+                    forceOffline={forceOffline}
+                    onToggleOffline={handleToggleOffline}
+                    onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
+                  />
+                )}
+
+                {activeView === "student_map" && (
+                  <StudentMonitoringMap
+                    weather={weather}
+                    liveEvaluation={liveEvaluation}
+                    campusLayers={campusLayers}
+                    declaredConditions={declaredConditions}
+                    focusedBuildingId={focusedBuildingId}
+                    onSelectBuilding={setFocusedBuildingId}
+                    onNavigate={setActiveView}
+                    offline={forceOffline || browserOffline}
+                  />
+                )}
+
+                {activeView === "student_sim" && (
+                  <StudentSimpleSimulation
+                    campusLayers={campusLayers}
+                    onPublicSimResult={setPublicSimResult}
+                    onNavigate={setActiveView}
+                    offline={forceOffline || browserOffline}
+                  />
+                )}
+
+                {activeView === "map" && userRole === "admin" && (
+                  <CampusMapView
+                    campusLayers={campusLayers}
+                    conditionsCatalog={conditionsCatalog}
+                    simParams={simParams}
+                    onChangeSimParams={setSimParams}
+                    simResult={simResult}
+                    focusedBuildingId={focusedBuildingId}
+                    onSelectBuilding={setFocusedBuildingId}
+                    onRunSimulation={handleRunSimulation}
+                    onNavigate={setActiveView}
+                    virtualSensors={virtualSensors}
+                    hydroActiveHour={hydroActiveHour}
+                    selectedSensorId={selectedSensorId}
+                    onSelectSensor={setSelectedSensorId}
+                    disconnectedSensors={disconnectedSensors}
+                    onToggleDisconnectSensor={handleToggleDisconnectSensor}
+                    offline={forceOffline || browserOffline}
+                  />
+                )}
+
+                {activeView === "prevention" && (
+                  <PreventionView
+                    evaluation={currentEvaluation}
+                    weather={weather}
+                    simResult={simResult}
+                    hydroResult={hydroResult}
+                    evalSourceMode={evalSourceMode}
+                    onChangeEvalSource={setEvalSourceMode}
+                    conditionsCatalog={conditionsCatalog}
+                    declaredConditions={declaredConditions}
+                    onToggleCondition={handleToggleDeclaredCondition}
+                    userRole={userRole}
+                  />
+                )}
+
+                {activeView === "simulator" && userRole === "admin" && (
+                  <SimulatorView
+                    conditionsCatalog={conditionsCatalog}
+                    simParams={simParams}
+                    onChangeSimParams={setSimParams}
+                    simResult={simResult}
+                    simLoading={simLoading}
+                    simError={simError}
+                    lastSimAt={lastSimAt}
+                    onRunSimulation={handleRunSimulation}
+                    onNavigate={setActiveView}
+                  />
+                )}
+
+                {activeView === "hydro" && userRole === "admin" && (
+                  <DynamicSimulationView
+                    campusLayers={campusLayers}
+                    onResultChange={setHydroResult}
+                    onHourChange={setHydroActiveHour}
+                    virtualSensors={virtualSensors}
+                    selectedSensorId={selectedSensorId}
+                    onSelectSensor={setSelectedSensorId}
+                    disconnectedSensors={disconnectedSensors}
+                    onToggleDisconnectSensor={handleToggleDisconnectSensor}
+                    onLocateBuildingInMap={handleLocateBuildingInMap}
+                    onNavigate={setActiveView}
+                    offline={forceOffline || browserOffline}
+                  />
+                )}
+
+                {activeView === "continuity" && (
+                  <ContinuityView protocols={protocols} campusLayers={campusLayers} />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+
+          <footer className="border-t border-slate-200 bg-white px-4 py-3 text-center text-xs font-medium text-[#475569] dark:border-slate-800 dark:bg-[#0B2545] dark:text-slate-300">
+            <span className="font-bold text-[#0B2545] dark:text-white">Yaku Alert — UNT</span> ·
+            Desarrollado por <span className="font-semibold text-[#0369A1] dark:text-[#38BDF8]">NexoRisk</span> ·
+            Prototipo TRL 3–4 · Sin recopilación de datos personales (Ley N.° 29733) · No sustituye alertas oficiales SINAGERD / SENAMHI / INDECI.
+          </footer>
+        </div>
+
+        <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <YakuAssistantDrawer
+          userRole={userRole}
           weather={weather}
-          forceOffline={forceOffline}
-          onToggleOffline={setForceOffline}
-          onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
-          loading={weatherLoading}
-          theme={theme}
-          onToggleTheme={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
-          onOpenHelp={() => setHelpOpen(true)}
-          onOpenMobileMenu={() => setMobileMenuOpen(true)}
-          isSimulationContext={isSimulationContext}
+          campusLayers={campusLayers}
+          simResult={simResult}
+          publicSimResult={publicSimResult}
+          liveEvaluation={liveEvaluation}
+          virtualSensors={userRole === "admin" ? virtualSensors : []}
+          hydroActiveHour={hydroActiveHour}
+          disconnectedSensors={disconnectedSensors}
+          onLocateInMap={handleLocateBuildingInMap}
+          onLocateSensor={handleLocateSensorInMap}
+          onNavigate={setActiveView}
+          onRunQuickSim={() => handleRunSimulation(DEFAULT_SIM_PARAMS)}
         />
-
-        <DataStatusBanner
-          isSimulationContext={isSimulationContext}
-          weatherStatus={weather?.data_status}
-          fallbackReason={weather?.fallback_reason}
-          cachePeriod={weather?.cache_period}
-          browserOffline={browserOffline}
-        />
-
-        {backendError && !campusLayers && (
-          <div
-            role="alert"
-            className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-900 dark:border-red-900/70 dark:bg-red-950/50 dark:text-red-200 sm:px-6 lg:px-8"
-          >
-            {backendError}
-          </div>
-        )}
-
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          {activeView === "dashboard" && (
-            <DashboardView
-              weather={weather}
-              weatherLoading={weatherLoading}
-              weatherError={weatherError}
-              liveEvaluation={liveEvaluation}
-              campusLayers={campusLayers}
-              simResult={simResult}
-              hydroResult={hydroResult}
-              onLocateInMap={handleLocateBuildingInMap}
-              onNavigate={setActiveView}
-              onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
-              userRole={userRole}
-            />
-          )}
-
-          {activeView === "monitoring" && (
-            <MonitoringView
-              weather={weather}
-              loading={weatherLoading}
-              error={weatherError}
-              forceOffline={forceOffline}
-              onToggleOffline={setForceOffline}
-              onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
-            />
-          )}
-
-          {activeView === "student_map" && (
-            <StudentMonitoringMap
-              weather={weather}
-              liveEvaluation={liveEvaluation}
-              campusLayers={campusLayers}
-              declaredConditions={declaredConditions}
-              focusedBuildingId={focusedBuildingId}
-              onSelectBuilding={setFocusedBuildingId}
-              onNavigate={setActiveView}
-              offline={forceOffline || browserOffline}
-            />
-          )}
-
-          {activeView === "student_sim" && (
-            <StudentSimpleSimulation
-              campusLayers={campusLayers}
-              onPublicSimResult={setPublicSimResult}
-              onNavigate={setActiveView}
-              offline={forceOffline || browserOffline}
-            />
-          )}
-
-          {activeView === "map" && userRole === "admin" && (
-            <CampusMapView
-              campusLayers={campusLayers}
-              conditionsCatalog={conditionsCatalog}
-              simParams={simParams}
-              onChangeSimParams={setSimParams}
-              simResult={simResult}
-              focusedBuildingId={focusedBuildingId}
-              onSelectBuilding={setFocusedBuildingId}
-              onRunSimulation={handleRunSimulation}
-              onNavigate={setActiveView}
-              virtualSensors={virtualSensors}
-              hydroActiveHour={hydroActiveHour}
-              selectedSensorId={selectedSensorId}
-              onSelectSensor={setSelectedSensorId}
-              disconnectedSensors={disconnectedSensors}
-              onToggleDisconnectSensor={handleToggleDisconnectSensor}
-              offline={forceOffline || browserOffline}
-            />
-          )}
-
-          {activeView === "prevention" && (
-            <PreventionView
-              evaluation={currentEvaluation}
-              weather={weather}
-              simResult={simResult}
-              hydroResult={hydroResult}
-              evalSourceMode={evalSourceMode}
-              onChangeEvalSource={setEvalSourceMode}
-              conditionsCatalog={conditionsCatalog}
-              declaredConditions={declaredConditions}
-              onToggleCondition={handleToggleDeclaredCondition}
-              userRole={userRole}
-            />
-          )}
-
-          {activeView === "simulator" && userRole === "admin" && (
-            <SimulatorView
-              conditionsCatalog={conditionsCatalog}
-              simParams={simParams}
-              onChangeSimParams={setSimParams}
-              simResult={simResult}
-              simLoading={simLoading}
-              simError={simError}
-              lastSimAt={lastSimAt}
-              onRunSimulation={handleRunSimulation}
-              onNavigate={setActiveView}
-            />
-          )}
-
-          {activeView === "hydro" && userRole === "admin" && (
-            <DynamicSimulationView
-              campusLayers={campusLayers}
-              onResultChange={setHydroResult}
-              onHourChange={setHydroActiveHour}
-              virtualSensors={virtualSensors}
-              selectedSensorId={selectedSensorId}
-              onSelectSensor={setSelectedSensorId}
-              disconnectedSensors={disconnectedSensors}
-              onToggleDisconnectSensor={handleToggleDisconnectSensor}
-              onLocateBuildingInMap={handleLocateBuildingInMap}
-              onNavigate={setActiveView}
-            />
-          )}
-
-          {activeView === "continuity" && (
-            <ContinuityView protocols={protocols} campusLayers={campusLayers} />
-          )}
-        </main>
-
-        <footer className="border-t border-[#E2E8F0] bg-white px-4 py-3 text-center text-[11px] text-[#64748B] dark:border-slate-800 dark:bg-[#0B1F33] dark:text-slate-400">
-          YAKU ALERT — UNT · Prototipo TRL 3–4 · Sin recopilación de datos personales (Ley N.° 29733) ·
-          No sustituye alertas oficiales SINAGERD / SENAMHI / INDECI.
-        </footer>
+        <Toaster position="bottom-right" richColors />
       </div>
-
-      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
-      <YakuAssistantDrawer
-        userRole={userRole}
-        weather={weather}
-        campusLayers={campusLayers}
-        simResult={simResult}
-        publicSimResult={publicSimResult}
-        liveEvaluation={liveEvaluation}
-        virtualSensors={userRole === "admin" ? virtualSensors : []}
-        hydroActiveHour={hydroActiveHour}
-        disconnectedSensors={disconnectedSensors}
-        onLocateInMap={handleLocateBuildingInMap}
-        onLocateSensor={handleLocateSensorInMap}
-        onNavigate={setActiveView}
-        onRunQuickSim={() => handleRunSimulation(DEFAULT_SIM_PARAMS)}
-      />
-    </div>
+    </MotionConfig>
   );
 }

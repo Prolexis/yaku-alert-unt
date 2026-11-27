@@ -125,7 +125,7 @@ export default function TopHeader({
           )}
 
           {/* Procedencia de datos clara (NUNCA "En vivo" para pronósticos Open-Meteo) */}
-          {isSimulationContext ? (
+          {isSimulationContext && userRole === "admin" ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D97706]/35 bg-[#FFFBEB] px-2.5 py-1 text-xs font-bold text-[#B45309] dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200">
               <FlaskConical className="h-3.5 w-3.5" />
               <span>Simulación experimental</span>

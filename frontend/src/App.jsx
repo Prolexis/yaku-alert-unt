@@ -411,6 +411,7 @@ export default function App() {
 
           <DataStatusBanner
             isSimulationContext={isSimulationContext}
+            userRole={userRole}
             weatherStatus={weather?.data_status}
             fallbackReason={weather?.fallback_reason}
             cachePeriod={weather?.cache_period}

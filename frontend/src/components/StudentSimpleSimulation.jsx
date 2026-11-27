@@ -483,18 +483,14 @@ export default function StudentSimpleSimulation({
 
   return (
     <div className="space-y-4">
-      {/* Cabecera inequívoca de SIMULACIÓN EXPERIMENTAL */}
+      {/* Cabecera limpia y directa para el usuario */}
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
         <div>
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D97706]/40 bg-[#FFFBEB] px-3 py-1 text-xs font-extrabold text-[#92400E] dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200">
-            <FlaskConical className="h-3.5 w-3.5 text-[#D97706]" />
-            <span>SIMULACIÓN EXPERIMENTAL · NO ES UNA ALERTA EN CURSO</span>
-          </div>
-          <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
+          <h2 className="text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
             Simulación de lluvias
           </h2>
           <p className="text-sm text-[#475569] dark:text-slate-300">
-            Explora cómo podría acumularse el agua en la UNT.
+            Explora cómo podría acumularse el agua en la UNT según lluvias pasadas (2017 y 2023).
           </p>
         </div>
 

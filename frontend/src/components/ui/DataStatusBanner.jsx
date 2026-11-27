@@ -1,8 +1,8 @@
 import React from "react";
 import { FlaskConical, Database } from "lucide-react";
 
-export default function DataStatusBanner({ isSimulationContext, weatherStatus, browserOffline }) {
-  if (isSimulationContext) {
+export default function DataStatusBanner({ isSimulationContext, userRole = "student", weatherStatus, browserOffline }) {
+  if (isSimulationContext && userRole === "admin") {
     return (
       <div
         role="status"

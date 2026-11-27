@@ -60,6 +60,7 @@ export function renderEvacuationLayers({
   affectedGates = new Set(),
   recommendedPointId = "",
   onSelectFeature = null,
+  bindPopups = true,
 }) {
   if (!group || !evacuationData?.features?.length) return;
   group.clearLayers();
@@ -117,23 +118,27 @@ export function renderEvacuationLayers({
             </div>`,
             { sticky: true, direction: "top" }
           );
-          lyr.bindPopup(
-            `<div class="space-y-1.5 max-w-[255px]">
-              <div class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800 border border-emerald-200">Área elevada referencial · ${esc(kindLabel)}</div>
-              <div class="font-extrabold text-slate-900 text-xs">${esc(p.name)}</div>
-              <div class="text-[11px] text-slate-700">${esc(p.rationale || p.elevation_note || "")}</div>
-              <div class="rounded-md bg-emerald-50/90 px-2 py-1 text-[10px] font-semibold text-emerald-900 border border-emerald-200">${esc(demBadgeText)}</div>
-              ${p.capacity_ref ? `<div class="text-[10px] text-slate-600"><strong>Capacidad ref.:</strong> ${esc(p.capacity_ref)}</div>` : ""}
-              <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_ETHICAL_NOTE)}</div>
-            </div>`,
-            { className: "yaku-popup" }
-          );
+          if (bindPopups) {
+            lyr.bindPopup(
+              `<div class="space-y-1.5 max-w-[255px]">
+                <div class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800 border border-emerald-200">Área elevada referencial · ${esc(kindLabel)}</div>
+                <div class="font-extrabold text-slate-900 text-xs">${esc(p.name)}</div>
+                <div class="text-[11px] text-slate-700">${esc(p.rationale || p.elevation_note || "")}</div>
+                <div class="rounded-md bg-emerald-50/90 px-2 py-1 text-[10px] font-semibold text-emerald-900 border border-emerald-200">${esc(demBadgeText)}</div>
+                ${p.capacity_ref ? `<div class="text-[10px] text-slate-600"><strong>Capacidad ref.:</strong> ${esc(p.capacity_ref)}</div>` : ""}
+                <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_ETHICAL_NOTE)}</div>
+              </div>`,
+              { className: "yaku-popup" }
+            );
+          }
           if (onSelectFeature) {
-            lyr.on("click", () =>
+            lyr.on("click", (evt) =>
               onSelectFeature({
                 name: p.name,
                 infoType: `Área elevada referencial · ${kindLabel}`,
-                explanation: `${p.rationale || ""} ${demBadgeText}.`,
+                explanation: `${p.rationale || p.elevation_note || ""} (${demBadgeText}).`,
+                lat: evt?.latlng?.lat,
+                lon: evt?.latlng?.lng,
               })
             );
           }
@@ -193,25 +198,29 @@ export function renderEvacuationLayers({
               : `${esc(p.from_zone)} → ${esc(destName)} (${walkStr})`,
             { sticky: true, direction: "top" }
           );
-          lyr.bindPopup(
-            `<div class="space-y-1.5 max-w-[255px]">
-              <div class="text-[10px] font-bold uppercase ${isAvoidStep ? "text-rose-700" : "text-emerald-700"}">
-                ${isAvoidStep ? "Evitar paso · Acceso comprometido" : "Ruta referencial de evacuación"}
-              </div>
-              <div class="font-extrabold text-slate-900 text-xs">${esc(p.from_zone)} → ${esc(destName)}</div>
-              ${altNote}
-              <div class="text-[11px] text-slate-700">${esc(p.recommendation || "")}</div>
-              <div class="text-[10px] text-slate-600"><strong>Recorrido estimado:</strong> ${esc(walkStr)}</div>
-              <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_ETHICAL_NOTE)}</div>
-            </div>`,
-            { className: "yaku-popup" }
-          );
+          if (bindPopups) {
+            lyr.bindPopup(
+              `<div class="space-y-1.5 max-w-[255px]">
+                <div class="text-[10px] font-bold uppercase ${isAvoidStep ? "text-rose-700" : "text-emerald-700"}">
+                  ${isAvoidStep ? "Evitar paso · Acceso comprometido" : "Ruta referencial de evacuación"}
+                </div>
+                <div class="font-extrabold text-slate-900 text-xs">${esc(p.from_zone)} → ${esc(destName)}</div>
+                ${altNote}
+                <div class="text-[11px] text-slate-700">${esc(p.recommendation || "")}</div>
+                <div class="text-[10px] text-slate-600"><strong>Recorrido estimado:</strong> ${esc(walkStr)}</div>
+                <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_ETHICAL_NOTE)}</div>
+              </div>`,
+              { className: "yaku-popup" }
+            );
+          }
           if (onSelectFeature) {
-            lyr.on("click", () =>
+            lyr.on("click", (evt) =>
               onSelectFeature({
                 name: `${p.from_zone} → ${destName}`,
                 infoType: isAvoidStep ? "Evitar paso (acceso afectado)" : "Ruta referencial (TRL 3–4)",
                 explanation: `${p.recommendation || ""} (${walkStr}).`,
+                lat: evt?.latlng?.lat,
+                lon: evt?.latlng?.lng,
               })
             );
           }
@@ -255,12 +264,13 @@ export function renderEvacuationLayers({
         ? "Acceso cercano afectado — usar alternativa"
         : "Punto de encuentro referencial";
 
-      L.marker([lat, lon], { icon, zIndexOffset: isRecommended ? 700 : 520 })
-        .bindTooltip(
-          `${esc(p.name)}${isRecommended ? " · Recomendado" : ""}`,
-          { direction: "top", offset: [0, -12] }
-        )
-        .bindPopup(
+      const marker = L.marker([lat, lon], { icon, zIndexOffset: isRecommended ? 700 : 520 }).bindTooltip(
+        `${esc(p.name)}${isRecommended ? " · Recomendado" : ""}`,
+        { direction: "top", offset: [0, -12] }
+      );
+
+      if (bindPopups) {
+        marker.bindPopup(
           `<div class="space-y-1.5 max-w-[260px]">
             <div class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
               isGateAffected
@@ -275,12 +285,19 @@ export function renderEvacuationLayers({
             <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(EVACUATION_ETHICAL_NOTE)}</div>
           </div>`,
           { className: "yaku-popup" }
-        )
+        );
+      }
+
+      marker
         .on("click", () => {
+          const landmarkPrefix = p.landmark ? `Referencia: ${p.landmark}. ` : "";
+          const walkNote = `Tiempo estimado a pie: ~${minWalk}–${minWalk + 3} min desde sectores cercanos.`;
           onSelectFeature?.({
             name: p.name,
             infoType: badgeLabel,
-            explanation: `${p.rationale || ""} ${demBadgeText}.`,
+            explanation: `${landmarkPrefix}${p.rationale || ""} ${walkNote}`,
+            lat,
+            lon,
           });
         })
         .addTo(group);

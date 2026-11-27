@@ -7,7 +7,7 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --default-timeout=180 --retries 15 \
-    fastapi==0.141.1 uvicorn==0.52.4 httpx==0.28.1 pydantic==2.13.5 shapely==2.2.0
+    fastapi==0.141.1 uvicorn==0.52.4 websockets>=12.0 httpx==0.28.1 pydantic==2.13.5 shapely==2.2.0
 
 COPY app ./app
 

@@ -1,9 +1,98 @@
-const API_BASE = "/api";
+const MOBILE_BACKEND_STORAGE_KEY = "yaku_mobile_backend_url";
+const ADMIN_TOKEN_STORAGE_KEY = "yaku_admin_token";
+const DEFAULT_LAN_BACKEND =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_MOBILE_BACKEND_URL) ||
+  "http://192.168.0.23:8000";
+
+export function isNativeCapacitorApp() {
+  if (typeof window === "undefined") return false;
+  if (window.Capacitor?.isNativePlatform?.()) return true;
+  const proto = window.location?.protocol || "";
+  return proto === "capacitor:" || proto === "ionic:";
+}
+
+export function isMobileAppEntry() {
+  if (isNativeCapacitorApp()) return true;
+  if (typeof window === "undefined") return false;
+  if (import.meta.env?.VITE_MOBILE_APP === "true") return true;
+  const params = new URLSearchParams(window.location.search || "");
+  return params.get("mobile") === "1" || params.get("apk") === "1";
+}
+
+export function getMobileBackendOrigin() {
+  if (typeof window !== "undefined") {
+    try {
+      const saved = (window.localStorage.getItem(MOBILE_BACKEND_STORAGE_KEY) || "").trim();
+      if (saved) return saved.replace(/\/+$/, "");
+    } catch {
+      // ignore storage errors
+    }
+  }
+  return DEFAULT_LAN_BACKEND.replace(/\/+$/, "");
+}
+
+export function setMobileBackendOrigin(url) {
+  if (typeof window === "undefined") return;
+  try {
+    const clean = (url || "").trim().replace(/\/+$/, "");
+    if (clean) {
+      window.localStorage.setItem(MOBILE_BACKEND_STORAGE_KEY, clean);
+    } else {
+      window.localStorage.removeItem(MOBILE_BACKEND_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function getApiBase() {
+  if (isNativeCapacitorApp()) {
+    return `${getMobileBackendOrigin()}/api`;
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const custom = (window.localStorage.getItem(MOBILE_BACKEND_STORAGE_KEY) || "").trim();
+      if (custom && isMobileAppEntry()) {
+        return `${custom.replace(/\/+$/, "")}/api`;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return "/api";
+}
+
+export function getDrillWebSocketUrl() {
+  if (isNativeCapacitorApp()) {
+    const origin = getMobileBackendOrigin();
+    const wsOrigin = origin.replace(/^http:/i, "ws:").replace(/^https:/i, "wss:");
+    return `${wsOrigin}/api/ws/drill`;
+  }
+  if (typeof window !== "undefined") {
+    const custom = (() => {
+      try {
+        return (window.localStorage.getItem(MOBILE_BACKEND_STORAGE_KEY) || "").trim();
+      } catch {
+        return "";
+      }
+    })();
+    if (custom && isMobileAppEntry()) {
+      const wsOrigin = custom.replace(/\/+$/, "").replace(/^http:/i, "ws:").replace(/^https:/i, "wss:");
+      return `${wsOrigin}/api/ws/drill`;
+    }
+    const isHttps = window.location.protocol === "https:";
+    const wsProto = isHttps ? "wss:" : "ws:";
+    return `${wsProto}//${window.location.host}/api/ws/drill`;
+  }
+  return "ws://localhost:8000/api/ws/drill";
+}
 
 async function requestJson(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options,
+  const base = getApiBase();
+  const { headers: customHeaders, ...restOptions } = options;
+  const res = await fetch(`${base}${path}`, {
+    ...restOptions,
+    headers: { "Content-Type": "application/json", ...(customHeaders || {}) },
   });
   if (!res.ok) {
     const text = await res.text();
@@ -201,4 +290,82 @@ export function stopLiveSimulation() {
 
 export function fetchCampusBuildingStatus(offline = false) {
   return requestJson(`/campus/building-status?offline=${offline ? "true" : "false"}`);
+}
+
+// --- Sincronización Web → APK Mobile (Simulacro Público + WebSockets + Push) --
+export async function ensureAdminToken(role = "operador_riesgos") {
+  const safeRole = role === "directivo" ? "directivo" : "operador_riesgos";
+  if (typeof window !== "undefined") {
+    try {
+      const cached = window.sessionStorage.getItem(`${ADMIN_TOKEN_STORAGE_KEY}_${safeRole}`);
+      if (cached && cached.includes(".")) return cached;
+    } catch {
+      // ignore
+    }
+  }
+  const auth = await demoLogin({ quick_role: safeRole });
+  if (typeof window !== "undefined" && auth?.token) {
+    try {
+      window.sessionStorage.setItem(`${ADMIN_TOKEN_STORAGE_KEY}_${safeRole}`, auth.token);
+    } catch {
+      // ignore
+    }
+  }
+  return auth?.token || "";
+}
+
+export function fetchPublicDrillState() {
+  return requestJson("/public/drill/state");
+}
+
+export async function publishDrillSession(
+  { scenario_id, initial_hour = 1 },
+  role = "operador_riesgos"
+) {
+  const token = await ensureAdminToken(role);
+  return requestJson("/drill/publish", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "X-Yaku-Admin-Token": token,
+    },
+    body: JSON.stringify({ scenario_id, initial_hour }),
+  });
+}
+
+export async function controlDrillSession(
+  { action, simulated_hour },
+  role = "operador_riesgos"
+) {
+  const token = await ensureAdminToken(role);
+  return requestJson("/drill/control", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "X-Yaku-Admin-Token": token,
+    },
+    body: JSON.stringify({ action, simulated_hour }),
+  });
+}
+
+export async function finishDrillSession(role = "operador_riesgos") {
+  const token = await ensureAdminToken(role);
+  return requestJson("/drill/finish", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "X-Yaku-Admin-Token": token,
+    },
+  });
+}
+
+export function registerMobileDevice(payload) {
+  return requestJson("/public/devices/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchPushConfigStatus() {
+  return requestJson("/public/devices/push-status");
 }

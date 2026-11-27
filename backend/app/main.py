@@ -3,12 +3,13 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app.db import (
+    ADMIN_ROLES,
     authenticate_demo_user,
     build_cap_12_payload,
     claim_active_simulation_alert_dispatch,
@@ -33,7 +34,9 @@ from app.db import (
     stop_active_simulation,
     update_alert_whatsapp_status,
     update_report_status,
+    upsert_mobile_device,
     validate_alert,
+    verify_admin_token,
 )
 
 from app.models import (
@@ -49,6 +52,7 @@ from app.models import (
     WeatherResponse,
 )
 from app.services.conditions import load_conditions_catalog, resolve_conditions
+from app.services.drill_sync import drill_sync_manager, get_push_config_status
 from app.services.hydro import list_presets, load_terrain_grid, run_hydro_simulation
 from app.services.virtual_sensors import get_virtual_sensors_catalog
 from app.services.preventive_engine import (
@@ -82,7 +86,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization", "X-Yaku-Admin-Token"],
 )
 
 # Garantizar creación automática de tablas SQLite al arrancar FastAPI
@@ -1307,3 +1311,157 @@ async def get_campus_building_status(
         "buildings": buildings,
         "total_buildings": len(buildings),
     }
+
+
+# ---------------------------------------------------------------------------
+# Sincronización Web → APK Mobile (Simulacro Público + WebSockets + Push)
+# ---------------------------------------------------------------------------
+class PublishDrillRequest(BaseModel):
+    scenario_id: Literal["evento_2017_03", "evento_2023_03_10"]
+    initial_hour: int = Field(default=1, ge=1, le=48)
+
+
+class ControlDrillRequest(BaseModel):
+    action: Literal["play", "pause", "resume", "set_hour", "notify_facility"]
+    simulated_hour: int | None = Field(default=None, ge=1, le=48)
+
+
+class RegisterMobileDeviceRequest(BaseModel):
+    device_id: str = Field(..., min_length=4, max_length=120)
+    fcm_token: str | None = Field(default=None, max_length=512)
+    platform: Literal["android", "web", "ios"] = "android"
+    notifications_enabled: bool = True
+    app_version: str = Field(default="1.0.0", max_length=32)
+
+
+def _require_admin_role(
+    authorization: str | None,
+    x_yaku_admin_token: str | None,
+) -> str:
+    raw = x_yaku_admin_token or authorization
+    if not raw:
+        raise HTTPException(
+            status_code=401,
+            detail="Autorización administrativa requerida para controlar simulacros públicos.",
+        )
+    clean = raw.strip()
+    if clean.lower().startswith("bearer "):
+        clean = clean[7:].strip()
+    role = verify_admin_token(clean)
+    if role is None:
+        # Distinguir entre token de rol público (403) y token inválido (401)
+        if clean.startswith("yaku-demo-") and not any(
+            clean.startswith(f"yaku-demo-{adm}-") for adm in ADMIN_ROLES
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Rol sin permisos administrativos para publicar o controlar simulacros.",
+            )
+        raise HTTPException(
+            status_code=401,
+            detail="Token administrativo inválido o no verificado.",
+        )
+    return role
+
+
+@app.get("/api/public/drill/state")
+def get_public_drill_state() -> dict:
+    """Devuelve el estado actual del simulacro público sincronizado para clientes móviles y web."""
+    return drill_sync_manager.get_state_snapshot()
+
+
+@app.post("/api/drill/publish")
+async def post_publish_drill(
+    payload: PublishDrillRequest,
+    authorization: str | None = Header(default=None),
+    x_yaku_admin_token: str | None = Header(default=None),
+) -> dict:
+    """Publica explícitamente un simulacro autorizado (requiere rol administrativo verificado)."""
+    admin_role = _require_admin_role(authorization, x_yaku_admin_token)
+    if payload.scenario_id not in PUBLIC_SIMULATION_PRESETS:
+        raise HTTPException(status_code=400, detail="Escenario de simulacro no permitido.")
+    state = await drill_sync_manager.publish_drill(
+        scenario_id=payload.scenario_id,
+        sim_loader=_cached_public_simulation,
+        published_by_role=admin_role,
+        initial_hour=payload.initial_hour,
+    )
+    ref = (state.get("session") or {}).get("result_reference") or {}
+    record_simulation_run(
+        scenario_name=f"Simulacro publicado: {ref.get('title') or payload.scenario_id}",
+        params={"scenario_id": payload.scenario_id, "published_to_mobile": True},
+        peak_hour=int(ref.get("peak_hour") or 1),
+        max_depth_cm=float(ref.get("peak_depth_cm") or 0.0),
+        affected_gates=[],
+        affected_buildings_count=int(ref.get("affected_count_total") or 0),
+        executed_by_role=admin_role,
+    )
+    return state
+
+
+@app.post("/api/drill/control")
+async def post_control_drill(
+    payload: ControlDrillRequest,
+    authorization: str | None = Header(default=None),
+    x_yaku_admin_token: str | None = Header(default=None),
+) -> dict:
+    """Controla reproducción (play/pause/resume/set_hour) del simulacro activo."""
+    admin_role = _require_admin_role(authorization, x_yaku_admin_token)
+    try:
+        return await drill_sync_manager.control_drill(
+            action=payload.action,
+            sim_loader=_cached_public_simulation,
+            simulated_hour=payload.simulated_hour,
+            controlled_by_role=admin_role,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@app.post("/api/drill/finish")
+async def post_finish_drill(
+    authorization: str | None = Header(default=None),
+    x_yaku_admin_token: str | None = Header(default=None),
+) -> dict:
+    """Finaliza el simulacro público activo y notifica a las APKs conectadas."""
+    admin_role = _require_admin_role(authorization, x_yaku_admin_token)
+    return await drill_sync_manager.finish_drill(finished_by_role=admin_role)
+
+
+@app.websocket("/api/ws/drill")
+async def websocket_drill_sync(websocket: WebSocket) -> None:
+    """Canal WebSocket en tiempo real para sincronizar el simulacro con la APK Android."""
+    await drill_sync_manager.connect(websocket)
+    try:
+        while True:
+            msg = await websocket.receive_text()
+            if msg.strip().lower() == "ping":
+                await websocket.send_text('{"type":"pong"}')
+            elif msg.strip().lower() == "sync":
+                await websocket.send_json(drill_sync_manager.get_state_snapshot())
+    except WebSocketDisconnect:
+        drill_sync_manager.disconnect(websocket)
+    except Exception:
+        drill_sync_manager.disconnect(websocket)
+
+
+@app.post("/api/public/devices/register")
+def post_register_mobile_device(payload: RegisterMobileDeviceRequest) -> dict:
+    """Registra de forma consentida un dispositivo móvil para notificaciones de simulacros (0 PII)."""
+    saved = upsert_mobile_device(
+        device_id=payload.device_id,
+        fcm_token=payload.fcm_token,
+        platform=payload.platform,
+        notifications_enabled=payload.notifications_enabled,
+        app_version=payload.app_version,
+    )
+    return {
+        "device": saved,
+        "push_status": get_push_config_status(),
+    }
+
+
+@app.get("/api/public/devices/push-status")
+def get_public_push_status() -> dict:
+    """Consulta el estado real de los canales de notificación (WebSocket, Local y FCM)."""
+    return get_push_config_status()

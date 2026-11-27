@@ -26,11 +26,15 @@ import {
 } from "lucide-react";
 import {
   activateLiveSimulation,
+  controlDrillSession,
   fetchHydroForecast,
   fetchHydroPresets,
   fetchHydroRun,
   fetchLiveSimulation,
+  fetchPublicDrillState,
   fetchSimulationHistory,
+  finishDrillSession,
+  publishDrillSession,
   recordSimulationRun,
   stopLiveSimulation,
 } from "../services/api";
@@ -345,6 +349,30 @@ export default function DynamicSimulationView({
     onLiveSimulationChange,
     onRefreshAlerts,
   ]);
+
+  // Estado de sesión pública de simulacro sincronizado con YAKU ALERT MOBILE (APK Android)
+  const [drillScenarioId, setDrillScenarioId] = useState("evento_2017_03");
+  const [drillState, setDrillState] = useState(null);
+  const [drillBusy, setDrillBusy] = useState(false);
+  const lastSyncedDrillRef = useRef({ hour: null, playing: null });
+
+  useEffect(() => {
+    if (activePresetId === "evento_2017_03" || activePresetId === "evento_2023_03_10") {
+      setDrillScenarioId(activePresetId);
+    }
+  }, [activePresetId]);
+
+  useEffect(() => {
+    let active = true;
+    fetchPublicDrillState()
+      .then((snap) => {
+        if (active && snap?.session) setDrillState(snap);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Blindaje offline automático -> Solo vectorial
   useEffect(() => {
@@ -752,6 +780,100 @@ export default function DynamicSimulationView({
     }, speedMs);
     return () => clearInterval(timer);
   }, [playing, hour, frames.length, speedMs]);
+
+  // Sincronización automática de hora y reproducción hacia APK Android cuando hay un simulacro publicado activo
+  useEffect(() => {
+    const sess = drillState?.session;
+    if (!sess?.is_public) return;
+    const prev = lastSyncedDrillRef.current;
+    if (prev.hour === hour && prev.playing === playing) return;
+    lastSyncedDrillRef.current = { hour, playing };
+
+    const action = playing ? "play" : prev.playing !== playing ? "pause" : "set_hour";
+    controlDrillSession({ action, simulated_hour: hour }, activeDemoRole)
+      .then((snap) => {
+        if (snap?.session) setDrillState(snap);
+      })
+      .catch(() => {});
+  }, [hour, playing, drillState?.session?.is_public, activeDemoRole]);
+
+  const handlePublishDrill = async () => {
+    if (drillBusy) return;
+    setDrillBusy(true);
+    try {
+      const targetPreset =
+        drillScenarioId === "evento_2023_03_10" ? "evento_2023_03_10" : "evento_2017_03";
+      // Asegurar que la vista web también cargue el escenario publicado si era otro
+      if (activePresetId !== targetPreset) {
+        const card = QUICK_PRESETS.find((q) => q.id === targetPreset);
+        if (card) await runPresetConfig(card);
+      }
+      setPlaying(false);
+      setHour(1);
+      lastSyncedDrillRef.current = { hour: 1, playing: false };
+      const snap = await publishDrillSession(
+        { scenario_id: targetPreset, initial_hour: 1 },
+        activeDemoRole
+      );
+      setDrillState(snap);
+      toast.success("Simulacro publicado a YAKU ALERT Mobile", {
+        description: `${snap?.session?.scenario_title || targetPreset} sincronizado en tiempo real.`,
+      });
+    } catch (err) {
+      toast.error("No se pudo publicar el simulacro", { description: err.message });
+    } finally {
+      setDrillBusy(false);
+    }
+  };
+
+  const handleDrillPlayPause = async () => {
+    if (!drillState?.session?.is_public) return;
+    const nextPlaying = !playing;
+    if (nextPlaying && hour >= frames.length) {
+      setHour(1);
+    }
+    setPlaying(nextPlaying);
+  };
+
+  const handleDrillNotifyFacility = async () => {
+    if (!drillState?.session?.is_public || drillBusy) return;
+    setDrillBusy(true);
+    try {
+      const snap = await controlDrillSession(
+        { action: "notify_facility", simulated_hour: hour },
+        activeDemoRole
+      );
+      setDrillState(snap);
+      if (snap?.notification) {
+        toast.success("Aviso contextual de simulacro emitido", {
+          description: snap.notification.body,
+        });
+      } else {
+        toast.info("Aviso contextual ya emitido para esta instalación en la sesión actual.");
+      }
+    } catch (err) {
+      toast.error("Error al emitir aviso contextual", { description: err.message });
+    } finally {
+      setDrillBusy(false);
+    }
+  };
+
+  const handleFinishDrill = async () => {
+    if (!drillState?.session?.is_public || drillBusy) return;
+    setDrillBusy(true);
+    try {
+      setPlaying(false);
+      const snap = await finishDrillSession(activeDemoRole);
+      setDrillState(snap);
+      toast.info("Simulacro finalizado", {
+        description: "La APK Android volvió al modo de monitoreo actual.",
+      });
+    } catch (err) {
+      toast.error("No se pudo finalizar el simulacro", { description: err.message });
+    } finally {
+      setDrillBusy(false);
+    }
+  };
 
   const maxDepthAtHour = currentFrame?.max_depth_cm ?? 0;
   const semaphoreKey = resolveSemaphore(totalRainMm, maxDepthAtHour, inflowP4);
@@ -1596,10 +1718,102 @@ export default function DynamicSimulationView({
             </div>
           </section>
 
-          {/* 4. Acciones reales conectadas a SQLite */}
+          {/* 4. Sincronización Web → APK Mobile (Publicar Simulacro) */}
+          <section
+            aria-label="Sincronización de simulacro con APK Android"
+            className="space-y-3 rounded-2xl border-2 border-[#0369A1]/45 bg-[#F0F9FF]/70 p-4 shadow-panel dark:border-[#00B4D8]/45 dark:bg-sky-950/30"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#0B2545] dark:text-white">
+                <Radio className="h-4 w-4 text-[#0369A1] dark:text-[#38BDF8]" />
+                <span>4. Simulacro en APK Estudiante</span>
+              </div>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ${
+                  drillState?.session?.is_public
+                    ? "bg-[#059669] text-white"
+                    : drillState?.session?.status === "finished"
+                    ? "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+              >
+                {drillState?.session?.is_public
+                  ? `PUBLICADO · ${drillState.session.status.toUpperCase()} (h+${drillState.session.simulated_hour})`
+                  : drillState?.session?.status === "finished"
+                  ? "FINALIZADO"
+                  : "SIN PUBLICAR"}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <select
+                aria-label="Seleccionar escenario de simulacro para publicar"
+                value={drillScenarioId}
+                onChange={(e) => setDrillScenarioId(e.target.value)}
+                className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-[#0F172A] dark:border-slate-700 dark:bg-[#0B2545] dark:text-white"
+              >
+                <option value="evento_2017_03">Escenario tipo 2017 (27.5 mm)</option>
+                <option value="evento_2023_03_10">Escenario tipo 2023 (35.0 mm)</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={handlePublishDrill}
+                disabled={drillBusy || loading}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0B2545] px-4 text-xs font-extrabold text-white shadow-sm transition hover:bg-[#0369A1] disabled:opacity-50 dark:bg-[#0369A1] dark:hover:bg-[#00B4D8]"
+              >
+                <Radio className="h-4 w-4" />
+                <span>Publicar simulacro</span>
+              </button>
+            </div>
+
+            {drillState?.session?.is_public && (
+              <div className="space-y-2 rounded-xl border border-slate-200/90 bg-white p-3 text-xs dark:border-slate-700 dark:bg-[#0B2545]">
+                <div className="flex items-center justify-between font-mono text-[11px] text-[#475569] dark:text-slate-300">
+                  <span>Sesión: {drillState.session.session_id}</span>
+                  <span>Rev #{drillState.session.revision} · Hora h+{drillState.session.simulated_hour}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDrillPlayPause}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0369A1] px-3 text-xs font-extrabold text-white transition hover:bg-[#0284C7]"
+                  >
+                    {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                    <span>{playing ? "Pausar simulacro" : "Iniciar reproducción"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleFinishDrill}
+                    disabled={drillBusy}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-extrabold text-rose-800 transition hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    <span>Finalizar simulacro</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDrillNotifyFacility}
+                  disabled={drillBusy}
+                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 text-xs font-bold text-amber-900 transition hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Emitir aviso contextual de instalación (h+{hour})</span>
+                </button>
+              </div>
+            )}
+
+            <p className="text-[11px] leading-snug text-[#475569] dark:text-slate-300">
+              Ejecutar la simulación técnica no envía avisos públicos. Solo al pulsar{" "}
+              <strong>«Publicar simulacro»</strong> se sincroniza en vivo con las APKs Android conectadas.
+            </p>
+          </section>
+
+          {/* 5. Acciones reales conectadas a SQLite */}
           <section className="space-y-2.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-800 dark:bg-[#0B2545]">
             <div className="text-xs font-extrabold uppercase tracking-wider text-[#0B2545] dark:text-white">
-              4. Acciones operativas (SQLite en vivo)
+              5. Acciones operativas (SQLite en vivo)
             </div>
             <button
               type="button"

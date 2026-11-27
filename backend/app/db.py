@@ -251,6 +251,21 @@ def init_db() -> Path:
             """
         )
 
+        # 9. mobile_devices (Registro consentido de dispositivos APK Android — 0 PII)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mobile_devices (
+                device_id TEXT PRIMARY KEY,
+                fcm_token TEXT,
+                platform TEXT NOT NULL DEFAULT 'android',
+                notifications_enabled INTEGER NOT NULL DEFAULT 1,
+                app_version TEXT NOT NULL DEFAULT '1.0.0',
+                updated_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
         # Sembrar las 5 cuentas demo sintéticas (idempotente)
         now = _now_iso()
         for email, display_name, role, wa_phone in DEMO_ACCOUNTS:
@@ -325,6 +340,49 @@ def get_demo_whatsapp_recipients(target_roles: list[str] | None = None) -> list[
     return [str(r["whatsapp_phone"]).strip() for r in rows if str(r["whatsapp_phone"]).strip()]
 
 
+_ADMIN_TOKEN_SECRET = os.getenv(
+    "YAKU_ADMIN_SECRET", "yaku-alert-unt-admin-hmac-secret-2026"
+)
+ADMIN_ROLES = ("directivo", "operador_riesgos")
+
+
+def sign_demo_token(role: str) -> str:
+    nonce = secrets.token_hex(8)
+    payload = f"yaku-demo-{role}-{nonce}"
+    sig = hmac.new(
+        _ADMIN_TOKEN_SECRET.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()[:24]
+    return f"{payload}.{sig}"
+
+
+def verify_admin_token(token: str | None) -> str | None:
+    """Valida criptográficamente (HMAC-SHA256) que el token pertenezca a un rol administrativo."""
+    if not token:
+        return None
+    clean = token.strip()
+    if clean.lower().startswith("bearer "):
+        clean = clean[7:].strip()
+    if "." not in clean or not clean.startswith("yaku-demo-"):
+        return None
+    payload, sig = clean.rsplit(".", 1)
+    expected_sig = hmac.new(
+        _ADMIN_TOKEN_SECRET.encode("utf-8"),
+        payload.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()[:24]
+    if not hmac.compare_digest(sig, expected_sig):
+        return None
+    parts = payload.split("-")
+    if len(parts) < 4:
+        return None
+    role = "-".join(parts[2:-1])
+    if role not in ADMIN_ROLES:
+        return None
+    return role
+
+
 def authenticate_demo_user(
     *,
     email: str | None = None,
@@ -353,13 +411,14 @@ def authenticate_demo_user(
         else:
             return None
 
-    token = f"yaku-demo-{row['role']}-{secrets.token_hex(8)}"
+    role_str = str(row["role"])
+    token = sign_demo_token(role_str)
     return {
         "token": token,
         "user": {
             "email": str(row["email"]),
             "display_name": str(row["display_name"]),
-            "role": str(row["role"]),
+            "role": role_str,
         },
         "demo_notice": "Cuenta sintética de demostración (0 PII — Ley N.° 29733).",
     }
@@ -1228,3 +1287,68 @@ def stop_active_simulation() -> dict[str, Any]:
         updated = conn.execute("SELECT * FROM active_simulation_state WHERE id = 1").fetchone()
         conn.commit()
     return _row_to_active_simulation(updated)
+
+
+# ---------------------------------------------------------------------------
+# 9. Dispositivos móviles registrados (Consentimiento Android 13+ / FCM)
+# ---------------------------------------------------------------------------
+def upsert_mobile_device(
+    *,
+    device_id: str,
+    fcm_token: str | None = None,
+    platform: str = "android",
+    notifications_enabled: bool = True,
+    app_version: str = "1.0.0",
+) -> dict[str, Any]:
+    init_db()
+    now = _now_iso()
+    clean_id = device_id.strip()[:120]
+    clean_token = (fcm_token or "").strip()[:512] or None
+    enabled_int = 1 if notifications_enabled else 0
+    with _connect() as conn:
+        existing = conn.execute(
+            "SELECT * FROM mobile_devices WHERE device_id = ?", (clean_id,)
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                """
+                INSERT INTO mobile_devices (
+                    device_id, fcm_token, platform, notifications_enabled,
+                    app_version, updated_at, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (clean_id, clean_token, platform, enabled_int, app_version, now, now),
+            )
+        else:
+            token_to_save = clean_token if clean_token is not None else existing["fcm_token"]
+            conn.execute(
+                """
+                UPDATE mobile_devices
+                SET fcm_token = ?, platform = ?, notifications_enabled = ?,
+                    app_version = ?, updated_at = ?
+                WHERE device_id = ?
+                """,
+                (token_to_save, platform, enabled_int, app_version, now, clean_id),
+            )
+        row = conn.execute(
+            "SELECT * FROM mobile_devices WHERE device_id = ?", (clean_id,)
+        ).fetchone()
+        conn.commit()
+    return {
+        "device_id": str(row["device_id"]),
+        "has_fcm_token": bool(row["fcm_token"]),
+        "platform": str(row["platform"]),
+        "notifications_enabled": bool(row["notifications_enabled"]),
+        "app_version": str(row["app_version"]),
+        "updated_at": str(row["updated_at"]),
+    }
+
+
+def list_active_mobile_devices() -> list[dict[str, Any]]:
+    init_db()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM mobile_devices WHERE notifications_enabled = 1"
+        ).fetchall()
+    return [dict(r) for r in rows]

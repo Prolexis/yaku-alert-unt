@@ -48,9 +48,21 @@ const PREVENTIVE_LEVEL_STYLES = {
 };
 
 const ROLE_OPTIONS = [
-  { id: "student", label: "Estudiante", icon: GraduationCap },
+  { id: "student", label: "Comunidad UNT", icon: GraduationCap },
   { id: "admin", label: "Gestión UNT", icon: Building2 },
 ];
+
+const SUB_ROLES = {
+  student: [
+    { id: "estudiante", label: "Estudiante" },
+    { id: "docente", label: "Docente" },
+    { id: "administrativo", label: "Administrativo" },
+  ],
+  admin: [
+    { id: "directivo", label: "Directivo" },
+    { id: "operador_riesgos", label: "Operador Riesgos" },
+  ],
+};
 
 export default function TopHeader({
   activeView,
@@ -66,6 +78,8 @@ export default function TopHeader({
   isSimulationContext,
   userRole = "student",
   onChangeRole,
+  activeDemoRole = "estudiante",
+  onSelectDemoRole,
   preventiveLevel,
 }) {
   const isLive = weather?.data_status === "LIVE_API" && !forceOffline;
@@ -130,6 +144,32 @@ export default function TopHeader({
                   )}
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span>{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sub-selector rápido de 1 clic para los 5 roles demo (sin fricción) */}
+          <div
+            role="group"
+            aria-label="Sub-rol activo"
+            className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-white p-0.5 shadow-subtle dark:border-slate-700 dark:bg-slate-900"
+          >
+            {(SUB_ROLES[userRole] || SUB_ROLES.student).map((sub) => {
+              const selected = activeDemoRole === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => onSelectDemoRole?.(sub.id)}
+                  aria-pressed={selected}
+                  className={`rounded-lg px-2 py-1 text-xs font-bold transition ${
+                    selected
+                      ? "bg-[#00B4D8]/18 text-[#0369A1] ring-1 ring-[#00B4D8]/40 dark:bg-sky-900/60 dark:text-[#38BDF8]"
+                      : "text-[#475569] hover:text-[#0F172A] dark:text-slate-300"
+                  }`}
+                >
+                  {sub.label}
                 </button>
               );
             })}

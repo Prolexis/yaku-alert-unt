@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import PrecipitationChart from "./ui/PrecipitationChart";
 import SkeletonCard from "./ui/SkeletonCard";
+import DataSourcesPanel from "./ui/DataSourcesPanel";
 import { formatLimaTime } from "../utils/formatters";
 
 function PressureReferenceBar({ pressureHpa }) {
@@ -511,6 +512,9 @@ export default function MonitoringView({
           </div>
         )}
       </div>
+
+      {/* 5. Transparencia de fuentes de datos */}
+      <DataSourcesPanel />
     </div>
   );
 }

@@ -4,6 +4,8 @@ import PreventiveMessageCard from "./ui/PreventiveMessageCard";
 import OfficialChannelsSection from "./ui/OfficialChannelsSection";
 import CommunityPreparednessSection from "./ui/CommunityPreparednessSection";
 import ExplainabilityStrip from "./ui/ExplainabilityStrip";
+import ActiveAlertsBanner from "./ui/ActiveAlertsBanner";
+import { AdminReportsInbox } from "./ui/CampusReportModal";
 
 export default function PreventionView({
   evaluation,
@@ -16,6 +18,14 @@ export default function PreventionView({
   declaredConditions = [],
   onToggleCondition,
   userRole = "student",
+  activeDemoRole = "estudiante",
+  onIssueAlert,
+  activeAlerts = [],
+  onResolveAlert,
+  onValidateAlert,
+  onConfirmAlert,
+  campusReports = [],
+  onUpdateReportStatus,
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [communityOpen, setCommunityOpen] = useState(false);
@@ -119,6 +129,18 @@ export default function PreventionView({
         </div>
       ) : (
         <div className="space-y-5">
+          {/* Avisos institucionales activos (SQLite · CAP 1.2) */}
+          {activeAlerts.length > 0 && (
+            <ActiveAlertsBanner
+              alerts={activeAlerts}
+              canResolve={userRole === "admin"}
+              onResolveAlert={onResolveAlert}
+              onValidateAlert={onValidateAlert}
+              onConfirmAlert={onConfirmAlert}
+              activeDemoRole={activeDemoRole}
+            />
+          )}
+
           {/* Mensaje preventivo estructurado + Boletín descargable/imprimible */}
           <PreventiveMessageCard
             evaluation={evaluation}
@@ -126,7 +148,17 @@ export default function PreventionView({
             simResult={simResult}
             hydroResult={hydroResult}
             userRole={userRole}
+            activeDemoRole={activeDemoRole}
+            onIssueAlert={onIssueAlert}
           />
+
+          {/* Bandeja de reportes comunitarios anónimos (solo Gestión UNT) */}
+          {userRole === "admin" && (
+            <AdminReportsInbox
+              reports={campusReports}
+              onUpdateStatus={onUpdateReportStatus}
+            />
+          )}
 
           {/* Explicabilidad visual: ¿Por qué este nivel? */}
           <ExplainabilityStrip

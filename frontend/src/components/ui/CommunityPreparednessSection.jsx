@@ -12,6 +12,7 @@ import {
   Lock,
   MapPin,
 } from "lucide-react";
+import { BackpackItemIcon } from "./StudentIllustrations";
 
 const BRIGADES = [
   {
@@ -224,13 +225,14 @@ export default function CommunityPreparednessSection() {
                     : "border-slate-200 bg-white text-[#0F172A] hover:border-[#00B4D8] dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-100"
                 }`}
               >
-                <span className="flex items-center gap-2.5">
+                <span className="flex min-w-0 items-center gap-2.5">
                   <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={() => toggleItem(item.id)}
-                    className="h-4 w-4 rounded accent-[#059669]"
+                    className="h-4 w-4 shrink-0 rounded accent-[#059669]"
                   />
+                  <BackpackItemIcon id={item.id} />
                   <span className={isChecked ? "font-semibold line-through opacity-80" : "font-semibold"}>
                     {item.label}
                   </span>

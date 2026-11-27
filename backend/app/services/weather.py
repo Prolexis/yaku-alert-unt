@@ -12,6 +12,7 @@ from app.config import (
     UNT_TIMEZONE,
     WEATHER_FALLBACK_PATH,
 )
+from app.db import get_latest_weather_snapshot, save_weather_snapshot
 from app.models import HourlyForecastPoint, WeatherResponse, WeatherSummary
 
 
@@ -255,11 +256,30 @@ async def fetch_weather_for_unt(force_offline: bool = False) -> WeatherResponse:
                     raw = resp.json()
                 parsed = parse_open_meteo_payload(raw, data_status="LIVE_API", fetched_at_utc=now_utc)
                 _live_cache.update(ts=now, raw=raw)
+                try:
+                    save_weather_snapshot(raw, fetched_at_utc=now_utc, source="Open-Meteo")
+                except Exception:
+                    pass
                 return parsed
             except Exception as exc:
                 reason = f"No se pudo consultar Open-Meteo ({type(exc).__name__}); se usa el respaldo local."
                 _fail_state.update(until=now + FAIL_BACKOFF_SECONDS, reason=reason)
 
+    # Prioridad offline 1: último snapshot real almacenado en SQLite
+    try:
+        latest_snap = get_latest_weather_snapshot()
+    except Exception:
+        latest_snap = None
+
+    if latest_snap and isinstance(latest_snap.get("payload"), dict):
+        return parse_open_meteo_payload(
+            latest_snap["payload"],
+            data_status="OFFLINE_FALLBACK",
+            fetched_at_utc=f"{latest_snap['fetched_at_utc']} (caché SQLite de última consulta real)",
+            fallback_reason=reason,
+        )
+
+    # Prioridad offline 2: JSON estático empaquetado
     if not WEATHER_FALLBACK_PATH.exists():
         raise FileNotFoundError("No se encontró el archivo local de respaldo meteorológico.")
 

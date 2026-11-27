@@ -13,11 +13,20 @@ import {
   Percent,
   Waves,
   ShieldAlert,
+  Megaphone,
 } from "lucide-react";
 import PrecipitationChart from "./ui/PrecipitationChart";
 import SkeletonCard from "./ui/SkeletonCard";
 import FacultyLookupCard from "./ui/FacultyLookupCard";
 import ExecutiveDecisionCard from "./ui/ExecutiveDecisionCard";
+import ActiveAlertsBanner from "./ui/ActiveAlertsBanner";
+import { AdminReportsInbox } from "./ui/CampusReportModal";
+import DataSourcesPanel from "./ui/DataSourcesPanel";
+import {
+  WeatherStateIllustration,
+  CampusAccessStatusStrip,
+  StudentThreeStepsStrip,
+} from "./ui/StudentIllustrations";
 import { formatLimaTime, humanPreventiveTitle } from "../utils/formatters";
 
 const containerVariants = {
@@ -78,6 +87,14 @@ export default function DashboardView({
   onNavigate,
   onRefresh,
   userRole = "student",
+  activeDemoRole = "estudiante",
+  activeAlerts = [],
+  campusReports = [],
+  onOpenReportModal,
+  onResolveAlert,
+  onValidateAlert,
+  onConfirmAlert,
+  onUpdateReportStatus,
 }) {
   const [limitsOpen, setLimitsOpen] = useState(false);
 
@@ -136,6 +153,21 @@ export default function DashboardView({
       animate="visible"
       className="space-y-6"
     >
+      {/* 0a. Buzón/Banner vivo de alertas emitidas por Gestión UNT */}
+      {activeAlerts.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <ActiveAlertsBanner
+            alerts={activeAlerts}
+            onOpenSafeRoutes={() => onNavigate(userRole === "admin" ? "map" : "student_map")}
+            canResolve={userRole === "admin"}
+            onResolveAlert={onResolveAlert}
+            onValidateAlert={onValidateAlert}
+            onConfirmAlert={onConfirmAlert}
+            activeDemoRole={activeDemoRole}
+          />
+        </motion.div>
+      )}
+
       {/* 0. Pieza principal según perfil */}
       {userRole === "admin" ? (
         <motion.div variants={itemVariants}>
@@ -155,35 +187,41 @@ export default function DashboardView({
           className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B2545] sm:p-6"
         >
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-            <div className="space-y-2.5">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-extrabold ${levelBadgeStyle}`}
-                >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <WeatherStateIllustration
+                intensityMmH={summary?.max_intensity_mm_h ?? 0}
+                probabilityPct={typeof maxProb24 === "number" ? maxProb24 : 0}
+              />
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{
-                      backgroundColor: liveEvaluation?.level_color || "#059669",
-                    }}
-                  />
-                  <span>{statusTitle}</span>
-                </span>
-
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-[#F8FAFC] px-3 py-1 text-xs font-bold text-[#0B2545] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-                  <CloudRain className="h-3.5 w-3.5 text-[#0369A1]" />
-                  <span>Probabilidad máx. 24 h:</span>
-                  <span className="font-mono font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8]">
-                    {maxProb24}%
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-extrabold ${levelBadgeStyle}`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{
+                        backgroundColor: liveEvaluation?.level_color || "#059669",
+                      }}
+                    />
+                    <span>{statusTitle}</span>
                   </span>
-                </span>
-              </div>
 
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
-                Estado del campus UNT hoy
-              </h2>
-              <p className="max-w-2xl text-sm leading-relaxed text-[#475569] dark:text-slate-300">
-                {buildWeatherPhrase(summary)}
-              </p>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-[#F8FAFC] px-3 py-1 text-xs font-bold text-[#0B2545] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                    <CloudRain className="h-3.5 w-3.5 text-[#0369A1]" />
+                    <span>Prob. máx. 24 h:</span>
+                    <span className="font-mono font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8]">
+                      {maxProb24}%
+                    </span>
+                  </span>
+                </div>
+
+                <h2 className="text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
+                  Estado del campus UNT hoy
+                </h2>
+                <p className="max-w-2xl text-sm leading-relaxed text-[#475569] dark:text-slate-300">
+                  {buildWeatherPhrase(summary)}
+                </p>
+              </div>
             </div>
 
             {/* 2 botones grandes y directos para el estudiante */}
@@ -207,6 +245,18 @@ export default function DashboardView({
                 <Waves className="h-4 w-4 shrink-0" />
                 <span>Explorar simulación educativa 2017 / 2023</span>
               </motion.button>
+
+              {onOpenReportModal && (
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={onOpenReportModal}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#D97706]/40 bg-[#FFFBEB] px-4 text-sm font-bold text-[#92400E] transition hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
+                >
+                  <Megaphone className="h-4 w-4 shrink-0" />
+                  <span>Reportar incidente</span>
+                </motion.button>
+              )}
             </div>
           </div>
 
@@ -236,6 +286,23 @@ export default function DashboardView({
             </ul>
           )}
         </motion.section>
+      )}
+
+      {/* 1b. Estado visual de puertas P1-P4 + 3 pasos ilustrados (Vista Estudiante) */}
+      {userRole !== "admin" && (
+        <>
+          <motion.div variants={itemVariants}>
+            <CampusAccessStatusStrip
+              simResult={simResult}
+              hydroResult={hydroResult}
+              campusReports={campusReports}
+              onOpenMap={() => onNavigate("student_map")}
+            />
+          </motion.div>
+          <motion.div variants={itemVariants}>
+            <StudentThreeStepsStrip onNavigate={onNavigate} />
+          </motion.div>
+        </>
       )}
 
       {/* 1. Resumen meteorológico para Gestión UNT (en Estudiante ya va integrado arriba) */}
@@ -393,6 +460,16 @@ export default function DashboardView({
         />
       </motion.div>
 
+      {/* 3b. Bandeja de reportes comunitarios anónimos (solo Gestión UNT) */}
+      {userRole === "admin" && (
+        <motion.div variants={itemVariants}>
+          <AdminReportsInbox
+            reports={campusReports}
+            onUpdateStatus={onUpdateReportStatus}
+          />
+        </motion.div>
+      )}
+
       {/* 4. Accesos rápidos */}
       <motion.section variants={itemVariants} className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <ActionLink
@@ -421,6 +498,11 @@ export default function DashboardView({
           onClick={() => onNavigate(userRole === "admin" ? "hydro" : "student_sim")}
         />
       </motion.section>
+
+      {/* 5. Transparencia de fuentes de datos */}
+      <motion.div variants={itemVariants}>
+        <DataSourcesPanel />
+      </motion.div>
     </motion.div>
   );
 }

@@ -1,6 +1,7 @@
 import React from "react";
 import { X, ShieldCheck, Scale, Cpu, AlertTriangle } from "lucide-react";
 import { YakuAlertLogo, NexoRiskBadge } from "./BrandLogo";
+import DataSourcesPanel from "./DataSourcesPanel";
 
 export default function HelpModal({ open, onClose }) {
   if (!open) return null;
@@ -85,6 +86,8 @@ export default function HelpModal({ open, onClose }) {
               referenciales para planificación preventiva.
             </p>
           </div>
+
+          <DataSourcesPanel compact />
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-slate-700">

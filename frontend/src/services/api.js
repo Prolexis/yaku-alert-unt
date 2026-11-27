@@ -72,3 +72,97 @@ export function fetchVirtualSensors() {
 export function fetchPublicSimulation(presetId) {
   return requestJson(`/public/simulation/${encodeURIComponent(presetId)}`);
 }
+
+// --- Persistencia SQLite: Alertas Gestión ↔ Estudiante, Reportes y Fuentes --
+export function fetchAlerts(activeOnly = false) {
+  return requestJson(`/alerts?active_only=${activeOnly ? "true" : "false"}`);
+}
+
+export function issueAlert(payload) {
+  return requestJson("/alerts", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resolveAlert(alertId) {
+  return requestJson(`/alerts/${encodeURIComponent(alertId)}/resolve`, {
+    method: "PATCH",
+  });
+}
+
+export function fetchReports() {
+  return requestJson("/reports");
+}
+
+export function createReport(payload) {
+  return requestJson("/reports", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateReportStatus(reportId, status) {
+  return requestJson(`/reports/${encodeURIComponent(reportId)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export function fetchSourcesStatus() {
+  return requestJson("/sources/status");
+}
+
+// --- Auth Demo (5 roles), Validación Humana, CAP 1.2, Confirmaciones y Continuidad
+export function demoLogin(payload) {
+  return requestJson("/auth/demo-login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function validateAlert(alertId, validatedByRole = "directivo") {
+  return requestJson(`/alerts/${encodeURIComponent(alertId)}/validate`, {
+    method: "PATCH",
+    body: JSON.stringify({ validated_by_role: validatedByRole }),
+  });
+}
+
+export function fetchAlertCap(alertId) {
+  return requestJson(`/alerts/${encodeURIComponent(alertId)}/cap?format=json`);
+}
+
+export function confirmAlertReceipt(alertId, role = "estudiante", status = "recibido") {
+  return requestJson(`/alerts/${encodeURIComponent(alertId)}/confirm`, {
+    method: "POST",
+    body: JSON.stringify({ role, status }),
+  });
+}
+
+export function fetchContinuityDecisions(activeOnly = false) {
+  return requestJson(`/continuity/decisions?active_only=${activeOnly ? "true" : "false"}`);
+}
+
+export function createContinuityDecision(payload) {
+  return requestJson("/continuity/decisions", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resolveContinuityDecision(decisionId) {
+  return requestJson(`/continuity/decisions/${encodeURIComponent(decisionId)}/resolve`, {
+    method: "PATCH",
+  });
+}
+
+export function recordSimulationRun(payload) {
+  return requestJson("/simulations/history", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchSimulationHistory() {
+  return requestJson("/simulations/history");
+}

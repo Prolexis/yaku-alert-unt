@@ -2,19 +2,31 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import {
+  confirmAlertReceipt,
+  createContinuityDecision,
+  demoLogin,
+  fetchAlerts,
   fetchCampusLayers,
   fetchConditionsCatalog,
+  fetchContinuityDecisions,
   fetchLiveEvaluation,
   fetchProtocols,
+  fetchReports,
   fetchVirtualSensors,
   fetchWeather,
+  issueAlert,
+  resolveAlert,
+  resolveContinuityDecision,
   runSimulation,
+  updateReportStatus,
+  validateAlert,
 } from "./services/api";
 import { mergeVirtualSensors } from "./utils/sensorFormatters";
 import Sidebar from "./components/ui/Sidebar";
 import TopHeader from "./components/ui/TopHeader";
 import DataStatusBanner from "./components/ui/DataStatusBanner";
 import HelpModal from "./components/ui/HelpModal";
+import CampusReportModal from "./components/ui/CampusReportModal";
 import YakuAssistantDrawer from "./components/ui/YakuAssistantDrawer";
 import DashboardView from "./components/DashboardView";
 import MonitoringView from "./components/MonitoringView";
@@ -76,6 +88,121 @@ export default function App() {
   const [simError, setSimError] = useState("");
   const [lastSimAt, setLastSimAt] = useState("");
   const [focusedBuildingId, setFocusedBuildingId] = useState("");
+  const [activeDemoRole, setActiveDemoRole] = useState("estudiante");
+  const [activeAlerts, setActiveAlerts] = useState([]);
+  const [campusReports, setCampusReports] = useState([]);
+  const [continuityDecisions, setContinuityDecisions] = useState([]);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+
+  const refreshAlertsAndReports = () => {
+    fetchAlerts(false)
+      .then((res) => {
+        const visible = [
+          ...(res.active_alerts || []),
+          ...(res.draft_alerts || []),
+        ];
+        setActiveAlerts(visible);
+      })
+      .catch((err) => console.warn("Alertas SQLite no disponibles:", err));
+    fetchReports()
+      .then((res) => setCampusReports(res.reports || []))
+      .catch((err) => console.warn("Reportes SQLite no disponibles:", err));
+    fetchContinuityDecisions(true)
+      .then((res) => setContinuityDecisions(res.active_decisions || []))
+      .catch((err) => console.warn("Decisiones de continuidad no disponibles:", err));
+  };
+
+  const handleSelectDemoRole = async (roleId) => {
+    setActiveDemoRole(roleId);
+    const isAdminRole = roleId === "directivo" || roleId === "operador_riesgos";
+    if (isAdminRole && userRole !== "admin") {
+      handleChangeRole("admin");
+    } else if (!isAdminRole && userRole !== "student") {
+      handleChangeRole("student");
+    }
+    try {
+      const auth = await demoLogin({ quick_role: roleId });
+      toast.success(`Perfil activo: ${auth.user.display_name}`, {
+        description: `${auth.user.email} · Acceso demo sin PII.`,
+      });
+    } catch {
+      // Operación offline segura
+    }
+  };
+
+  const handleValidateAlert = async (alertId) => {
+    try {
+      const validated = await validateAlert(
+        alertId,
+        activeDemoRole === "operador_riesgos" ? "operador_riesgos" : "directivo"
+      );
+      setActiveAlerts((prev) => prev.map((a) => (a.id === alertId ? validated : a)));
+      toast.success("Alerta validada y emitida (CAP 1.2)");
+    } catch (err) {
+      toast.error("No se pudo validar la alerta", { description: err.message });
+    }
+  };
+
+  const handleConfirmAlert = async (alertId, status) => {
+    try {
+      const res = await confirmAlertReceipt(alertId, activeDemoRole, status);
+      setActiveAlerts((prev) =>
+        prev.map((a) =>
+          a.id === alertId ? { ...a, confirmations: res.confirmations } : a
+        )
+      );
+      toast.success(
+        status === "en_zona_segura"
+          ? "Confirmado: estás en zona segura"
+          : "Confirmación de recepción registrada",
+        { description: `Total confirmaciones en tiempo real: ${res.confirmations.total}` }
+      );
+    } catch (err) {
+      toast.error("No se pudo registrar la confirmación", { description: err.message });
+    }
+  };
+
+  const handleCreateDecision = async (payload) => {
+    const created = await createContinuityDecision(payload);
+    setContinuityDecisions((prev) => [created, ...prev]);
+    toast.success("Medida de continuidad activada para la comunidad UNT");
+    return created;
+  };
+
+  const handleResolveDecision = async (decisionId) => {
+    await resolveContinuityDecision(decisionId);
+    setContinuityDecisions((prev) => prev.filter((d) => d.id !== decisionId));
+    toast.info("Medida de continuidad finalizada");
+  };
+
+  const handleIssueAlert = async (payload) => {
+    const created = await issueAlert(payload);
+    setActiveAlerts((prev) => [created, ...prev]);
+    toast.success("Aviso publicado en la vista Estudiante", {
+      description: `${created.title} · Guardado en SQLite.`,
+    });
+    return created;
+  };
+
+  const handleResolveAlert = async (alertId) => {
+    try {
+      await resolveAlert(alertId);
+      setActiveAlerts((prev) => prev.filter((a) => a.id !== alertId));
+      toast.info("Aviso institucional cerrado");
+    } catch (err) {
+      toast.error("No se pudo cerrar el aviso", { description: err.message });
+    }
+  };
+
+  const handleUpdateReportStatus = async (reportId, nextStatus) => {
+    try {
+      const updated = await updateReportStatus(reportId, nextStatus);
+      setCampusReports((prev) => prev.map((r) => (r.id === reportId ? updated : r)));
+      toast.success(`Reporte #${reportId} marcado como ${nextStatus}`);
+    } catch (err) {
+      toast.error("No se pudo actualizar el reporte", { description: err.message });
+    }
+  };
 
   const virtualSensors = useMemo(
     () => mergeVirtualSensors(virtualSensorsCatalog, hydroResult),
@@ -91,17 +218,23 @@ export default function App() {
     if (nextRole === userRole) return;
     setUserRole(nextRole);
     if (nextRole === "student") {
+      if (["directivo", "operador_riesgos"].includes(activeDemoRole)) {
+        setActiveDemoRole("estudiante");
+      }
       if (activeView === "map" || activeView === "monitoring") setActiveView("student_map");
       else if (activeView === "hydro" || activeView === "simulator") setActiveView("student_sim");
       setEvalSourceMode("live");
-      toast.info("Vista Estudiante activada", {
-        description: "Interfaz simplificada para consulta rápida y rutas seguras.",
+      toast.info("Vista Comunidad UNT activada", {
+        description: "Interfaz simplificada para consulta rápida, confirmación de alertas y rutas seguras.",
       });
     } else {
+      if (!["directivo", "operador_riesgos"].includes(activeDemoRole)) {
+        setActiveDemoRole("directivo");
+      }
       if (activeView === "student_map") setActiveView("map");
       else if (activeView === "student_sim") setActiveView("hydro");
       toast.success("Vista Gestión UNT activada", {
-        description: "Semáforo ejecutivo, monitoreo sinóptico y simuladores habilitados.",
+        description: "Semáforo ejecutivo, validación CAP 1.2 y simuladores habilitados.",
       });
     }
   };
@@ -218,6 +351,7 @@ export default function App() {
       .then(setConditionsCatalog)
       .catch((err) => console.warn("Condiciones externas no disponibles:", err));
     runSimulation(DEFAULT_SIM_PARAMS).then(setSimResult).catch(onFail);
+    refreshAlertsAndReports();
   }, []);
 
   // Solo el rol Administrador carga el catálogo técnico de sensores IoT virtuales
@@ -269,6 +403,8 @@ export default function App() {
             isSimulationContext={isSimulationContext}
             userRole={userRole}
             onChangeRole={handleChangeRole}
+            activeDemoRole={activeDemoRole}
+            onSelectDemoRole={handleSelectDemoRole}
             preventiveLevel={currentEvaluation?.preventive_level || currentEvaluation?.level}
           />
 
@@ -311,6 +447,18 @@ export default function App() {
                     onNavigate={setActiveView}
                     onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
                     userRole={userRole}
+                    activeDemoRole={activeDemoRole}
+                    activeAlerts={
+                      userRole === "admin"
+                        ? activeAlerts
+                        : activeAlerts.filter((a) => a.status === "emitida" && a.active)
+                    }
+                    campusReports={campusReports}
+                    onOpenReportModal={() => setReportModalOpen(true)}
+                    onResolveAlert={handleResolveAlert}
+                    onValidateAlert={handleValidateAlert}
+                    onConfirmAlert={handleConfirmAlert}
+                    onUpdateReportStatus={handleUpdateReportStatus}
                   />
                 )}
 
@@ -335,6 +483,11 @@ export default function App() {
                     onSelectBuilding={setFocusedBuildingId}
                     onNavigate={setActiveView}
                     offline={forceOffline || browserOffline}
+                    activeAlerts={activeAlerts.filter((a) => a.status === "emitida" && a.active)}
+                    activeDemoRole={activeDemoRole}
+                    onConfirmAlert={handleConfirmAlert}
+                    campusReports={campusReports}
+                    onOpenReportModal={() => setReportModalOpen(true)}
                   />
                 )}
 
@@ -380,6 +533,18 @@ export default function App() {
                     declaredConditions={declaredConditions}
                     onToggleCondition={handleToggleDeclaredCondition}
                     userRole={userRole}
+                    activeDemoRole={activeDemoRole}
+                    onIssueAlert={handleIssueAlert}
+                    activeAlerts={
+                      userRole === "admin"
+                        ? activeAlerts
+                        : activeAlerts.filter((a) => a.status === "emitida" && a.active)
+                    }
+                    onResolveAlert={handleResolveAlert}
+                    onValidateAlert={handleValidateAlert}
+                    onConfirmAlert={handleConfirmAlert}
+                    campusReports={campusReports}
+                    onUpdateReportStatus={handleUpdateReportStatus}
                   />
                 )}
 
@@ -410,11 +575,21 @@ export default function App() {
                     onLocateBuildingInMap={handleLocateBuildingInMap}
                     onNavigate={setActiveView}
                     offline={forceOffline || browserOffline}
+                    activeDemoRole={activeDemoRole}
+                    onIssueAlert={handleIssueAlert}
                   />
                 )}
 
                 {activeView === "continuity" && (
-                  <ContinuityView protocols={protocols} campusLayers={campusLayers} />
+                  <ContinuityView
+                    protocols={protocols}
+                    campusLayers={campusLayers}
+                    userRole={userRole}
+                    activeDemoRole={activeDemoRole}
+                    continuityDecisions={continuityDecisions}
+                    onCreateDecision={handleCreateDecision}
+                    onResolveDecision={handleResolveDecision}
+                  />
                 )}
               </motion.div>
             </AnimatePresence>
@@ -428,6 +603,11 @@ export default function App() {
         </div>
 
         <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <CampusReportModal
+          open={reportModalOpen}
+          onClose={() => setReportModalOpen(false)}
+          onCreated={refreshAlertsAndReports}
+        />
         <YakuAssistantDrawer
           userRole={userRole}
           weather={weather}

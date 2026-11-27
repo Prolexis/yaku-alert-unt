@@ -164,10 +164,13 @@ export default function PreventiveMessageCard({
   simResult,
   hydroResult,
   userRole = "student",
+  activeDemoRole = "directivo",
+  onIssueAlert,
 }) {
   const [profileId, setProfileId] = useState("estudiantes");
   const [channelId, setChannelId] = useState("whatsapp");
   const [copied, setCopied] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const draftText = useMemo(() => {
     if (!evaluation || userRole !== "admin") return "";
@@ -199,6 +202,59 @@ export default function PreventiveMessageCard({
       setCopied(true);
       toast.success("Aviso preventivo copiado al portapapeles");
       window.setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handlePublishToCampus = async () => {
+    if (!onIssueAlert || publishing) return;
+    setPublishing(true);
+    try {
+      const profileMap = {
+        estudiantes: "student",
+        docentes: "teacher",
+        administrativos: "admin",
+      };
+      const affectedZones = [];
+      if (hydroResult?.elements?.length) {
+        hydroResult.elements
+          .filter((e) => e.first_hour_affected !== null)
+          .slice(0, 3)
+          .forEach((e) => affectedZones.push(e.name));
+      } else if (simResult?.spatial_analysis?.restricted_accesses?.length) {
+        simResult.spatial_analysis.restricted_accesses
+          .filter((a) => a.inside_hazard_zone)
+          .slice(0, 3)
+          .forEach((a) => affectedZones.push(a.name));
+      }
+      await onIssueAlert({
+        level: evaluation.preventive_level || "VIGILANCIA_PREVENTIVA",
+        target_profile: profileMap[profileId] || "all",
+        target_roles: ["estudiante", "docente", "administrativo"],
+        channel: channelId,
+        title,
+        message: draftText,
+        what_happens: evaluation.hazard_assessment || title,
+        where_zone: affectedZones.length
+          ? `Ciudad Universitaria UNT — ${affectedZones.join(", ")}`
+          : "Ciudad Universitaria UNT (sectores de cota baja y accesos)",
+        when_window: `Referencia ${local} · Próximas 24 horas`,
+        what_to_do:
+          (evaluation.guidance && evaluation.guidance[0]) ||
+          buildEvacuationRecommendation(evaluation, simResult, hydroResult),
+        issuer: `Yaku Alert UNT — Validación Humana (${activeDemoRole}) · Ejemplo no oficial`,
+        affected_zones: affectedZones.length
+          ? affectedZones
+          : ["Ciudad Universitaria UNT"],
+        status: "emitida",
+        validated_by_role:
+          activeDemoRole === "operador_riesgos" ? "operador_riesgos" : "directivo",
+      });
+    } catch (err) {
+      toast.error("No se pudo emitir el aviso al campus", {
+        description: err.message || "Verifica conexión con el backend.",
+      });
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -296,18 +352,33 @@ export default function PreventiveMessageCard({
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleCopy}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition ${
-                copied
-                  ? "bg-emerald-600 text-white"
-                  : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
-              }`}
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              <span>{copied ? "Copiado" : "Copiar aviso"}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {onIssueAlert && (
+                <button
+                  type="button"
+                  onClick={handlePublishToCampus}
+                  disabled={publishing}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0B2545] px-3.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#0369A1] disabled:opacity-60 dark:bg-[#0369A1]"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span>
+                    {publishing ? "Validando y emitiendo..." : "Validar y emitir alerta (CAP 1.2)"}
+                  </span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleCopy}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition ${
+                  copied
+                    ? "bg-emerald-600 text-white"
+                    : "border border-[#0369A1]/40 bg-white text-[#0369A1] hover:bg-[#F0F9FF] dark:border-sky-700 dark:bg-slate-900 dark:text-[#38BDF8]"
+                }`}
+              >
+                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                <span>{copied ? "Copiado" : "Copiar aviso"}</span>
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">

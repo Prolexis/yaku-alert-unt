@@ -12,10 +12,15 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Megaphone,
 } from "lucide-react";
 import { formatLimaTime, normalizeText } from "../utils/formatters";
 import { buildCampusCatalog, getFeatureDisplayName } from "../utils/campusCatalog";
 import ExplainabilityStrip from "./ui/ExplainabilityStrip";
+import ActiveAlertsBanner from "./ui/ActiveAlertsBanner";
+import { REPORT_CATEGORIES } from "./ui/CampusReportModal";
+import WhereAmISafeRouteBar from "./ui/WhereAmISafeRouteBar";
+import { findNearestSafeRoute } from "../utils/safeRouteHelper";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -80,6 +85,11 @@ export default function StudentMonitoringMap({
   onSelectBuilding,
   onNavigate,
   offline = false,
+  activeAlerts = [],
+  activeDemoRole = "estudiante",
+  onConfirmAlert,
+  campusReports = [],
+  onOpenReportModal,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -87,6 +97,8 @@ export default function StudentMonitoringMap({
   const attentionGroupRef = useRef(null);
   const evacuationGroupRef = useRef(null);
   const trujilloContextGroupRef = useRef(null);
+  const reportsGroupRef = useRef(null);
+  const myRouteGroupRef = useRef(null);
   const focusLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const tileErrorsRef = useRef(0);
@@ -104,6 +116,7 @@ export default function StudentMonitoringMap({
   const [legendOpen, setLegendOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedCard, setSelectedCard] = useState(null);
+  const [myLocationId, setMyLocationId] = useState("");
 
   // Blindaje offline: al activarse modo sin conexión, cambia automáticamente a Solo vectorial
   useEffect(() => {
@@ -113,6 +126,35 @@ export default function StudentMonitoringMap({
   }, [offline]);
 
   const catalog = useMemo(() => buildCampusCatalog(campusLayers, null), [campusLayers]);
+
+  const facultyOptions = useMemo(
+    () =>
+      catalog.filter(
+        (c) =>
+          c.center &&
+          ["facultad", "escuela_pabellon", "biblioteca_auditorio", "comedor_servicios", "oficina"].includes(
+            c.typeId
+          )
+      ),
+    [catalog]
+  );
+
+  const mySafeRoute = useMemo(() => {
+    if (!myLocationId) return null;
+    const origin = catalog.find((c) => c.id === myLocationId);
+    if (!origin) return null;
+    const blockedGates = new Set();
+    campusReports.forEach((r) => {
+      if (r.status === "atendido") return;
+      const z = String(r.zone_name || "").toLowerCase();
+      if (r.category === "acceso_bloqueado" || r.severity === "alta") {
+        if (z.includes("puerta 4")) blockedGates.add("P4");
+        if (z.includes("puerta 3")) blockedGates.add("P3");
+        if (z.includes("puerta 2")) blockedGates.add("P2");
+      }
+    });
+    return findNearestSafeRoute({ originItem: origin, campusLayers, affectedGates: blockedGates });
+  }, [myLocationId, catalog, campusLayers, campusReports]);
 
   const filteredCatalog = useMemo(() => {
     const q = normalizeText(query.trim());
@@ -145,6 +187,8 @@ export default function StudentMonitoringMap({
     attentionGroupRef.current = L.layerGroup().addTo(map);
     evacuationGroupRef.current = L.layerGroup().addTo(map);
     trujilloContextGroupRef.current = L.layerGroup().addTo(map);
+    reportsGroupRef.current = L.layerGroup().addTo(map);
+    myRouteGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
     return () => {
@@ -154,6 +198,8 @@ export default function StudentMonitoringMap({
       attentionGroupRef.current = null;
       evacuationGroupRef.current = null;
       trujilloContextGroupRef.current = null;
+      reportsGroupRef.current = null;
+      myRouteGroupRef.current = null;
       focusLayerRef.current = null;
       tileLayerRef.current = null;
     };
@@ -538,6 +584,85 @@ export default function StudentMonitoringMap({
     });
   }, [campusLayers, showTrujilloContext]);
 
+  // Capa en vivo de reportes comunitarios anónimos (SQLite)
+  useEffect(() => {
+    const group = reportsGroupRef.current;
+    if (!group) return;
+    group.clearLayers();
+    campusReports.forEach((rep) => {
+      if (rep.lat === null || rep.lat === undefined || rep.lon === null || rep.lon === undefined) {
+        return;
+      }
+      const cat = REPORT_CATEGORIES.find((c) => c.id === rep.category);
+      const bg = cat?.color || "#D97706";
+      const pulse = rep.severity === "alta" && rep.status !== "atendido" ? "yaku-alert-pulse" : "";
+      const icon = L.divIcon({
+        className: "yaku-report-marker",
+        html: `<div class="${pulse}" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:${bg};color:#ffffff;font:800 11px/1 system-ui,sans-serif;border:2px solid #ffffff;box-shadow:0 2px 6px rgba(11,37,69,0.35);">!</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      L.marker([rep.lat, rep.lon], { icon, zIndexOffset: 600 })
+        .bindTooltip(`${esc(rep.zone_name)} · ${esc(cat?.label || rep.category)}`, { direction: "top" })
+        .bindPopup(
+          `<div class="space-y-1 max-w-[230px]">
+            <div class="text-[10px] font-bold uppercase" style="color:${bg}">Reporte comunitario anónimo · ${esc(rep.status)}</div>
+            <div class="font-extrabold text-slate-900">${esc(rep.zone_name)}</div>
+            <div class="text-xs font-semibold text-slate-700">${esc(cat?.label || rep.category)} (Severidad: ${esc(rep.severity)})</div>
+            ${rep.note ? `<div class="text-xs text-slate-600">${esc(rep.note)}</div>` : ""}
+          </div>`,
+          { className: "yaku-popup" }
+        )
+        .addTo(group);
+    });
+  }, [campusReports]);
+
+  // Dibujar ruta segura personalizada + flyTo suave cuando el estudiante elige su facultad
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const group = myRouteGroupRef.current;
+    if (!map || !group) return;
+    group.clearLayers();
+    if (!mySafeRoute) return;
+
+    const { origin, safePoint } = mySafeRoute;
+    L.polyline(
+      [
+        [origin.lat, origin.lon],
+        [safePoint.lat, safePoint.lon],
+      ],
+      {
+        color: "#00B4D8",
+        weight: 6,
+        opacity: 0.35,
+      }
+    ).addTo(group);
+    L.polyline(
+      [
+        [origin.lat, origin.lon],
+        [safePoint.lat, safePoint.lon],
+      ],
+      {
+        color: "#059669",
+        weight: 3.5,
+        dashArray: "8 6",
+        opacity: 0.95,
+      }
+    ).addTo(group);
+
+    L.circleMarker([origin.lat, origin.lon], {
+      radius: 8,
+      color: "#FFFFFF",
+      weight: 2.5,
+      fillColor: "#0B2545",
+      fillOpacity: 1,
+    })
+      .bindTooltip(`Tu ubicación: ${esc(origin.name)}`, { permanent: false, direction: "top" })
+      .addTo(group);
+
+    map.flyTo([origin.lat, origin.lon], 18, { duration: 0.9 });
+  }, [mySafeRoute]);
+
   // Enfocar edificio seleccionado desde Inicio / Asistente YAKU
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -577,6 +702,15 @@ export default function StudentMonitoringMap({
 
   return (
     <div className="space-y-4">
+      {/* Banner vivo de alertas emitidas por Gestión UNT (CAP 1.2 + Confirmación) */}
+      {activeAlerts.length > 0 && (
+        <ActiveAlertsBanner
+          alerts={activeAlerts}
+          activeDemoRole={activeDemoRole}
+          onConfirmAlert={onConfirmAlert}
+        />
+      )}
+
       {/* Cabecera inequívoca de PRONÓSTICO (distinta de Simulación histórica) */}
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
@@ -599,14 +733,26 @@ export default function StudentMonitoringMap({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onNavigate("student_sim")}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-4 text-xs font-semibold text-white transition hover:bg-[#1D4ED8]"
-        >
-          <Waves className="h-4 w-4" />
-          <span>Ver simulación educativa (2017 / 2023)</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenReportModal && (
+            <button
+              type="button"
+              onClick={onOpenReportModal}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#D97706]/40 bg-[#FFFBEB] px-3.5 text-xs font-bold text-[#92400E] transition hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200"
+            >
+              <Megaphone className="h-4 w-4" />
+              <span>Reportar incidente</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onNavigate("student_sim")}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0B2545] px-4 text-xs font-bold text-white transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
+          >
+            <Waves className="h-4 w-4" />
+            <span>Ver simulación educativa (2017 / 2023)</span>
+          </button>
+        </div>
       </div>
 
       {/* Qué hacer ahora + Probabilidad de lluvia (lectura inmediata) */}
@@ -698,6 +844,15 @@ export default function StudentMonitoringMap({
           </span>
         </div>
       )}
+
+      {/* Selector rápido: ¿Dónde estoy en la UNT? -> Mi Ruta Segura */}
+      <WhereAmISafeRouteBar
+        options={facultyOptions}
+        selectedId={myLocationId}
+        onSelectOrigin={setMyLocationId}
+        safeRoute={mySafeRoute}
+        onClear={() => setMyLocationId("")}
+      />
 
       {/* Mapa protagonista Map-First + Panel lateral sencillo */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">

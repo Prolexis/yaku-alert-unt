@@ -16,7 +16,9 @@ import {
   CloudRain,
 } from "lucide-react";
 import { fetchPublicSimulation } from "../services/api";
-import { getFeatureDisplayName } from "../utils/campusCatalog";
+import { buildCampusCatalog, getFeatureDisplayName } from "../utils/campusCatalog";
+import WhereAmISafeRouteBar from "./ui/WhereAmISafeRouteBar";
+import { findNearestSafeRoute } from "../utils/safeRouteHelper";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -106,6 +108,7 @@ export default function StudentSimpleSimulation({
   const baseGroupRef = useRef(null);
   const waterGroupRef = useRef(null);
   const evacuationGroupRef = useRef(null);
+  const myRouteGroupRef = useRef(null);
   const tileLayerRef = useRef(null);
   const tileErrorsRef = useRef(0);
   const fittedRef = useRef(false);
@@ -127,6 +130,7 @@ export default function StudentSimpleSimulation({
   const [hour, setHour] = useState(1);
   const [playing, setPlaying] = useState(false);
   const [selectedFacility, setSelectedFacility] = useState(null);
+  const [myLocationId, setMyLocationId] = useState("");
   const notifiedDetourRef = useRef("");
 
   // Blindaje offline: cambia automáticamente a Solo vectorial cuando no hay internet o se activa modo offline
@@ -148,6 +152,26 @@ export default function StudentSimpleSimulation({
     () => detectAffectedGates(result?.elements || [], result ? hour : null),
     [result, hour]
   );
+
+  const catalog = useMemo(() => buildCampusCatalog(campusLayers, null), [campusLayers]);
+  const facultyOptions = useMemo(
+    () =>
+      catalog.filter(
+        (c) =>
+          c.center &&
+          ["facultad", "escuela_pabellon", "biblioteca_auditorio", "comedor_servicios", "oficina"].includes(
+            c.typeId
+          )
+      ),
+    [catalog]
+  );
+
+  const mySafeRoute = useMemo(() => {
+    if (!myLocationId) return null;
+    const origin = catalog.find((c) => c.id === myLocationId);
+    if (!origin) return null;
+    return findNearestSafeRoute({ originItem: origin, campusLayers, affectedGates });
+  }, [myLocationId, catalog, campusLayers, affectedGates]);
 
   // Toast discreto cuando se activa desvío por acceso comprometido
   useEffect(() => {
@@ -181,6 +205,7 @@ export default function StudentSimpleSimulation({
     baseGroupRef.current = L.layerGroup().addTo(map);
     waterGroupRef.current = L.layerGroup().addTo(map);
     evacuationGroupRef.current = L.layerGroup().addTo(map);
+    myRouteGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
     return () => {
@@ -189,6 +214,7 @@ export default function StudentSimpleSimulation({
       baseGroupRef.current = null;
       waterGroupRef.current = null;
       evacuationGroupRef.current = null;
+      myRouteGroupRef.current = null;
       tileLayerRef.current = null;
       waterLayersRef.current = [];
     };
@@ -391,6 +417,42 @@ export default function StudentSimpleSimulation({
       });
   }, [campusLayers, showEvacuation, affectedGates]);
 
+  // Dibujar ruta segura personalizada en la simulación
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const group = myRouteGroupRef.current;
+    if (!map || !group) return;
+    group.clearLayers();
+    if (!mySafeRoute) return;
+
+    const { origin, safePoint } = mySafeRoute;
+    L.polyline(
+      [
+        [origin.lat, origin.lon],
+        [safePoint.lat, safePoint.lon],
+      ],
+      { color: "#00B4D8", weight: 6, opacity: 0.35 }
+    ).addTo(group);
+    L.polyline(
+      [
+        [origin.lat, origin.lon],
+        [safePoint.lat, safePoint.lon],
+      ],
+      { color: "#059669", weight: 3.5, dashArray: "8 6", opacity: 0.95 }
+    ).addTo(group);
+    L.circleMarker([origin.lat, origin.lon], {
+      radius: 8,
+      color: "#FFFFFF",
+      weight: 2.5,
+      fillColor: "#0B2545",
+      fillOpacity: 1,
+    })
+      .bindTooltip(`Tu ubicación: ${esc(origin.name)}`, { direction: "top" })
+      .addTo(group);
+
+    map.flyTo([origin.lat, origin.lon], 18, { duration: 0.9 });
+  }, [mySafeRoute]);
+
   // Pre-construir capas de agua por hora para animar sin parpadeos ni recargas
   useEffect(() => {
     const group = waterGroupRef.current;
@@ -565,6 +627,15 @@ export default function StudentSimpleSimulation({
           {error}
         </div>
       )}
+
+      {/* Selector rápido: ¿Dónde estoy en la UNT? -> Mi Ruta Segura */}
+      <WhereAmISafeRouteBar
+        options={facultyOptions}
+        selectedId={myLocationId}
+        onSelectOrigin={setMyLocationId}
+        safeRoute={mySafeRoute}
+        onClear={() => setMyLocationId("")}
+      />
 
       {/* Mapa principal Map-First + Reproductor moderno + Ficha lateral */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">

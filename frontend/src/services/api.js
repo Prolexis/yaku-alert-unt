@@ -282,6 +282,10 @@ export function fetchLiveSimulation() {
   return requestJson("/simulation/live");
 }
 
+export function fetchMobileLiveSimulation() {
+  return requestJson("/public/live-simulation");
+}
+
 export function stopLiveSimulation() {
   return requestJson("/simulation/live/stop", {
     method: "POST",

@@ -62,7 +62,7 @@ def _send_one(subscription: dict[str, Any], payload: str, private_key: str, subj
     return False
 
 
-def _dispatch_sync(alert: dict[str, Any]) -> dict[str, int]:
+def _dispatch_sync(alert: dict[str, Any], endpoint_filter: str | None = None) -> dict[str, int]:
     if alert.get("status") != "emitida" or alert.get("active") is False:
         return {"sent": 0, "failed": 0, "skipped": 1}
     target_roles = alert.get("target_roles") or []
@@ -73,6 +73,8 @@ def _dispatch_sync(alert: dict[str, Any]) -> dict[str, int]:
         return {"sent": 0, "failed": 0, "skipped": 1}
 
     subscriptions = list_active_web_push_subscriptions()
+    if endpoint_filter:
+        subscriptions = [row for row in subscriptions if row.get("endpoint") == endpoint_filter]
     if not subscriptions:
         return {"sent": 0, "failed": 0, "skipped": 1}
 
@@ -101,6 +103,8 @@ def _dispatch_sync(alert: dict[str, Any]) -> dict[str, int]:
     return {"sent": sent, "failed": len(subscriptions) - sent, "skipped": 0}
 
 
-async def dispatch_alert_web_push(alert: dict[str, Any]) -> dict[str, int]:
+async def dispatch_alert_web_push(
+    alert: dict[str, Any], *, endpoint: str | None = None
+) -> dict[str, int]:
     """Send an emitted alert without blocking the API event loop."""
-    return await asyncio.to_thread(_dispatch_sync, alert)
+    return await asyncio.to_thread(_dispatch_sync, alert, endpoint)

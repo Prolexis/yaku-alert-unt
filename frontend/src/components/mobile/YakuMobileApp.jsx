@@ -27,7 +27,7 @@ import {
 import {
   fetchCampusLayers,
   fetchLiveEvaluation,
-  fetchLiveSimulation,
+  fetchMobileLiveSimulation,
   fetchWebPushConfig,
   fetchPublicDrillState,
   fetchPublicSimulation,
@@ -751,7 +751,7 @@ export default function YakuMobileApp() {
         fetchLiveEvaluation(false, []),
         fetchCampusLayers(),
         fetchPublicDrillState().catch(() => null),
-        fetchLiveSimulation().catch(() => null),
+        fetchMobileLiveSimulation().catch(() => null),
       ]);
       setWeather(w);
       setLiveEval(ev);
@@ -796,9 +796,10 @@ export default function YakuMobileApp() {
   useEffect(() => {
     let stopped = false;
     const syncManagementSimulation = () => {
-      fetchLiveSimulation()
+      fetchMobileLiveSimulation()
         .then((live) => {
           if (stopped || !live) return;
+          setIsOffline(false);
           setManagementSimulation(live);
           if (live.active) {
             managementSimulationActiveRef.current = true;
@@ -816,7 +817,9 @@ export default function YakuMobileApp() {
             }
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          if (!stopped) setIsOffline(true);
+        });
     };
 
     syncManagementSimulation();
@@ -920,7 +923,7 @@ export default function YakuMobileApp() {
           }
         })
         .catch(() => {
-          if (!unmounted && !wsConnected) setIsOffline(true);
+          // El WebSocket de simulacros puede estar bloqueado en algunos túneles; el mapa tiene su propio sondeo HTTP.
         });
     }, 4000);
 
@@ -1152,7 +1155,9 @@ export default function YakuMobileApp() {
       builtWaterKeyRef.current = "";
       return;
     }
-    const key = `${activeSimData.run_id}_${frames.length}`;
+    const key = managementSimulation?.active
+      ? `live_${activeSimData.run_id || activeSimData.started_at}_${displayHour}`
+      : `${activeSimData.run_id || activeSimData.scenario_id}_${frames.length}`;
     if (builtWaterKeyRef.current === key) return;
 
     waterLayersRef.current = frames.map((fr) =>
@@ -1171,7 +1176,7 @@ export default function YakuMobileApp() {
       })
     );
     builtWaterKeyRef.current = key;
-  }, [activeSimData]);
+  }, [activeSimData, managementSimulation?.active, displayHour]);
 
   // Actualizar cuadro horario activo en el mapa (estrictamente separado del monitoreo actual)
   useEffect(() => {
@@ -1336,7 +1341,10 @@ export default function YakuMobileApp() {
           {/* Indicador de estado de conexión compacto */}
           <button
             type="button"
-            onClick={() => setSettingsModalOpen(true)}
+            onClick={() => {
+              setSettingsModalOpen(true);
+              if (!notificationsActive) handleRequestAndToggleNotifications(true);
+            }}
             aria-label="Estado de conexión y configuración"
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-bold transition ${
               isOffline
@@ -1672,7 +1680,9 @@ export default function YakuMobileApp() {
                       "Escenario tipo 2017"}
                   </div>
                   <div className="font-mono text-xs text-[#0369A1] dark:text-[#38BDF8]">
-                    Hora simulada: <strong>h+{displayHour}</strong> de {frames.length || 24} ·
+                    Hora simulada: <strong>h+{displayHour}</strong> de {managementSimulation?.active
+                      ? managementSimulation.total_hours || managementSimulation.summary?.hours_simulated || 24
+                      : frames.length || 24} ·
                     Lámina máx.: <strong>{currentFrame?.max_depth_cm ?? 0} cm</strong>
                   </div>
                 </div>

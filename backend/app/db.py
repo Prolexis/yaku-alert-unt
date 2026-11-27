@@ -34,7 +34,7 @@ LEVEL_TO_CAP_SEVERITY = {
 CAP_SEVERITY_TO_LEVEL = {v: k for k, v in LEVEL_TO_CAP_SEVERITY.items()}
 
 DEMO_ACCOUNTS = [
-    ("estudiante@unt.demo", "Estudiante UNT (Demo)", "estudiante", "51902455346"),
+    ("estudiante@unt.demo", "Estudiante UNT (Demo)", "estudiante", "51961103226"),
     ("docente@unt.demo", "Docente UNT (Demo)", "docente", None),
     ("admin.oficina@unt.demo", "Personal Administrativo UNT (Demo)", "administrativo", None),
     ("directivo@unt.demo", "Directivo / Decanato UNT (Demo)", "directivo", None),

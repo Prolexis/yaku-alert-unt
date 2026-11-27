@@ -1020,6 +1020,7 @@ def _format_live_simulation_response(state: dict[str, Any] | None) -> dict[str, 
         return {
             "active": False,
             "scenario_id": "",
+            "run_id": None,
             "scenario_label": "",
             "drainage_scenario": "base",
             "started_at": None,
@@ -1074,6 +1075,7 @@ def _format_live_simulation_response(state: dict[str, Any] | None) -> dict[str, 
     return {
         "active": True,
         "scenario_id": state["scenario_id"],
+        "run_id": result.get("run_id"),
         "scenario_label": state["scenario_label"],
         "drainage_scenario": state["drainage_scenario"],
         "started_at": state["started_at"],
@@ -1240,9 +1242,7 @@ async def activate_live_simulation(payload: ActivateLiveSimulationRequest) -> di
     return _format_live_simulation_response(state)
 
 
-@app.get("/api/simulation/live")
-async def get_live_simulation() -> dict:
-    """Devuelve el estado de la simulación en vivo y garantiza disparo idempotente de alerta CAP."""
+async def _get_live_simulation_snapshot() -> dict[str, Any]:
     state = get_active_simulation()
     if state and state.get("active") and not state.get("alert_dispatched"):
         started_raw = state.get("started_at")
@@ -1261,6 +1261,26 @@ async def get_live_simulation() -> dict:
             state = get_active_simulation()
 
     return _format_live_simulation_response(state)
+
+
+@app.get("/api/simulation/live")
+async def get_live_simulation() -> dict:
+    """Devuelve el estado completo para la vista de Gestión y Comunidad de escritorio."""
+    return await _get_live_simulation_snapshot()
+
+
+@app.get("/api/public/live-simulation")
+async def get_mobile_live_simulation() -> dict:
+    """Snapshot liviano: solo la hora vigente, para no descargar toda la malla en cada consulta móvil."""
+    snapshot = await _get_live_simulation_snapshot()
+    if not snapshot.get("active"):
+        return snapshot
+    frames = snapshot.get("frames") or []
+    hour = max(1, int(snapshot.get("current_sim_hour") or 1))
+    current = frames[min(hour - 1, len(frames) - 1)] if frames else None
+    snapshot["total_hours"] = len(frames)
+    snapshot["frames"] = [current] if current else []
+    return snapshot
 
 
 @app.post("/api/simulation/live/stop")
@@ -1499,7 +1519,7 @@ def get_web_push_public_config() -> dict:
 
 
 @app.post("/api/public/web-push/subscribe")
-def post_web_push_subscription(payload: WebPushSubscriptionRequest) -> dict:
+async def post_web_push_subscription(payload: WebPushSubscriptionRequest) -> dict:
     config = web_push_config()
     if not config["enabled"]:
         raise HTTPException(status_code=503, detail="Web Push no está configurado en el servidor.")
@@ -1520,7 +1540,27 @@ def post_web_push_subscription(payload: WebPushSubscriptionRequest) -> dict:
         subscription_json=json.dumps(subscription),
         device_id=payload.device_id,
     )
-    return {"subscribed": True}
+    current = get_active_simulation()
+    alert_id = current.get("dispatched_alert_id") if current and current.get("active") else None
+    current_alert = get_alert_by_id(int(alert_id)) if alert_id else None
+    if not current_alert or not current_alert.get("active"):
+        current_alert = next(
+            (
+                alert
+                for alert in list_alerts(active_only=True, limit=25)
+                if alert.get("target_profile") == "all"
+                or "estudiante" in (alert.get("target_roles") or [])
+            ),
+            None,
+        )
+    replayed = False
+    if current_alert and current_alert.get("status") == "emitida" and current_alert.get("active"):
+        try:
+            result = await dispatch_alert_web_push(current_alert, endpoint=payload.endpoint)
+            replayed = result.get("sent", 0) > 0
+        except Exception:
+            pass
+    return {"subscribed": True, "current_alert_sent": replayed}
 
 
 @app.delete("/api/public/web-push/subscribe")

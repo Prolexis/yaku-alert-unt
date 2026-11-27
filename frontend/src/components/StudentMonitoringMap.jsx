@@ -45,8 +45,32 @@ const esc = (s) =>
     "'": "&#39;",
   }[c]));
 
+function resolveStudentNowAction(liveEvaluation, summary) {
+  const level = liveEvaluation?.preventive_level || "INFORMATIVO";
+  if (level === "PREPARACION_CRITICA" || level === "ATENCION_PREVENTIVA") {
+    return {
+      tone: "border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100",
+      dot: "bg-rose-600",
+      text: "Evita desplazarte por calles anegadas (Puerta 4 / Av. Jesús de Nazareth) y prioriza clases virtuales o pisos altos.",
+    };
+  }
+  if (level === "VIGILANCIA_PREVENTIVA" || (summary?.max_probability_24h_pct ?? 0) >= 60) {
+    return {
+      tone: "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
+      dot: "bg-amber-500",
+      text: "Lleva paraguas o impermeable, evita zonas bajas (Puerta 4, Comedor) y revisa comunicados oficiales de la UNT.",
+    };
+  }
+  return {
+    tone: "border-emerald-200 bg-emerald-50/80 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-100",
+    dot: "bg-emerald-600",
+    text: "Asistencia presencial normal. Aprovecha para ubicar tu facultad y el punto seguro más cercano en el mapa.",
+  };
+}
+
 export default function StudentMonitoringMap({
   weather,
+  liveEvaluation,
   campusLayers,
   declaredConditions = [],
   focusedBuildingId = "",
@@ -98,6 +122,9 @@ export default function StudentMonitoringMap({
 
   const { local: updatedLima } = formatLimaTime(weather?.fetched_at_utc);
   const isLive = weather?.data_status === "LIVE_API";
+  const studentNow = resolveStudentNowAction(liveEvaluation, weather?.summary);
+  const maxProb24 =
+    weather?.summary?.max_probability_24h_pct ?? weather?.summary?.max_probability_pct;
 
   // Inicializa el mapa Leaflet
   useEffect(() => {
@@ -529,22 +556,25 @@ export default function StudentMonitoringMap({
 
   return (
     <div className="space-y-4">
-      {/* Cabecera clara de MONITOREO (distinta de Simulación) */}
+      {/* Cabecera inequívoca de PRONÓSTICO (distinta de Simulación histórica) */}
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
-            {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-            <span>
-              {isLive
-                ? "Monitoreo · Pronóstico Open-Meteo (no medición en tiempo real)"
-                : "Monitoreo · Respaldo caché offline"}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-0.5 text-[11px] font-bold text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
+              {isLive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              <span>Estado actual y pronóstico probabilístico (48 h)</span>
             </span>
+            {!isLive && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                Caché offline
+              </span>
+            )}
           </div>
           <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-[#101828] dark:text-white sm:text-3xl">
             Mapa de monitoreo UNT
           </h2>
           <p className="text-sm text-[#475467] dark:text-slate-400">
-            Consulta el pronóstico vigente, ubica tu facultad y revisa las zonas de atención del campus.
+            Ubica tu facultad, revisa la probabilidad de lluvia y conoce tus rutas seguras.
           </p>
         </div>
 
@@ -554,8 +584,24 @@ export default function StudentMonitoringMap({
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-4 text-xs font-semibold text-white transition hover:bg-[#1D4ED8]"
         >
           <Waves className="h-4 w-4" />
-          <span>Ir a Simulación sencilla (2017 / 2023)</span>
+          <span>Ver simulación educativa (2017 / 2023)</span>
         </button>
+      </div>
+
+      {/* Qué hacer ahora + Probabilidad de lluvia (lectura inmediata) */}
+      <div
+        className={`flex flex-col justify-between gap-2 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${studentNow.tone}`}
+      >
+        <div className="flex items-start gap-2.5">
+          <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${studentNow.dot}`} />
+          <div className="text-xs leading-snug">
+            <span className="font-bold uppercase tracking-wide">Qué hacer ahora: </span>
+            <span>{studentNow.text}</span>
+          </div>
+        </div>
+        <span className="shrink-0 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-bold text-[#101828] tabular-nums dark:bg-slate-900/70 dark:text-white">
+          Prob. lluvia: {maxProb24 !== null && maxProb24 !== undefined ? `${maxProb24}%` : "N/D"}
+        </span>
       </div>
 
       {/* Resumen compacto de Open-Meteo (probabilístico, sin mensajes deterministas) */}
@@ -819,17 +865,12 @@ export default function StudentMonitoringMap({
             </div>
           </section>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F7F9FC] p-3.5 text-xs leading-relaxed text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F7F9FC] p-3 text-[11px] leading-snug text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
             <div className="flex items-center gap-1.5 font-semibold text-[#101828] dark:text-slate-200">
               <CloudRain className="h-3.5 w-3.5 text-[#2563EB]" />
-              Sobre los datos mostrados
+              Pronóstico probabilístico (Open-Meteo) · Rutas referenciales
             </div>
-            <p className="mt-1">
-              El pronóstico proviene de Open-Meteo (modelo numérico, no sensores locales instalados en la UNT).
-            </p>
-            <p className="mt-1.5 font-medium text-[#101828] dark:text-slate-200">
-              {EVACUATION_DISCLAIMER}
-            </p>
+            <p className="mt-1">{EVACUATION_DISCLAIMER}</p>
           </div>
         </div>
       </div>

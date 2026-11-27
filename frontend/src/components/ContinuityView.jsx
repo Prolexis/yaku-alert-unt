@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import {
   CheckCircle2,
-  ExternalLink,
   Clock,
   Mountain,
   GraduationCap,
   Briefcase,
 } from "lucide-react";
+import CommunityPreparednessSection from "./ui/CommunityPreparednessSection";
+import OfficialChannelsSection from "./ui/OfficialChannelsSection";
 
 const FALLBACK_PHASES = {
   antes: {
@@ -77,6 +78,7 @@ export default function ContinuityView({ protocols }) {
           {[
             { id: "phases", label: "Antes / Durante / Después" },
             { id: "levels", label: "Continuidad por nivel" },
+            { id: "community", label: "Acción comunitaria y mochila" },
             { id: "official", label: "Canales oficiales" },
           ].map((tab) => (
             <button
@@ -212,36 +214,13 @@ export default function ContinuityView({ protocols }) {
         </section>
       )}
 
+      {activeTab === "community" && <CommunityPreparednessSection />}
+
       {activeTab === "official" && (
         <section className="space-y-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { name: "SENAMHI", desc: "Avisos meteorológicos oficiales.", url: "https://www.gob.pe/senamhi" },
-              { name: "INDECI / COEN", desc: "Alertas y emergencia nacional.", url: "https://www.gob.pe/indeci" },
-              {
-                name: "ENFEN",
-                desc: "El estado del Niño es contexto, no un dato de la simulación.",
-                url: "https://enfen.imarpe.gob.pe",
-              },
-              { name: "UNT Oficial", desc: "Comunicados universitarios.", url: "https://www.unitru.edu.pe" },
-            ].map((ch) => (
-              <a
-                key={ch.name}
-                href={ch.url}
-                target="_blank"
-                rel="noreferrer"
-                className="group rounded-xl border border-[#E2E8F0] bg-white p-5 transition hover:border-[#2563EB] dark:border-slate-800 dark:bg-[#0B1F33]"
-              >
-                <div className="flex items-center justify-between text-sm font-bold text-[#2563EB]">
-                  <span>{ch.name}</span>
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </div>
-                <p className="mt-1 text-xs text-[#475467] dark:text-slate-400">{ch.desc}</p>
-              </a>
-            ))}
-          </div>
+          <OfficialChannelsSection />
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {basins.map((q) => (
               <div
                 key={q.name}
@@ -251,6 +230,11 @@ export default function ContinuityView({ protocols }) {
                   <Mountain className="h-4 w-4 text-[#2563EB]" />
                   <span>{q.name}</span>
                 </div>
+                {q.sector && (
+                  <div className="mt-0.5 text-[11px] font-semibold text-[#2563EB] dark:text-blue-400">
+                    {q.sector}
+                  </div>
+                )}
                 <p className="mt-1.5 text-xs text-[#475467] dark:text-slate-400">{q.note}</p>
               </div>
             ))}

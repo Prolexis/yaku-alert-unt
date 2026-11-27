@@ -273,6 +273,7 @@ export default function App() {
               liveEvaluation={liveEvaluation}
               campusLayers={campusLayers}
               simResult={simResult}
+              hydroResult={hydroResult}
               onLocateInMap={handleLocateBuildingInMap}
               onNavigate={setActiveView}
               onRefresh={() => loadWeatherAndLiveEval(forceOffline)}
@@ -294,6 +295,7 @@ export default function App() {
           {activeView === "student_map" && (
             <StudentMonitoringMap
               weather={weather}
+              liveEvaluation={liveEvaluation}
               campusLayers={campusLayers}
               declaredConditions={declaredConditions}
               focusedBuildingId={focusedBuildingId}

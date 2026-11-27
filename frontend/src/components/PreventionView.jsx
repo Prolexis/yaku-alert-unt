@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ChevronDown, AlertTriangle } from "lucide-react";
 import PreventiveMessageCard from "./ui/PreventiveMessageCard";
 import OfficialChannelsSection from "./ui/OfficialChannelsSection";
+import CommunityPreparednessSection from "./ui/CommunityPreparednessSection";
 
 export default function PreventionView({
   evaluation,
@@ -16,6 +17,7 @@ export default function PreventionView({
   userRole = "student",
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [communityOpen, setCommunityOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -146,6 +148,33 @@ export default function PreventionView({
 
           {/* Canales Oficiales de Alerta diferenciados por competencia */}
           <OfficialChannelsSection />
+
+          {/* Acción comunitaria y mochila de emergencia (accesible para Estudiante y Gestión) */}
+          <section className="rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33]">
+            <button
+              type="button"
+              onClick={() => setCommunityOpen((v) => !v)}
+              aria-expanded={communityOpen}
+              className="flex w-full items-center justify-between px-5 py-4 text-left"
+            >
+              <div>
+                <span className="text-sm font-semibold text-[#101828] dark:text-white">
+                  Acción comunitaria y mochila de emergencia
+                </span>
+                <p className="text-xs text-[#475467] dark:text-slate-400">
+                  Brigadas universitarias, articulación con territorios vecinales y checklist interactivo local
+                </p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-[#475467] transition-transform ${communityOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {communityOpen && (
+              <div className="border-t border-[#E2E8F0] p-5 dark:border-slate-800">
+                <CommunityPreparednessSection />
+              </div>
+            )}
+          </section>
 
           {/* Reglas técnicas desplegables */}
           <section className="rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33]">

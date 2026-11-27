@@ -3,6 +3,7 @@ import { ArrowRight, Map as MapIcon, BookOpen, Sliders, AlertCircle, Info, Shiel
 import PrecipitationChart from "./ui/PrecipitationChart";
 import SkeletonCard from "./ui/SkeletonCard";
 import FacultyLookupCard from "./ui/FacultyLookupCard";
+import ExecutiveDecisionCard from "./ui/ExecutiveDecisionCard";
 import { formatLimaTime, humanPreventiveTitle } from "../utils/formatters";
 
 function buildWeatherPhrase(summary) {
@@ -28,6 +29,7 @@ export default function DashboardView({
   liveEvaluation,
   campusLayers,
   simResult,
+  hydroResult,
   onLocateInMap,
   onNavigate,
   onRefresh,
@@ -80,6 +82,18 @@ export default function DashboardView({
 
   return (
     <div className="space-y-7">
+      {/* 0. Semáforo Ejecutivo para Directivos (solo vista Gestión / Administrador) */}
+      {userRole === "admin" && (
+        <ExecutiveDecisionCard
+          weather={weather}
+          liveEvaluation={liveEvaluation}
+          simResult={simResult}
+          hydroResult={hydroResult}
+          onPrepareNotice={() => onNavigate("prevention")}
+          onOpenMap={() => onNavigate("map")}
+        />
+      )}
+
       {/* 1. Resumen meteorológico */}
       <section className="space-y-2">
         <h2 className="text-3xl font-bold tracking-tight text-[#101828] dark:text-white">

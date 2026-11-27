@@ -74,14 +74,12 @@ const PUBLIC_SCENARIOS = [
   {
     id: "evento_2017_03",
     title: "Escenario tipo 2017",
-    description:
-      "Explora cómo podría acumularse y desplazarse el agua bajo un escenario de lluvia de referencia inspirado en los antecedentes documentados de 2017.",
+    description: "Referencia educativa basada en las lluvias de marzo de 2017 (27,5 mm).",
   },
   {
     id: "evento_2023_03_10",
     title: "Escenario tipo 2023",
-    description:
-      "Explora un escenario de lluvia de referencia relacionado con los antecedentes documentados de 2023.",
+    description: "Referencia educativa basada en las lluvias de marzo de 2023 (35 mm).",
   },
 ];
 
@@ -439,20 +437,29 @@ export default function StudentSimpleSimulation({
 
   return (
     <div className="space-y-4">
-      {/* Cabecera clara de SIMULACIÓN EXPERIMENTAL */}
+      {/* Cabecera inequívoca de SIMULACIÓN HISTÓRICA EDUCATIVA */}
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
         <div>
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-950 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200">
-            <FlaskConical className="h-3 w-3" />
-            <span>SIMULACIÓN EXPERIMENTAL · NO REPRESENTA LA SITUACIÓN ACTUAL</span>
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-0.5 text-[11px] font-bold text-amber-950 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200">
+            <FlaskConical className="h-3.5 w-3.5" />
+            <span>Simulación histórica educativa (2017 / 2023)</span>
           </div>
           <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-[#101828] dark:text-white sm:text-3xl">
             Simulación de lluvias
           </h2>
           <p className="text-sm text-[#475467] dark:text-slate-400">
-            Explora cómo podría acumularse el agua en la UNT bajo escenarios de referencia.
+            <strong>No es una alerta en curso.</strong> Referencia visual para conocer zonas
+            inundables y rutas seguras del campus.
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigate("student_map")}
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3.5 text-xs font-semibold text-[#101828] hover:bg-slate-50 dark:border-slate-700 dark:bg-[#0B1F33] dark:text-white"
+        >
+          <span>Volver al pronóstico actual (48 h)</span>
+        </button>
       </div>
 
       {/* Paso 1 y Paso 2: 2 tarjetas compactas + 1 botón principal */}

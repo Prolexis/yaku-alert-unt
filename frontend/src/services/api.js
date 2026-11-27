@@ -366,6 +366,24 @@ export function registerMobileDevice(payload) {
   });
 }
 
+export function fetchWebPushConfig() {
+  return requestJson("/public/web-push/config");
+}
+
+export function saveWebPushSubscription(subscription, deviceId) {
+  return requestJson("/public/web-push/subscribe", {
+    method: "POST",
+    body: JSON.stringify({ ...subscription, device_id: deviceId }),
+  });
+}
+
+export function removeWebPushSubscription(subscription, deviceId) {
+  return requestJson("/public/web-push/subscribe", {
+    method: "DELETE",
+    body: JSON.stringify({ ...subscription, device_id: deviceId }),
+  });
+}
+
 export function fetchPushConfigStatus() {
   return requestJson("/public/devices/push-status");
 }

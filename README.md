@@ -75,13 +75,19 @@ docker compose down
 
 ### Ejecutar sin Docker y abrir la vista móvil con QR
 
-Instala primero las dependencias del backend y la web (Python, `pip install -r backend/requirements.txt`, Node.js y `npm install` dentro de `frontend`). Luego ejecuta:
+Instala primero las dependencias del backend y la web (Python, `pip install -r backend/requirements.txt`, Node.js y `npm install` dentro de `frontend`). Genera una clave local para notificaciones push una sola vez:
+
+```powershell
+python scripts/generate_web_push_keys.py
+```
+
+La clave privada queda en `backend/.secrets/` y no se sube a Git. Luego inicia:
 
 ```powershell
 ./scripts/start-demo-tunnel.ps1
 ```
 
-El script inicia el backend y la web localmente, abre un túnel temporal de Cloudflare hacia la web, crea el QR para la vista móvil y muestra su enlace. Escanea `YAKU_ALERT_QR_ACTUAL.png` desde el celular. Mantén esa terminal abierta mientras uses la app; `Ctrl+C` detiene los servicios. Cada ejecución puede producir un enlace distinto y reemplaza el QR anterior.
+El script inicia el backend y la web localmente, abre un túnel temporal de Cloudflare hacia la web, crea el QR para la vista móvil y muestra su enlace. Escanea `YAKU_ALERT_QR_ACTUAL.png` desde el celular. En la web móvil abre el botón de notificaciones y toca **Permitir**. A partir de ahí, las alertas emitidas por Gestión UNT pueden llegar incluso con la pestaña cerrada. Mantén esa terminal abierta mientras uses la app; `Ctrl+C` detiene los servicios. Cada ejecución puede producir un enlace distinto y reemplaza el QR anterior.
 
 ---
 

@@ -1,7 +1,9 @@
 import asyncio
+import json
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,6 +37,8 @@ from app.db import (
     update_alert_whatsapp_status,
     update_report_status,
     upsert_mobile_device,
+    upsert_web_push_subscription,
+    delete_web_push_subscription,
     validate_alert,
     verify_admin_token,
 )
@@ -71,6 +75,7 @@ from app.services.spatial import (
 )
 from app.services.weather import fetch_weather_for_unt
 from app.services.whatsapp import get_whatsapp_channel_status, send_cap_alert_whatsapp
+from app.services.web_push import dispatch_alert_web_push, web_push_config
 
 app = FastAPI(
     title="YAKU ALERT — UNT API",
@@ -519,6 +524,11 @@ async def post_alert(payload: CreateAlertRequest) -> dict:
         status=payload.status,
         validated_by_role=payload.validated_by_role,
     )
+    if created.get("status") == "emitida":
+        try:
+            created["web_push_dispatch"] = await dispatch_alert_web_push(created)
+        except Exception:
+            created["web_push_dispatch"] = {"sent": 0, "failed": 0, "skipped": 1}
     if payload.send_whatsapp and created.get("status") == "emitida":
         dispatch = await send_cap_alert_whatsapp(created, offline=payload.offline)
         updated = update_alert_whatsapp_status(
@@ -538,6 +548,10 @@ async def patch_validate_alert(alert_id: int, payload: ValidateAlertRequest) -> 
     validated = validate_alert(alert_id, validated_by_role=payload.validated_by_role)
     if validated is None:
         raise HTTPException(status_code=404, detail=f"Alerta #{alert_id} no encontrada.")
+    try:
+        validated["web_push_dispatch"] = await dispatch_alert_web_push(validated)
+    except Exception:
+        validated["web_push_dispatch"] = {"sent": 0, "failed": 0, "skipped": 1}
     if payload.send_whatsapp:
         dispatch = await send_cap_alert_whatsapp(validated, offline=payload.offline)
         updated = update_alert_whatsapp_status(
@@ -955,6 +969,11 @@ async def _dispatch_live_simulation_alert_if_ready() -> dict[str, Any] | None:
     )
     mark_active_simulation_alert_dispatched(alert["id"])
 
+    try:
+        alert["web_push_dispatch"] = await dispatch_alert_web_push(alert)
+    except Exception:
+        alert["web_push_dispatch"] = {"sent": 0, "failed": 0, "skipped": 1}
+
     # Intento seguro de difusión WhatsApp Cloud API (con fallback silencioso si falla o está offline)
     if bool(result.get("send_whatsapp", True)):
         try:
@@ -1334,6 +1353,18 @@ class RegisterMobileDeviceRequest(BaseModel):
     app_version: str = Field(default="1.0.0", max_length=32)
 
 
+class WebPushKeysRequest(BaseModel):
+    p256dh: str = Field(..., min_length=20, max_length=256)
+    auth: str = Field(..., min_length=8, max_length=128)
+
+
+class WebPushSubscriptionRequest(BaseModel):
+    endpoint: str = Field(..., min_length=20, max_length=4096)
+    keys: WebPushKeysRequest
+    expirationTime: int | float | None = None
+    device_id: str = Field(default="web-mobile", min_length=4, max_length=120)
+
+
 def _require_admin_role(
     authorization: str | None,
     x_yaku_admin_token: str | None,
@@ -1461,7 +1492,46 @@ def post_register_mobile_device(payload: RegisterMobileDeviceRequest) -> dict:
     }
 
 
+@app.get("/api/public/web-push/config")
+def get_web_push_public_config() -> dict:
+    """Public VAPID key for browsers; never returns the private key."""
+    return web_push_config()
+
+
+@app.post("/api/public/web-push/subscribe")
+def post_web_push_subscription(payload: WebPushSubscriptionRequest) -> dict:
+    config = web_push_config()
+    if not config["enabled"]:
+        raise HTTPException(status_code=503, detail="Web Push no está configurado en el servidor.")
+    endpoint_host = (urlsplit(payload.endpoint).hostname or "").lower()
+    allowed_push_hosts = (
+        "fcm.googleapis.com",
+        "push.services.mozilla.com",
+        "notify.windows.com",
+        "push.apple.com",
+    )
+    if urlsplit(payload.endpoint).scheme != "https" or not any(
+        endpoint_host == host or endpoint_host.endswith(f".{host}") for host in allowed_push_hosts
+    ):
+        raise HTTPException(status_code=422, detail="El navegador proporcionó un endpoint push no reconocido.")
+    subscription = payload.model_dump(exclude={"device_id"}, exclude_none=True)
+    upsert_web_push_subscription(
+        endpoint=payload.endpoint,
+        subscription_json=json.dumps(subscription),
+        device_id=payload.device_id,
+    )
+    return {"subscribed": True}
+
+
+@app.delete("/api/public/web-push/subscribe")
+def delete_web_push_subscription_route(payload: WebPushSubscriptionRequest) -> dict:
+    delete_web_push_subscription(payload.endpoint)
+    return {"subscribed": False}
+
+
 @app.get("/api/public/devices/push-status")
 def get_public_push_status() -> dict:
     """Consulta el estado real de los canales de notificación (WebSocket, Local y FCM)."""
-    return get_push_config_status()
+    status = get_push_config_status()
+    status["web_push"] = web_push_config()
+    return status

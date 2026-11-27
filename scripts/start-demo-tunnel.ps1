@@ -67,9 +67,12 @@ try {
   while (-not $publicUrl -and (Get-Date) -lt $deadline -and -not $tunnel.HasExited) {
     foreach ($logFile in @($stdoutPath, $stderrPath)) {
       $log = Get-Content -LiteralPath $logFile -Raw -ErrorAction SilentlyContinue
-      if ($log -match 'https://[a-zA-Z0-9-]+\.trycloudflare\.com') {
-        $publicUrl = $Matches[0]
-        break
+      if ($log) {
+        $match = [regex]::Match($log, 'https://[a-zA-Z0-9-]+\.trycloudflare\.com')
+        if ($match.Success) {
+          $publicUrl = $match.Value
+          break
+        }
       }
     }
     if (-not $publicUrl) { Start-Sleep -Milliseconds 500 }

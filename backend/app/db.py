@@ -266,6 +266,20 @@ def init_db() -> Path:
             """
         )
 
+        # 10. Suscripciones consentidas de Web Push para el navegador móvil.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+                endpoint TEXT PRIMARY KEY,
+                subscription_json TEXT NOT NULL,
+                device_id TEXT NOT NULL DEFAULT '',
+                notifications_enabled INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
         # Sembrar las 5 cuentas demo sintéticas (idempotente)
         now = _now_iso()
         for email, display_name, role, wa_phone in DEMO_ACCOUNTS:
@@ -1352,3 +1366,41 @@ def list_active_mobile_devices() -> list[dict[str, Any]]:
             "SELECT * FROM mobile_devices WHERE notifications_enabled = 1"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def upsert_web_push_subscription(*, endpoint: str, subscription_json: str, device_id: str) -> None:
+    init_db()
+    now = _now_iso()
+    clean_endpoint = endpoint.strip()[:4096]
+    clean_device_id = device_id.strip()[:120]
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO web_push_subscriptions
+                (endpoint, subscription_json, device_id, notifications_enabled, created_at, updated_at)
+            VALUES (?, ?, ?, 1, ?, ?)
+            ON CONFLICT(endpoint) DO UPDATE SET
+                subscription_json = excluded.subscription_json,
+                device_id = excluded.device_id,
+                notifications_enabled = 1,
+                updated_at = excluded.updated_at
+            """,
+            (clean_endpoint, subscription_json, clean_device_id, now, now),
+        )
+        conn.commit()
+
+
+def list_active_web_push_subscriptions() -> list[dict[str, Any]]:
+    init_db()
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT endpoint, subscription_json FROM web_push_subscriptions WHERE notifications_enabled = 1"
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def delete_web_push_subscription(endpoint: str) -> None:
+    init_db()
+    with _connect() as conn:
+        conn.execute("DELETE FROM web_push_subscriptions WHERE endpoint = ?", (endpoint.strip()[:4096],))
+        conn.commit()

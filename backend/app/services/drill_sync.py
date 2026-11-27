@@ -25,6 +25,7 @@ from fastapi import WebSocket
 from shapely.geometry import shape
 
 from app.db import list_active_mobile_devices
+from app.services.web_push import web_push_config
 from app.services.spatial import load_campus_geojson
 
 DrillStatus = Literal["idle", "published", "playing", "paused", "finished"]
@@ -90,16 +91,24 @@ def get_push_config_status() -> dict[str, Any]:
         missing.append("frontend/android/app/google-services.json")
 
     active_transports = ["websocket_realtime", "capacitor_native_local_notifications"]
+    browser_push_config = web_push_config()
+    if browser_push_config["enabled"]:
+        active_transports.append("browser_web_push")
     if fcm_configured:
         active_transports.append("fcm_remote_push")
 
     return {
         "fcm_configured": fcm_configured,
+        "web_push_configured": browser_push_config["enabled"],
         "fcm_mode": "http_v1" if has_fcm_v1 else ("legacy_http" if has_fcm_legacy else "unconfigured"),
         "active_transports": active_transports,
         "missing_credentials": missing,
         "honest_status": (
-            "FCM remoto configurado y activo."
+            "Web Push del navegador y FCM remoto configurados."
+            if fcm_configured and browser_push_config["enabled"]
+            else "Web Push del navegador configurado."
+            if browser_push_config["enabled"]
+            else "FCM remoto configurado y activo."
             if fcm_configured
             else (
                 "Sincronización WebSocket en tiempo real y notificaciones nativas Android (Capacitor LocalNotifications) "

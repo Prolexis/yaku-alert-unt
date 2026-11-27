@@ -28,13 +28,16 @@ import {
   fetchCampusLayers,
   fetchLiveEvaluation,
   fetchLiveSimulation,
+  fetchWebPushConfig,
   fetchPublicDrillState,
   fetchPublicSimulation,
   fetchWeather,
   getDrillWebSocketUrl,
   getMobileBackendOrigin,
   isNativeCapacitorApp,
+  removeWebPushSubscription,
   registerMobileDevice,
+  saveWebPushSubscription,
   setMobileBackendOrigin,
 } from "../../services/api";
 import { buildCampusCatalog, getFeatureDisplayName } from "../../utils/campusCatalog";
@@ -78,6 +81,12 @@ function getOrCreateDeviceId() {
   } catch {
     return "yaku-android-session";
   }
+}
+
+function applicationServerKeyToBytes(base64UrlKey) {
+  const padding = "=".repeat((4 - (base64UrlKey.length % 4)) % 4);
+  const base64 = `${base64UrlKey.replace(/-/g, "+").replace(/_/g, "/")}${padding}`;
+  return Uint8Array.from(window.atob(base64), (char) => char.charCodeAt(0));
 }
 
 function hasSeenNotification(notifId) {
@@ -361,7 +370,12 @@ export default function YakuMobileApp() {
       return true;
     }
   });
-  const [notifPermission, setNotifPermission] = useState("prompt");
+  const [notifPermission, setNotifPermission] = useState(() =>
+    typeof window !== "undefined" && "Notification" in window
+      ? window.Notification.permission
+      : "default"
+  );
+  const [notificationSetupMessage, setNotificationSetupMessage] = useState("");
   const [activeBannerNotif, setActiveBannerNotif] = useState(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [backendUrlInput, setBackendUrlInput] = useState(() => getMobileBackendOrigin());
@@ -660,40 +674,72 @@ export default function YakuMobileApp() {
 
   // Solicitar permiso de notificaciones de forma contextual (Android 13+ / Web)
   const handleRequestAndToggleNotifications = async (nextEnabled) => {
-    setNotificationsEnabled(nextEnabled);
+    const deviceId = getOrCreateDeviceId();
+    setNotificationSetupMessage("");
     try {
-      window.localStorage.setItem("yaku_mobile_notif_enabled", nextEnabled ? "true" : "false");
-    } catch {
-      // ignore
-    }
-
-    if (nextEnabled) {
-      if (isNativeCapacitorApp() && LocalNotifications?.requestPermissions) {
-        try {
-          const perm = await LocalNotifications.requestPermissions();
-          setNotifPermission(perm?.display || "granted");
-        } catch {
-          // ignore
+      if (!nextEnabled) {
+        setNotificationsEnabled(false);
+        window.localStorage.setItem("yaku_mobile_notif_enabled", "false");
+        if (!isNativeCapacitorApp() && "serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.getRegistration("/");
+          const subscription = await registration?.pushManager?.getSubscription();
+          if (subscription) {
+            await removeWebPushSubscription(subscription.toJSON(), deviceId).catch(() => {});
+            await subscription.unsubscribe();
+          }
         }
-      } else if (typeof window !== "undefined" && "Notification" in window) {
-        try {
-          const perm = await window.Notification.requestPermission();
-          setNotifPermission(perm);
-        } catch {
-          // ignore
-        }
+        await registerMobileDevice({
+          device_id: deviceId,
+          platform: isNativeCapacitorApp() ? "android" : "web",
+          notifications_enabled: false,
+        }).catch(() => {});
+        return;
       }
-    }
 
-    try {
+      if (isNativeCapacitorApp() && LocalNotifications?.requestPermissions) {
+        const permission = await LocalNotifications.requestPermissions();
+        const granted = permission?.display === "granted";
+        setNotifPermission(permission?.display || "prompt");
+        if (!granted) throw new Error("Permite las notificaciones de YAKU ALERT en Android.");
+      } else {
+        if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+          throw new Error("Este navegador no admite notificaciones push.");
+        }
+        const permission = window.Notification.permission === "granted"
+          ? "granted"
+          : await window.Notification.requestPermission();
+        setNotifPermission(permission);
+        if (permission !== "granted") {
+          throw new Error("Acepta el permiso de notificaciones en el navegador para activarlas.");
+        }
+
+        const config = await fetchWebPushConfig();
+        if (!config?.enabled || !config.public_key) {
+          throw new Error("El servidor todavía no tiene configuradas las claves Web Push.");
+        }
+        const registration = await navigator.serviceWorker.register("/sw.js");
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKeyToBytes(config.public_key),
+          });
+        }
+        await saveWebPushSubscription(subscription.toJSON(), deviceId);
+      }
+
+      setNotificationsEnabled(true);
+      window.localStorage.setItem("yaku_mobile_notif_enabled", "true");
       const resp = await registerMobileDevice({
-        device_id: getOrCreateDeviceId(),
+        device_id: deviceId,
         platform: isNativeCapacitorApp() ? "android" : "web",
-        notifications_enabled: nextEnabled,
+        notifications_enabled: true,
       });
       if (resp?.push_status) setPushStatusInfo(resp.push_status);
-    } catch {
-      // ignore offline
+    } catch (error) {
+      setNotificationsEnabled(false);
+      window.localStorage.setItem("yaku_mobile_notif_enabled", "false");
+      setNotificationSetupMessage(error?.message || "No se pudieron activar las notificaciones.");
     }
   };
 
@@ -1251,6 +1297,7 @@ export default function YakuMobileApp() {
 
   const isLiveAdminDrill = Boolean(drillSession?.is_public || managementSimulation?.active);
   const isFinishedAdminDrill = drillSession?.status === "finished";
+  const notificationsActive = notificationsEnabled && notifPermission === "granted";
 
   const handleStartLocalDrill = async (scenarioId = localScenarioId) => {
     setLocalScenarioId(scenarioId);
@@ -1923,26 +1970,42 @@ export default function YakuMobileApp() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-xs font-extrabold text-[#0F172A] dark:text-white">
-                    Avisos de simulacros educativos
+                    Avisos de YAKU ALERT en el móvil
                   </div>
                   <p className="mt-0.5 text-[11px] text-[#475569] dark:text-slate-300">
-                    Recibe notificaciones cuando se publique un simulacro autorizado en la UNT.
+                    Recibe alertas de Gestión UNT incluso si cierras esta página.
                   </p>
                 </div>
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={notificationsEnabled}
-                  onClick={() => handleRequestAndToggleNotifications(!notificationsEnabled)}
+                  aria-checked={notificationsActive}
+                  onClick={() =>
+                    handleRequestAndToggleNotifications(
+                      notificationsEnabled && notifPermission === "granted" ? false : true
+                    )
+                  }
                   className={`rounded-xl px-3 py-1.5 text-xs font-extrabold transition ${
                     notificationsEnabled
                       ? "bg-[#059669] text-white"
                       : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   }`}
                 >
-                  {notificationsEnabled ? "Activadas" : "Desactivadas"}
+                  {notificationsActive ? "Activadas" : "Permitir"}
                 </button>
               </div>
+              <p className="mt-2 text-[11px] text-[#64748B] dark:text-slate-400">
+                {notifPermission === "granted"
+                  ? "Permiso concedido por el navegador."
+                  : notifPermission === "denied"
+                  ? "Permiso bloqueado: habilítalo en la configuración del navegador."
+                  : "Al activar, el navegador pedirá permiso para mostrar notificaciones."}
+              </p>
+              {notificationSetupMessage && (
+                <p role="alert" className="mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                  {notificationSetupMessage}
+                </p>
+              )}
               {pushStatusInfo && (
                 <p className="mt-2 border-t border-slate-200/80 pt-2 text-[11px] text-[#64748B] dark:border-slate-800 dark:text-slate-400">
                   {pushStatusInfo.honest_status}

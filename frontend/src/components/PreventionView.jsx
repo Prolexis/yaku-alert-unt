@@ -1,11 +1,20 @@
 import React, { useState } from "react";
-import { ChevronDown, AlertTriangle } from "lucide-react";
+import {
+  ChevronDown,
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  Printer,
+  HelpCircle,
+} from "lucide-react";
 import PreventiveMessageCard from "./ui/PreventiveMessageCard";
 import OfficialChannelsSection from "./ui/OfficialChannelsSection";
 import CommunityPreparednessSection from "./ui/CommunityPreparednessSection";
 import ExplainabilityStrip from "./ui/ExplainabilityStrip";
 import ActiveAlertsBanner from "./ui/ActiveAlertsBanner";
 import { AdminReportsInbox } from "./ui/CampusReportModal";
+import { downloadBulletin, printBulletin } from "../utils/bulletin";
+import { formatLimaTime, humanPreventiveTitle } from "../utils/formatters";
 
 export default function PreventionView({
   evaluation,
@@ -27,18 +36,28 @@ export default function PreventionView({
   campusReports = [],
   onUpdateReportStatus,
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [communityOpen, setCommunityOpen] = useState(false);
+
+  const isSim = Boolean(evaluation?.is_synthetic);
+  const title = evaluation
+    ? humanPreventiveTitle(evaluation.preventive_level, isSim)
+    : "Evaluando...";
+  const { local } = formatLimaTime(weather?.fetched_at_utc);
+  const topGuidance = (evaluation?.guidance || []).slice(0, 3);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-[#101828] dark:text-white">
-            Análisis Preventivo y Avisos
+          <h2 className="text-2xl font-extrabold tracking-tight text-[#101828] dark:text-white sm:text-3xl">
+            {userRole === "admin" ? "Análisis Preventivo y Avisos" : "Recomendaciones preventivas"}
           </h2>
           <p className="mt-1 text-sm text-[#475467] dark:text-slate-400">
-            Mensaje accionable (qué, dónde, cuándo, qué hacer y quién informa) con boletín descargable.
+            {userRole === "admin"
+              ? "Mensaje accionable (qué, dónde, cuándo, qué hacer y quién informa) con boletín descargable."
+              : "Orientaciones claras según el pronóstico actual o escenario seleccionado."}
           </p>
         </div>
 
@@ -127,13 +146,15 @@ export default function PreventionView({
         <div className="rounded-xl border border-[#E2E8F0] bg-white p-8 text-center text-sm text-[#475467] dark:border-slate-800 dark:bg-[#0B1F33]">
           Sin evaluación disponible.
         </div>
-      ) : (
+      ) : userRole !== "admin" ? (
+        /* ===================================================================
+           JERARQUÍA ESTUDIANTE: 1) Qué hacer ahora -> 2) Por qué -> 3) Detalles
+           =================================================================== */
         <div className="space-y-5">
-          {/* Avisos institucionales activos (SQLite · CAP 1.2) */}
           {activeAlerts.length > 0 && (
             <ActiveAlertsBanner
               alerts={activeAlerts}
-              canResolve={userRole === "admin"}
+              canResolve={false}
               onResolveAlert={onResolveAlert}
               onValidateAlert={onValidateAlert}
               onConfirmAlert={onConfirmAlert}
@@ -141,7 +162,172 @@ export default function PreventionView({
             />
           )}
 
-          {/* Mensaje preventivo estructurado + Boletín descargable/imprimible */}
+          {/* 1. PRIMERO: ¿Qué puedo hacer ahora? (máx. 3 recomendaciones iniciales) */}
+          <section
+            aria-label="¿Qué puedo hacer ahora?"
+            className="rounded-2xl border border-l-4 border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B2545]"
+            style={{ borderLeftColor: evaluation.level_color }}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <span
+                  className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                    isSim
+                      ? "bg-amber-100 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200"
+                      : "bg-blue-50 text-[#0369A1] dark:bg-sky-950/70 dark:text-sky-200"
+                  }`}
+                >
+                  {isSim ? "Simulación experimental" : `Pronóstico Open-Meteo · ${local}`}
+                </span>
+                <h3 className="mt-1.5 text-xl font-extrabold text-[#0F172A] dark:text-white">
+                  ¿Qué puedo hacer ahora?
+                </h3>
+                <p className="text-xs font-semibold text-[#475569] dark:text-slate-300">
+                  Estado actual: {title}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadBulletin({ evaluation, weather, simResult, hydroResult })}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#101828] hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <Download className="h-3.5 w-3.5 text-[#0369A1]" />
+                  <span>Descargar boletín</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => printBulletin({ evaluation, weather, simResult, hydroResult })}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-[#101828] hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  <Printer className="h-3.5 w-3.5 text-[#0369A1]" />
+                  <span>Imprimir</span>
+                </button>
+              </div>
+            </div>
+
+            <ul className="mt-4 space-y-2.5 text-sm text-[#0F172A] dark:text-slate-100">
+              {topGuidance.map((item, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-2.5 rounded-xl bg-[#F8FAFC] p-3 dark:bg-slate-900/60"
+                >
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {/* 2. SEGUNDO: ¿Por qué aparece esta recomendación? */}
+          <section
+            aria-label="¿Por qué aparece esta recomendación?"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-panel dark:border-slate-800 dark:bg-[#0B2545]"
+          >
+            <div className="flex items-center gap-2 text-sm font-extrabold text-[#0F172A] dark:text-white">
+              <HelpCircle className="h-4 w-4 text-[#0369A1] dark:text-[#38BDF8]" />
+              <h3>¿Por qué aparece esta recomendación?</h3>
+            </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-[#475569] dark:text-slate-300">
+              {evaluation.hazard_assessment} {evaluation.exposure_assessment}
+            </p>
+            <p className="mt-2 text-[11px] text-[#64748B] dark:text-slate-400">
+              {evaluation.legal_disclaimer}
+            </p>
+          </section>
+
+          {/* 3. TERCERO: Ver detalles, 5 ejes, reglas y fuentes (bajo demanda) */}
+          <section className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0B2545]">
+            <button
+              type="button"
+              onClick={() => setDetailsOpen((v) => !v)}
+              aria-expanded={detailsOpen}
+              className="flex w-full items-center justify-between px-5 py-4 text-left"
+            >
+              <div>
+                <span className="text-sm font-extrabold text-[#0F172A] dark:text-white">
+                  Ver detalles, ficha completa (5 ejes) y fuentes
+                </span>
+                <p className="text-xs text-[#475569] dark:text-slate-300">
+                  Qué ocurre, dónde, cuándo, quién informa, reglas aplicadas y limitaciones
+                </p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-[#475569] transition-transform ${
+                  detailsOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {detailsOpen && (
+              <div className="space-y-4 border-t border-slate-200 p-5 dark:border-slate-800">
+                <PreventiveMessageCard
+                  evaluation={evaluation}
+                  weather={weather}
+                  simResult={simResult}
+                  hydroResult={hydroResult}
+                  userRole={userRole}
+                  activeDemoRole={activeDemoRole}
+                />
+                <ExplainabilityStrip
+                  evaluation={evaluation}
+                  hydroEvaluation={hydroResult?.evaluation}
+                  weather={weather}
+                  evalSourceMode={evalSourceMode}
+                  hasVirtualSensors={false}
+                />
+              </div>
+            )}
+          </section>
+
+          {/* Mochila de emergencia y canales oficiales */}
+          <section className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0B2545]">
+            <button
+              type="button"
+              onClick={() => setCommunityOpen((v) => !v)}
+              aria-expanded={communityOpen}
+              className="flex w-full items-center justify-between px-5 py-4 text-left"
+            >
+              <div>
+                <span className="text-sm font-extrabold text-[#0F172A] dark:text-white">
+                  Mochila de emergencia y brigadas universitarias
+                </span>
+                <p className="text-xs text-[#475569] dark:text-slate-300">
+                  Checklist preventivo local y coordinación comunitaria
+                </p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-[#475569] transition-transform ${
+                  communityOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {communityOpen && (
+              <div className="border-t border-slate-200 p-5 dark:border-slate-800">
+                <CommunityPreparednessSection />
+              </div>
+            )}
+          </section>
+
+          <OfficialChannelsSection />
+        </div>
+      ) : (
+        /* ===================================================================
+           VISTA ADMINISTRADOR / GESTIÓN UNT (Conserva capacidad técnica total)
+           =================================================================== */
+        <div className="space-y-5">
+          {activeAlerts.length > 0 && (
+            <ActiveAlertsBanner
+              alerts={activeAlerts}
+              canResolve={true}
+              onResolveAlert={onResolveAlert}
+              onValidateAlert={onValidateAlert}
+              onConfirmAlert={onConfirmAlert}
+              activeDemoRole={activeDemoRole}
+            />
+          )}
+
           <PreventiveMessageCard
             evaluation={evaluation}
             weather={weather}
@@ -152,25 +338,20 @@ export default function PreventionView({
             onIssueAlert={onIssueAlert}
           />
 
-          {/* Bandeja de reportes comunitarios anónimos (solo Gestión UNT) */}
-          {userRole === "admin" && (
-            <AdminReportsInbox
-              reports={campusReports}
-              onUpdateStatus={onUpdateReportStatus}
-            />
-          )}
+          <AdminReportsInbox
+            reports={campusReports}
+            onUpdateStatus={onUpdateReportStatus}
+          />
 
-          {/* Explicabilidad visual: ¿Por qué este nivel? */}
           <ExplainabilityStrip
             evaluation={evaluation}
             hydroEvaluation={hydroResult?.evaluation}
             weather={weather}
             evalSourceMode={evalSourceMode}
-            hasVirtualSensors={userRole === "admin"}
+            hasVirtualSensors={true}
             defaultOpen
           />
 
-          {/* Fuentes y limitaciones */}
           <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
             <h3 className="flex items-center gap-2 text-base font-semibold text-[#101828] dark:text-white">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -189,37 +370,8 @@ export default function PreventionView({
             </p>
           </section>
 
-          {/* Canales Oficiales de Alerta diferenciados por competencia */}
           <OfficialChannelsSection />
 
-          {/* Acción comunitaria y mochila de emergencia (accesible para Estudiante y Gestión) */}
-          <section className="rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33]">
-            <button
-              type="button"
-              onClick={() => setCommunityOpen((v) => !v)}
-              aria-expanded={communityOpen}
-              className="flex w-full items-center justify-between px-5 py-4 text-left"
-            >
-              <div>
-                <span className="text-sm font-semibold text-[#101828] dark:text-white">
-                  Acción comunitaria y mochila de emergencia
-                </span>
-                <p className="text-xs text-[#475467] dark:text-slate-400">
-                  Brigadas universitarias, articulación con territorios vecinales y checklist interactivo local
-                </p>
-              </div>
-              <ChevronDown
-                className={`h-4 w-4 text-[#475467] transition-transform ${communityOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {communityOpen && (
-              <div className="border-t border-[#E2E8F0] p-5 dark:border-slate-800">
-                <CommunityPreparednessSection />
-              </div>
-            )}
-          </section>
-
-          {/* Reglas técnicas desplegables */}
           <section className="rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33]">
             <button
               type="button"

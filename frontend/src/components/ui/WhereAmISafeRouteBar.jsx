@@ -14,8 +14,8 @@ export default function WhereAmISafeRouteBar({
       aria-label="Selector rápido ¿Dónde estoy en la UNT?"
       className="rounded-2xl border border-[#00B4D8]/35 bg-gradient-to-r from-[#F0F9FF] via-white to-[#ECFDF5]/60 p-4 shadow-panel dark:border-sky-800/80 dark:from-[#0B2545] dark:via-[#0E2D52] dark:to-[#0B2545]"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2.5">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start gap-2.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#0B2545] text-[#38BDF8] shadow-sm dark:bg-[#0369A1] dark:text-white">
             <Compass className="h-5 w-5" />
           </span>
@@ -27,12 +27,12 @@ export default function WhereAmISafeRouteBar({
               ¿En qué facultad o zona estás?
             </label>
             <p className="text-xs text-[#475569] dark:text-slate-300">
-              Elige tu ubicación y trazaremos automáticamente tu ruta hacia el punto seguro más cercano.
+              Elige tu ubicación para ver el punto de encuentro y la ruta referencial más cercana (no reemplaza señalización oficial).
             </p>
           </div>
         </div>
 
-        <div className="flex w-full items-center gap-2 sm:w-auto sm:min-w-[290px]">
+        <div className="flex w-full items-center gap-2">
           <select
             id="where-am-i-select"
             value={selectedId}
@@ -74,14 +74,14 @@ export default function WhereAmISafeRouteBar({
                 <ShieldCheck className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <div className="text-xs font-bold uppercase tracking-wide text-[#059669] dark:text-emerald-400">
-                  Punto seguro destino
+                <div className="text-xs font-bold uppercase tracking-wide text-[#0369A1] dark:text-sky-400">
+                  Punto de encuentro referencial
                 </div>
                 <div className="truncate text-sm font-extrabold text-[#0F172A] dark:text-white">
                   {safeRoute.safePoint.name}
                 </div>
                 <div className="truncate text-xs text-[#475569] dark:text-slate-300">
-                  Desde: {safeRoute.origin.name}
+                  Desde: {safeRoute.origin.name} · Ruta referencial (no certificada)
                 </div>
               </div>
             </div>

@@ -59,20 +59,20 @@ function resolveStudentNowAction(liveEvaluation, summary) {
     return {
       tone: "border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100",
       dot: "bg-rose-600",
-      text: "Evita desplazarte por calles anegadas (Puerta 4 / Av. Jesús de Nazareth) y prioriza clases virtuales o pisos altos.",
+      text: "Evita desplazarte por sectores con acumulación de agua (Puerta 4 / Av. Jesús de Nazareth) y prioriza pisos altos o pautas oficiales UNT.",
     };
   }
-  if (level === "VIGILANCIA_PREVENTIVA" || (summary?.max_probability_24h_pct ?? 0) >= 60) {
+  if (level === "VIGILANCIA_PREVENTIVA" || (summary?.max_intensity_mm_h ?? 0) >= 2) {
     return {
       tone: "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
       dot: "bg-amber-500",
-      text: "Lleva paraguas o impermeable, evita zonas bajas (Puerta 4, Comedor) y revisa comunicados oficiales de la UNT.",
+      text: "Ten precaución en zonas bajas del campus y consulta comunicados oficiales de la UNT.",
     };
   }
   return {
     tone: "border-emerald-200 bg-emerald-50/80 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-100",
     dot: "bg-emerald-600",
-    text: "Asistencia presencial normal. Aprovecha para ubicar tu facultad y el punto seguro más cercano en el mapa.",
+    text: "Sin lluvias significativas previstas. Ubica tu facultad y los puntos de encuentro referenciales en el mapa.",
   };
 }
 
@@ -113,8 +113,10 @@ export default function StudentMonitoringMap({
   const [showAttentionZones, setShowAttentionZones] = useState(true);
   const [showEvacuation, setShowEvacuation] = useState(true);
   const [showTrujilloContext, setShowTrujilloContext] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [myLocationId, setMyLocationId] = useState("");
 
@@ -725,11 +727,11 @@ export default function StudentMonitoringMap({
               </span>
             )}
           </div>
-          <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-[#101828] dark:text-white sm:text-3xl">
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
             Mapa de monitoreo UNT
           </h2>
           <p className="text-sm text-[#475467] dark:text-slate-400">
-            Ubica tu facultad, revisa la probabilidad de lluvia y conoce tus rutas seguras.
+            Busca cualquier facultad o instalación, revisa las zonas de atención y ubica puntos de encuentro referenciales.
           </p>
         </div>
 
@@ -750,116 +752,128 @@ export default function StudentMonitoringMap({
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0B2545] px-4 text-xs font-bold text-white transition hover:bg-[#0369A1] dark:bg-[#0369A1]"
           >
             <Waves className="h-4 w-4" />
-            <span>Ver simulación educativa (2017 / 2023)</span>
+            <span>Simular lluvias (2017 / 2023)</span>
           </button>
         </div>
       </div>
 
-      {/* Qué hacer ahora + Probabilidad de lluvia (lectura inmediata) */}
-      <div
-        className={`flex flex-col justify-between gap-2 rounded-xl border px-4 py-3 sm:flex-row sm:items-center ${studentNow.tone}`}
+      {/* Buscador protagonista: PRIMERO BUSCAR, DESPUÉS EXPLORAR */}
+      <section
+        aria-label="¿Qué lugar de la UNT buscas?"
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-panel dark:border-slate-800 dark:bg-[#0B2545]"
       >
-        <div className="flex items-start gap-2.5">
-          <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${studentNow.dot}`} />
-          <div className="text-xs leading-snug">
-            <span className="font-bold uppercase tracking-wide">Qué hacer ahora: </span>
-            <span>{studentNow.text}</span>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <label
+              htmlFor="student-map-search"
+              className="block text-base font-extrabold text-[#0F172A] dark:text-white"
+            >
+              ¿Qué lugar de la UNT buscas?
+            </label>
+            <p className="text-xs text-[#475569] dark:text-slate-300">
+              Escribe tu facultad, pabellón, biblioteca, comedor, auditorio o puerta para centrarlo en el mapa.
+            </p>
           </div>
-        </div>
-        <span className="shrink-0 rounded-lg bg-white/80 px-2.5 py-1 text-xs font-bold text-[#101828] tabular-nums dark:bg-slate-900/70 dark:text-white">
-          Prob. lluvia: {maxProb24 !== null && maxProb24 !== undefined ? `${maxProb24}%` : "N/D"}
-        </span>
-      </div>
 
-      {/* Resumen compacto de Open-Meteo (probabilístico, sin mensajes deterministas) */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33]">
-          <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
-            Lluvia prevista (24 h)
-          </div>
-          <div className="mt-0.5 text-xl font-bold text-[#101828] tabular-nums dark:text-white">
-            {weather?.summary ? `${weather.summary.accumulated_24h_mm} mm` : "—"}
-          </div>
-          <div className="text-[10px] text-[#64748B] dark:text-slate-400">
-            48 h: {weather?.summary ? `${weather.summary.accumulated_48h_mm} mm` : "—"}
+          <div className="relative flex-1 lg:max-w-xl">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              id="student-map-search"
+              type="text"
+              value={query}
+              onFocus={() => setSearchOpen(true)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSearchOpen(true);
+              }}
+              placeholder="Ej. Comedor Universitario, Ingeniería, Biblioteca Central, Puerta 4..."
+              aria-label="Buscar facultad o instalación en el mapa"
+              className="h-11 w-full rounded-xl border border-slate-300 bg-[#F8FAFC] pl-10 pr-9 text-sm font-medium text-[#0F172A] focus:border-[#0369A1] focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setSearchOpen(false);
+                }}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+
+            {searchOpen && filteredCatalog.length > 0 && (
+              <div
+                role="listbox"
+                className="absolute left-0 right-0 top-12 z-[500] max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-[#0B2545]"
+              >
+                {filteredCatalog.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="option"
+                    onClick={() => {
+                      setQuery(item.displayLabel);
+                      setSearchOpen(false);
+                      onSelectBuilding?.(item.id);
+                    }}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition hover:bg-[#F0F9FF] dark:hover:bg-slate-800"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-bold text-[#0F172A] dark:text-white">
+                        {item.displayLabel}
+                      </div>
+                      <div className="text-[11px] text-[#64748B] dark:text-slate-400">
+                        {item.typeLabel} · {item.verificationStatus}
+                      </div>
+                    </div>
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33]">
-          <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
-            Probabilidad máx. lluvia
+
+        {/* Franja meteorológica compacta y clara (sin 5 tarjetas separadas) */}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 pt-3 text-xs text-[#475569] dark:border-slate-700/80 dark:text-slate-300">
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${studentNow.dot}`} />
+            <span className="font-semibold text-[#0F172A] dark:text-white">{studentNow.text}</span>
           </div>
-          <div className="mt-0.5 text-xl font-bold text-[#2563EB] tabular-nums dark:text-blue-400">
-            {weather?.summary?.max_probability_24h_pct !== null &&
-            weather?.summary?.max_probability_24h_pct !== undefined
-              ? `${weather.summary.max_probability_24h_pct}%`
-              : weather?.summary?.max_probability_pct !== null &&
-                weather?.summary?.max_probability_pct !== undefined
-              ? `${weather.summary.max_probability_pct}%`
-              : "N/D"}
-          </div>
-          <div className="text-[10px] text-[#64748B] dark:text-slate-400">
-            48 h:{" "}
-            {weather?.summary?.max_probability_48h_pct !== null &&
-            weather?.summary?.max_probability_48h_pct !== undefined
-              ? `${weather.summary.max_probability_48h_pct}%`
-              : "—"}
-          </div>
-        </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33]">
-          <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
-            Intensidad máxima
-          </div>
-          <div className="mt-0.5 text-xl font-bold text-[#101828] tabular-nums dark:text-white">
-            {weather?.summary ? `${weather.summary.max_intensity_mm_h} mm/h` : "—"}
+          <div className="flex flex-wrap items-center gap-3 font-mono text-[11px]">
+            <span>
+              Lluvia 24 h: <strong>{weather?.summary ? `${weather.summary.accumulated_24h_mm} mm` : "—"}</strong>
+            </span>
+            <span>
+              Intensidad máx.: <strong>{weather?.summary ? `${weather.summary.max_intensity_mm_h} mm/h` : "—"}</strong>
+            </span>
+            <span>
+              Prob. llovizna: <strong>{maxProb24 !== null && maxProb24 !== undefined ? `${maxProb24}%` : "N/D"}</strong>
+            </span>
+            <span className="text-[#64748B] dark:text-slate-400">Open-Meteo · {updatedLima}</span>
           </div>
         </div>
-        <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3.5 dark:border-blue-900/60 dark:bg-blue-950/30">
-          <div className="text-[11px] font-medium text-blue-900 dark:text-blue-200">
-            Confianza del pronóstico
-          </div>
-          <div className="mt-0.5 text-xs font-bold leading-snug text-[#101828] dark:text-white">
-            {weather?.summary?.forecast_confidence_label ||
-              "Pronóstico probabilístico 48 h — Open-Meteo"}
-          </div>
-        </div>
-        <div className="col-span-2 rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33] sm:col-span-1">
-          <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
-            Actualización (Lima)
-          </div>
-          <div className="mt-0.5 truncate text-sm font-bold text-[#101828] dark:text-white">
-            {updatedLima}
-          </div>
-          <div className="text-[10px] text-[#64748B] dark:text-slate-400">
-            Fuente: Open-Meteo
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* Aviso transparente si existen condiciones externas declaradas manualmente */}
       {declaredConditions.length > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            <strong>Condición externa declarada manualmente ({declaredConditions.length}):</strong> registrada de forma manual en el sistema (no es una medición automática de sensores).
+            <strong>Condición externa declarada manualmente ({declaredConditions.length}):</strong> registrada de forma manual en el sistema (no es una medición verificada por sensores).
           </span>
         </div>
       )}
 
-      {/* Selector rápido: ¿Dónde estoy en la UNT? -> Mi Ruta Segura */}
-      <WhereAmISafeRouteBar
-        options={facultyOptions}
-        selectedId={myLocationId}
-        onSelectOrigin={setMyLocationId}
-        safeRoute={mySafeRoute}
-        onClear={() => setMyLocationId("")}
-      />
-
-      {/* Mapa protagonista Map-First + Panel lateral sencillo */}
+      {/* Mapa protagonista Map-First + Ficha breve lateral */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-8">
           <div
             ref={mapContainerRef}
-            className="h-[460px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[620px]"
+            className="h-[440px] w-full bg-slate-100 dark:bg-slate-900 lg:h-[580px]"
           />
 
           {(basemap === "vectorial" || tilesFailed) && (
@@ -869,67 +883,69 @@ export default function StudentMonitoringMap({
             </div>
           )}
 
-          {/* Controles flotantes translúcidos arriba a la derecha */}
-          <div className="absolute right-3 top-3 z-[400] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-end gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1.5 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
+          {/* Control agrupado «Capas» arriba a la derecha (sin saturar el mapa con botones) */}
+          <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
             <button
               type="button"
-              onClick={() => setShowEvacuation((v) => !v)}
-              aria-pressed={showEvacuation}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                showEvacuation
-                  ? "bg-[#059669] text-white shadow-sm"
-                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
-              }`}
+              onClick={() => setLayersOpen((v) => !v)}
+              aria-expanded={layersOpen}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-3.5 py-2 text-xs font-bold text-[#0F172A] shadow-sm backdrop-blur-md hover:bg-white dark:border-slate-700 dark:bg-[#0B2545]/95 dark:text-white"
             >
-              Puntos seguros y rutas
+              <span>Capas y mapa base</span>
+              {layersOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             </button>
-            <button
-              type="button"
-              onClick={() => setShowAttentionZones((v) => !v)}
-              aria-pressed={showAttentionZones}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                showAttentionZones
-                  ? "bg-[#D97706] text-white shadow-sm"
-                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
-              }`}
-            >
-              Zonas de atención
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowTrujilloContext((v) => !v)}
-              aria-pressed={showTrujilloContext}
-              title="Capa referencial: Ruta del Agua, Av. Jesús de Nazareth y Urb. San Andrés"
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                showTrujilloContext
-                  ? "bg-[#0369A1] text-white shadow-sm"
-                  : "text-[#0F172A] hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
-              }`}
-            >
-              Ruta del Agua
-            </button>
-            <div
-              role="group"
-              aria-label="Mapa base"
-              className="inline-flex rounded-lg border border-slate-200 bg-[#F8FAFC] p-0.5 dark:border-slate-700 dark:bg-slate-900"
-            >
-              {Object.entries(BASEMAPS).map(([key, cfg]) => (
-                <button
-                  key={key}
-                  type="button"
-                  title={cfg.title || cfg.label}
-                  onClick={() => setBasemap(key)}
-                  aria-pressed={basemap === key}
-                  className={`rounded-md px-2 py-1 text-xs font-bold transition ${
-                    basemap === key
-                      ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
-                      : "text-[#475569] hover:text-[#0F172A] dark:text-slate-300"
-                  }`}
-                >
-                  {cfg.label}
-                </button>
-              ))}
-            </div>
+
+            {layersOpen && (
+              <div className="w-60 space-y-3 rounded-xl border border-slate-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur-md dark:border-slate-700 dark:bg-[#0B2545]/95">
+                <div className="flex gap-1" role="group" aria-label="Mapa base">
+                  {Object.entries(BASEMAPS).map(([key, cfg]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setBasemap(key)}
+                      aria-pressed={basemap === key}
+                      className={`flex-1 rounded-lg px-2 py-1 text-[11px] font-bold transition ${
+                        basemap === key
+                          ? "bg-[#0B2545] text-white dark:bg-[#0369A1]"
+                          : "border border-slate-200 text-[#475569] dark:border-slate-700 dark:text-slate-300"
+                      }`}
+                    >
+                      {key === "vectorial" ? "Offline" : cfg.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2 text-[#0F172A] dark:text-slate-200">
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={showAttentionZones}
+                      onChange={(e) => setShowAttentionZones(e.target.checked)}
+                      className="rounded accent-[#0369A1]"
+                    />
+                    <span>Zonas de atención (antecedentes y DEM)</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={showEvacuation}
+                      onChange={(e) => setShowEvacuation(e.target.checked)}
+                      className="rounded accent-[#0369A1]"
+                    />
+                    <span>Puntos de encuentro y rutas ref.</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={showTrujilloContext}
+                      onChange={(e) => setShowTrujilloContext(e.target.checked)}
+                      className="rounded accent-[#0369A1]"
+                    />
+                    <span>Contexto territorial (Ruta del Agua ref.)</span>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Leyenda flotante colapsable */}
@@ -952,39 +968,26 @@ export default function StudentMonitoringMap({
                   <span className="h-2.5 w-2.5 rounded-sm border border-sky-600 bg-sky-400/60" /> Relieve bajo (DEM)
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Punto seguro ref.
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Punto encuentro ref.
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta referencial
                 </span>
-                {showTrujilloContext && (
-                  <>
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block w-4 border-t-2 border-dashed border-sky-600" /> Ruta del Agua (ref.)
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="inline-block w-4 border-t-2 border-dotted border-indigo-600" /> Av. J. de Nazareth (ref.)
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-2.5 w-2.5 rounded-sm border border-amber-700 bg-amber-400/40" /> Urb. San Andrés (ref.)
-                    </span>
-                  </>
-                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Panel derecho: buscador + ficha breve de instalación o zona */}
+        {/* Panel derecho: ficha corta de la instalación seleccionada + ruta referencial + lugares frecuentes */}
         <div className="space-y-4 lg:col-span-4">
-          {selectedCard && (
-            <section className="rounded-xl border border-[#2563EB]/40 bg-white p-4 shadow-sm dark:border-blue-800 dark:bg-[#0B1F33]">
+          {selectedCard ? (
+            <section className="rounded-2xl border border-[#2563EB]/40 bg-white p-4 shadow-sm dark:border-blue-800 dark:bg-[#0B2545]">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <span className="inline-block rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-[#2563EB] dark:bg-blue-950/60 dark:text-blue-300">
                     {selectedCard.infoType}
                   </span>
-                  <h3 className="mt-1 text-sm font-bold text-[#101828] dark:text-white">
+                  <h3 className="mt-1 text-base font-extrabold text-[#101828] dark:text-white">
                     {selectedCard.name}
                   </h3>
                 </div>
@@ -1003,74 +1006,55 @@ export default function StudentMonitoringMap({
               <button
                 type="button"
                 onClick={() => onNavigate("prevention")}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#0B1F33] px-3 py-2 text-xs font-semibold text-white hover:bg-[#1D4ED8] dark:bg-[#2563EB]"
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0B2545] px-3 py-2.5 text-xs font-bold text-white hover:bg-[#0369A1] dark:bg-[#0369A1]"
               >
                 <ShieldCheck className="h-3.5 w-3.5" />
                 <span>Ver recomendaciones</span>
               </button>
             </section>
+          ) : (
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-[#0B2545]">
+              <h3 className="text-sm font-extrabold text-[#0F172A] dark:text-white">
+                Lugares frecuentes del campus
+              </h3>
+              <p className="mt-0.5 text-xs text-[#475569] dark:text-slate-300">
+                Selecciona uno para ubicarlo en el mapa:
+              </p>
+              <div className="mt-2.5 max-h-52 space-y-1 overflow-y-auto">
+                {filteredCatalog.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onSelectBuilding?.(item.id)}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition hover:bg-[#F8FAFC] dark:hover:bg-slate-900"
+                  >
+                    <span className="truncate font-semibold text-[#101828] dark:text-white">
+                      {item.displayLabel}
+                    </span>
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#0369A1]" />
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
-          <section className="rounded-xl border border-[#E2E8F0] bg-white p-4 dark:border-slate-800 dark:bg-[#0B1F33]">
-            <h3 className="text-sm font-bold text-[#101828] dark:text-white">
-              Busca tu facultad o instalación
-            </h3>
-            <div className="relative mt-2">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Ej. Comedor, Ingeniería, Biblioteca..."
-                aria-label="Buscar facultad o instalación en el mapa"
-                className="h-9 w-full rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] pl-9 pr-3 text-xs text-[#101828] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
-              />
-            </div>
+          <WhereAmISafeRouteBar
+            options={facultyOptions}
+            selectedId={myLocationId}
+            onSelectOrigin={setMyLocationId}
+            safeRoute={mySafeRoute}
+            onClear={() => setMyLocationId("")}
+          />
 
-            <div className="mt-2.5 max-h-64 space-y-1 overflow-y-auto">
-              {filteredCatalog.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onSelectBuilding?.(item.id)}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-transparent px-2.5 py-2 text-left text-xs transition hover:border-[#E2E8F0] hover:bg-[#F7F9FC] dark:hover:border-slate-700 dark:hover:bg-slate-900"
-                >
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold text-[#101828] dark:text-white">
-                      {item.displayLabel}
-                    </div>
-                    <div className="text-[10px] text-[#64748B] dark:text-slate-400">
-                      {item.typeLabel}
-                    </div>
-                  </div>
-                  <MapPin className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
-                </button>
-              ))}
-              {filteredCatalog.length === 0 && (
-                <div className="py-4 text-center text-xs text-[#64748B]">
-                  Sin coincidencias en el catálogo del campus.
-                </div>
-              )}
-            </div>
-          </section>
-
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F7F9FC] p-3 text-[11px] leading-snug text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+          <div className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3 text-[11px] leading-snug text-[#475467] dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
             <div className="flex items-center gap-1.5 font-semibold text-[#101828] dark:text-slate-200">
-              <CloudRain className="h-3.5 w-3.5 text-[#2563EB]" />
-              Pronóstico probabilístico (Open-Meteo) · Rutas referenciales
+              <CloudRain className="h-3.5 w-3.5 text-[#0369A1]" />
+              Pronóstico (Open-Meteo) · Puntos y rutas referenciales
             </div>
             <p className="mt-1">{EVACUATION_DISCLAIMER}</p>
           </div>
         </div>
       </div>
-
-      {/* Explicabilidad visual: ¿Por qué este nivel? */}
-      <ExplainabilityStrip
-        evaluation={liveEvaluation}
-        weather={weather}
-        evalSourceMode="live"
-        hasVirtualSensors={false}
-      />
     </div>
   );
 }

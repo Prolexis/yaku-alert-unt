@@ -79,15 +79,17 @@ function detectAffectedGates(elements = [], activeHour = null) {
 const PUBLIC_SCENARIOS = [
   {
     id: "evento_2017_03",
-    title: "El Niño Costero 2017",
-    tag: "27.5 mm · Marzo 2017",
-    description: "Referencia educativa basada en las lluvias intensas de marzo de 2017 en Trujillo.",
+    title: "Escenario tipo 2017",
+    tag: "27.5 mm · Referencia marzo 2017",
+    description:
+      "Escenario experimental inspirado en los antecedentes documentados de marzo de 2017 (no es una reconstrucción exacta).",
   },
   {
     id: "evento_2023_03_10",
-    title: "Ciclón Yaku 2023",
-    tag: "35.0 mm · Marzo 2023",
-    description: "Referencia educativa basada en las lluvias extremas del 10 de marzo de 2023.",
+    title: "Escenario tipo 2023",
+    tag: "35.0 mm · Referencia marzo 2023",
+    description:
+      "Escenario experimental relacionado con los antecedentes documentados de marzo de 2023 (no es una reconstrucción exacta).",
   },
 ];
 
@@ -532,18 +534,18 @@ export default function StudentSimpleSimulation({
 
   return (
     <div className="space-y-4">
-      {/* Cabecera inequívoca de SIMULACIÓN HISTÓRICA EDUCATIVA */}
+      {/* Cabecera inequívoca de SIMULACIÓN EXPERIMENTAL */}
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
         <div>
           <div className="inline-flex items-center gap-1.5 rounded-full border border-[#D97706]/40 bg-[#FFFBEB] px-3 py-1 text-xs font-extrabold text-[#92400E] dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200">
             <FlaskConical className="h-3.5 w-3.5 text-[#D97706]" />
-            <span>Simulación histórica educativa — No es una alerta en curso</span>
+            <span>SIMULACIÓN EXPERIMENTAL · NO ES UNA ALERTA EN CURSO</span>
           </div>
           <h2 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-3xl">
-            Simulación de lluvias (2017 / 2023)
+            Simulación de lluvias
           </h2>
           <p className="text-sm text-[#475569] dark:text-slate-300">
-            Referencia visual interactiva para conocer zonas inundables y rutas seguras del campus.
+            Explora cómo podría acumularse el agua en la UNT.
           </p>
         </div>
 
@@ -628,15 +630,6 @@ export default function StudentSimpleSimulation({
         </div>
       )}
 
-      {/* Selector rápido: ¿Dónde estoy en la UNT? -> Mi Ruta Segura */}
-      <WhereAmISafeRouteBar
-        options={facultyOptions}
-        selectedId={myLocationId}
-        onSelectOrigin={setMyLocationId}
-        safeRoute={mySafeRoute}
-        onClear={() => setMyLocationId("")}
-      />
-
       {/* Mapa principal Map-First + Reproductor moderno + Ficha lateral */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-panel dark:border-slate-800 dark:bg-[#0B2545] lg:col-span-9">
@@ -665,7 +658,7 @@ export default function StudentSimpleSimulation({
                     : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
                 }`}
               >
-                Puntos seguros y rutas
+                Puntos y rutas ref.
               </button>
               <div
                 role="group"
@@ -717,7 +710,7 @@ export default function StudentSimpleSimulation({
                     {showEvacuation && (
                       <>
                         <span className="flex items-center gap-1.5">
-                          <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Punto seguro ref.
+                          <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Punto encuentro ref.
                         </span>
                         <span className="flex items-center gap-1.5">
                           <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta ref.
@@ -727,15 +720,10 @@ export default function StudentSimpleSimulation({
                   </div>
                 </div>
               )}
-              {showEvacuation && affectedGates.size > 0 && (
-                <div className="mt-1.5 font-semibold text-[#B45309] dark:text-amber-300">
-                  Desvío en h+{hour}: evita {Array.from(affectedGates).join(", ")} y sigue rutas verde/ámbar.
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Reproductor moderno de simulación */}
+          {/* Reproductor moderno de simulación + Máximo 3 indicadores principales */}
           <div className="space-y-3 border-t border-slate-200 bg-[#F8FAFC] px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900/60">
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
@@ -743,27 +731,23 @@ export default function StudentSimpleSimulation({
                   Hora simulada
                 </div>
                 <div className="font-mono text-lg font-extrabold text-[#0B2545] tabular-nums dark:text-white">
-                  {currentFrame ? `${currentFrame.label} / ${frames.length}` : "—"}
+                  {currentFrame ? `${currentFrame.label} de ${frames.length}` : "Información no disponible"}
                 </div>
               </div>
               <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
                 <div className="text-xs font-semibold text-[#475569] dark:text-slate-300">
-                  Lámina / Lluvia acum.
+                  Lámina máxima modelada
                 </div>
                 <div className="font-mono text-lg font-extrabold text-[#0369A1] tabular-nums dark:text-[#38BDF8]">
-                  {currentFrame
-                    ? `${currentFrame.max_depth_cm} cm${
-                        accumulatedRainMm > 0 ? ` · ${accumulatedRainMm.toFixed(1)} mm` : ""
-                      }`
-                    : "—"}
+                  {currentFrame ? `${currentFrame.max_depth_cm} cm` : "Información no disponible"}
                 </div>
               </div>
               <div className="rounded-xl border border-slate-200/80 bg-white px-3 py-2 dark:border-slate-700 dark:bg-[#0B2545]">
                 <div className="text-xs font-semibold text-[#475569] dark:text-slate-300">
-                  Zonas afectadas
+                  Instalaciones intersectadas
                 </div>
                 <div className="font-mono text-lg font-extrabold text-[#D97706] tabular-nums dark:text-amber-300">
-                  {result ? `${affectedElements.length}` : "—"}
+                  {result ? `${affectedElements.length}` : "Información no disponible"}
                 </div>
               </div>
             </div>
@@ -815,7 +799,7 @@ export default function StudentSimpleSimulation({
           </div>
         </div>
 
-        {/* Columna derecha compacta: ficha de instalación seleccionada o guía breve */}
+        {/* Columna derecha compacta: ficha por instalación */}
         <div className="space-y-3 lg:col-span-3">
           {selectedFacility ? (
             <section className="rounded-xl border border-[#2563EB]/40 bg-white p-4 shadow-sm dark:border-blue-800 dark:bg-[#0B1F33]">
@@ -836,20 +820,20 @@ export default function StudentSimpleSimulation({
                 {selectedFacility.impact && selectedFacility.impact.first_hour_affected !== null ? (
                   <>
                     <div className="font-semibold text-amber-800 dark:text-amber-300">
-                      Contacto modelado desde h+{selectedFacility.impact.first_hour_affected}
+                      Intersección modelada desde h+{selectedFacility.impact.first_hour_affected}
                     </div>
                     <div className="mt-0.5 text-[#475467] dark:text-slate-300">
-                      Lámina máxima modelada: <strong>{selectedFacility.impact.max_depth_cm} cm</strong>.
+                      Lámina máxima modelada en su entorno: <strong>{selectedFacility.impact.max_depth_cm} cm</strong>.
                     </div>
                   </>
                 ) : (
                   <div className="text-[#475467] dark:text-slate-300">
-                    Sin lámina visible en el perímetro exterior de esta instalación durante este escenario exploratorio.
+                    Sin lámina visible en el entorno de esta instalación durante este escenario exploratorio.
                   </div>
                 )}
               </div>
               <p className="mt-2 text-[11px] leading-snug text-[#64748B] dark:text-slate-400">
-                Resultado exploratorio simplificado; no clasifica el edificio ni sustituye avisos oficiales.
+                Resultado exploratorio; no declara una instalación como inundada ni sustituye avisos oficiales.
               </p>
               <button
                 type="button"
@@ -863,35 +847,28 @@ export default function StudentSimpleSimulation({
           ) : (
             <section className="rounded-xl border border-[#E2E8F0] bg-white p-4 text-xs text-[#475467] dark:border-slate-800 dark:bg-[#0B1F33] dark:text-slate-300">
               <div className="font-bold text-[#101828] dark:text-white">
-                Cómo explorar el escenario
+                Instalaciones en el escenario
               </div>
-              <ol className="mt-2 list-decimal space-y-1.5 pl-4">
-                <li>Elige <strong>Escenario tipo 2017</strong> o <strong>tipo 2023</strong>.</li>
-                <li>Pulsa <strong>Ver simulación</strong> y usa la barra temporal.</li>
-                <li>Haz clic sobre cualquier pabellón del mapa para ver su resultado exploratorio.</li>
-              </ol>
+              <p className="mt-1 text-[11px] text-[#64748B] dark:text-slate-400">
+                Toca cualquier edificio en el mapa o en la lista para consultar su resultado exploratorio.
+              </p>
               {affectedElements.length > 0 && (
-                <div className="mt-3 border-t border-[#E2E8F0] pt-2.5 dark:border-slate-800">
-                  <div className="mb-1.5 text-[11px] font-semibold text-[#101828] dark:text-white">
-                    Instalaciones destacadas en este escenario:
-                  </div>
-                  <div className="max-h-40 space-y-1 overflow-y-auto">
-                    {affectedElements.slice(0, 6).map((el) => (
-                      <button
-                        key={el.id}
-                        type="button"
-                        onClick={() => setSelectedFacility({ name: el.name, impact: el })}
-                        className="flex w-full items-center justify-between rounded-md bg-[#F7F9FC] px-2 py-1.5 text-left text-[11px] hover:bg-blue-50 dark:bg-slate-900/60 dark:hover:bg-slate-800"
-                      >
-                        <span className="truncate font-medium text-[#101828] dark:text-slate-200">
-                          {el.name}
-                        </span>
-                        <span className="ml-2 shrink-0 font-mono text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                          {el.max_depth_cm} cm
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                <div className="mt-2.5 max-h-56 space-y-1 overflow-y-auto">
+                  {affectedElements.slice(0, 7).map((el) => (
+                    <button
+                      key={el.id}
+                      type="button"
+                      onClick={() => setSelectedFacility({ name: el.name, impact: el })}
+                      className="flex w-full items-center justify-between rounded-md bg-[#F7F9FC] px-2.5 py-1.5 text-left text-[11px] hover:bg-blue-50 dark:bg-slate-900/60 dark:hover:bg-slate-800"
+                    >
+                      <span className="truncate font-medium text-[#101828] dark:text-slate-200">
+                        {el.name}
+                      </span>
+                      <span className="ml-2 shrink-0 font-mono text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                        {el.max_depth_cm} cm
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
             </section>

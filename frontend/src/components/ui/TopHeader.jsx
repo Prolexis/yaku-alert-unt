@@ -15,7 +15,7 @@ import { formatLimaTime } from "../../utils/formatters";
 const VIEW_TITLES = {
   dashboard: "Inicio",
   student_map: "Mapa UNT",
-  student_sim: "Simulación educativa",
+  student_sim: "Simulación de lluvias",
   monitoring: "Monitoreo sinóptico",
   map: "Mapa técnico + IoT",
   hydro: "Simulación dinámica",
@@ -111,121 +111,79 @@ export default function TopHeader({
           </div>
         </div>
 
-        {/* Centro / Derecha: segmented control de rol + nivel preventivo + estado datos + acciones */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-          {/* Segmented Control Animado: Estudiante vs Gestión UNT */}
-          <div
-            role="tablist"
-            aria-label="Selector de vista por perfil"
-            className="relative inline-flex items-center rounded-xl border border-slate-200 bg-[#F8FAFC] p-1 shadow-subtle dark:border-slate-700 dark:bg-[#071524]"
-          >
-            {ROLE_OPTIONS.map((opt) => {
-              const Icon = opt.icon;
-              const active = userRole === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => onChangeRole?.(opt.id)}
-                  className={`relative z-10 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
-                    active
-                      ? "text-white"
-                      : "text-[#475569] hover:text-[#0F172A] dark:text-slate-300 dark:hover:text-white"
-                  }`}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="role-switcher-pill"
-                      transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                      className="absolute inset-0 -z-10 rounded-lg bg-[#0B2545] shadow-sm dark:bg-[#0369A1]"
-                    />
-                  )}
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span>{opt.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Sub-selector rápido de 1 clic para los 5 roles demo (sin fricción) */}
-          <div
-            role="group"
-            aria-label="Sub-rol activo"
-            className="inline-flex items-center gap-0.5 rounded-xl border border-slate-200 bg-white p-0.5 shadow-subtle dark:border-slate-700 dark:bg-slate-900"
-          >
-            {(SUB_ROLES[userRole] || SUB_ROLES.student).map((sub) => {
-              const selected = activeDemoRole === sub.id;
-              return (
-                <button
-                  key={sub.id}
-                  type="button"
-                  onClick={() => onSelectDemoRole?.(sub.id)}
-                  aria-pressed={selected}
-                  className={`rounded-lg px-2 py-1 text-xs font-bold transition ${
-                    selected
-                      ? "bg-[#00B4D8]/18 text-[#0369A1] ring-1 ring-[#00B4D8]/40 dark:bg-sky-900/60 dark:text-[#38BDF8]"
-                      : "text-[#475569] hover:text-[#0F172A] dark:text-slate-300"
-                  }`}
-                >
-                  {sub.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Nivel preventivo actual (semántica estricta) */}
+        {/* Derecha: cabecera limpia — Perfil de consulta + Estado informativo + Fuente/Hora + Acciones */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Nivel preventivo actual */}
           {preventiveLevel && (
             <span
-              title={`Nivel preventivo actual: ${levelCfg.label}`}
-              className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold md:inline-flex ${levelCfg.pill}`}
+              title={`Estado informativo: ${levelCfg.label}`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${levelCfg.pill}`}
             >
               <span className={`h-2 w-2 rounded-full ${levelCfg.dot}`} />
               <span>{levelCfg.label}</span>
             </span>
           )}
 
-          {/* Pill de estado de datos (En vivo / Respaldo Offline / Simulación) */}
+          {/* Procedencia de datos clara (NUNCA "En vivo" para pronósticos Open-Meteo) */}
           {isSimulationContext ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D97706]/35 bg-[#FFFBEB] px-2.5 py-1 text-xs font-bold text-[#B45309] dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200">
               <FlaskConical className="h-3.5 w-3.5" />
-              <span>Simulación</span>
+              <span>Simulación experimental</span>
             </span>
           ) : (
             <button
               type="button"
               onClick={() => onToggleOffline(!forceOffline)}
-              title="Alternar entre pronóstico en vivo y respaldo offline"
-              className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-bold transition ${
+              title="Alternar entre pronóstico actualizado (Open-Meteo) y dato en caché offline"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold transition ${
                 isLive
                   ? "border-emerald-300/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100/80 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                   : "border-sky-300/80 bg-sky-50 text-[#0369A1] hover:bg-sky-100/80 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-200"
               }`}
             >
-              <span className="relative flex h-2 w-2">
-                {isLive && (
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                )}
-                <span
-                  className={`relative inline-flex h-2 w-2 rounded-full ${
-                    isLive ? "bg-emerald-600" : "bg-[#0284C7]"
-                  }`}
-                />
-              </span>
-              <span className="hidden sm:inline">
-                {isLive ? "En vivo" : "Respaldo Offline"}
+              <span
+                className={`inline-flex h-2 w-2 rounded-full ${
+                  isLive ? "bg-emerald-600" : "bg-[#0284C7]"
+                }`}
+              />
+              <span>{isLive ? "Pronóstico actualizado" : "Dato en caché"}</span>
+              <span
+                title={utc ? `Actualizado: ${utc}` : undefined}
+                className="hidden font-mono text-[11px] font-normal opacity-80 lg:inline"
+              >
+                · {local}
               </span>
             </button>
           )}
 
-          {/* Timestamp America/Lima */}
-          <span
-            title={utc ? `Actualizado: ${utc}` : undefined}
-            className="hidden font-mono text-xs font-medium text-[#475569] tabular-nums dark:text-slate-300 2xl:inline"
-          >
-            {local}
-          </span>
+          {/* Perfil público de consulta (solo adapta recomendaciones, sin privilegios admin) */}
+          {userRole === "student" ? (
+            <label className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-[#F8FAFC] px-2.5 py-1 text-xs font-semibold text-[#475569] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              <GraduationCap className="h-3.5 w-3.5 text-[#0369A1]" />
+              <span className="hidden sm:inline">Perfil:</span>
+              <select
+                aria-label="Perfil público de consulta"
+                value={activeDemoRole}
+                onChange={(e) => onSelectDemoRole?.(e.target.value)}
+                className="bg-transparent font-bold text-[#0F172A] outline-none dark:text-white"
+              >
+                {SUB_ROLES.student.map((sub) => (
+                  <option key={sub.id} value={sub.id} className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+                    {sub.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onChangeRole?.("student")}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-500/40 bg-sky-50 px-2.5 py-1 text-xs font-bold text-[#0369A1] hover:bg-sky-100 dark:bg-sky-950/60 dark:text-sky-200"
+            >
+              <GraduationCap className="h-3.5 w-3.5" />
+              <span>Gestión UNT · Volver a Comunidad</span>
+            </button>
+          )}
 
           {/* Acciones rápidas */}
           <div className="flex items-center gap-1.5">

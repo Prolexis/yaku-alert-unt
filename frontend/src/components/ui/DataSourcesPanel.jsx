@@ -24,19 +24,19 @@ const STATIC_SOURCES = [
   {
     id: "open_meteo_era5",
     name: "Open-Meteo Historical Archive (ERA5) + Registros locales",
-    category: "Calibración histórica (2017 y 2023)",
-    models: "Reanálisis ERA5 + reportes de campo UNT",
-    variables: "Eventos 2017 (27.5 mm) y 2023 (35 mm)",
-    role: "Escenarios educativos interactivos sin confundirse con alertas en curso.",
+    category: "Datos de referencia histórica (2017 y 2023)",
+    models: "Reanálisis ERA5 + antecedentes documentados UNT (parametrización exploratoria, no calibración cuantitativa)",
+    variables: "Eventos de referencia 2017 (27.5 mm) y 2023 (35 mm; hietograma horario supuesto)",
+    role: "Escenarios educativos interactivos sin confundirse con pronósticos ni alertas en curso.",
     url: "https://open-meteo.com/en/docs/historical-weather-api",
   },
   {
     id: "dem_osm_hydro",
     name: "DEM ~30 m remuestreado a 10 m + OpenStreetMap",
-    category: "Modelo espacial y escurrimiento",
-    models: "Copernicus GLO-30 + Shapely 2.x + autómata celular determinista",
-    variables: "Facultades UNT, accesos, puntos seguros y lámina modelada (cm)",
-    role: "Cálculo determinista de exposición por pabellón y desvíos preventivos.",
+    category: "Modelo espacial y escurrimiento exploratorio",
+    models: "Copernicus GLO-30 (~30 m, ±4 m LE90; el remuestreo a 10 m no añade nueva resolución topográfica observada)",
+    variables: "Facultades UNT, accesos, puntos referenciales y lámina modelada exploratoria (cm)",
+    role: "Intersección geométrica (Shapely 2.x) y autómata celular exploratorio (no modelo hidrodinámico validado).",
     url: "https://www.openstreetmap.org/",
   },
   {
@@ -99,10 +99,10 @@ export default function DataSourcesPanel({ compact = false }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-extrabold text-[#0F172A] dark:text-white">
-            Transparencia de Fuentes de Datos y Modelos
+            Cómo funciona YAKU ALERT — Fuentes, modelos y límites
           </h3>
           <p className="mt-0.5 text-xs text-[#475569] dark:text-slate-300">
-            Origen exacto de pronósticos, calibración histórica, simulación 10 m y persistencia SQLite.
+            Diferencia entre pronóstico numérico, datos de referencia histórica, remuestreo topográfico (~30 m a 10 m) y simulación exploratoria.
           </p>
         </div>
         {stats && (

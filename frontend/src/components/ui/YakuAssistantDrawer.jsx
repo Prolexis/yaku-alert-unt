@@ -7,11 +7,11 @@ import { resolveSensorReading } from "../../utils/sensorFormatters";
 import { YakuAlertLogo } from "./BrandLogo";
 
 const STUDENT_QUICK_PROMPTS = [
-  "¿Qué hago si se inunda Puerta 4?",
-  "¿Dónde está el punto seguro más cercano?",
-  "¿Cómo se decide pasar a clases virtuales?",
-  "¿Cómo está el pronóstico de lluvia?",
-  "¿Qué representa el escenario 2023?",
+  "¿Va a llover?",
+  "¿Dónde está mi facultad?",
+  "¿Cómo veo la simulación?",
+  "¿Qué hago si llueve fuerte?",
+  "¿Dónde veo recomendaciones?",
 ];
 
 const ADMIN_QUICK_PROMPTS = [
@@ -148,18 +148,36 @@ export default function YakuAssistantDrawer({
         }
       }
     }
-    // 0b. Preguntas frecuentes de demo/Q&A (Puerta 4, punto seguro, virtualidad, diferencia simulación vs real)
-    else if (norm.includes("inunda") && (norm.includes("puerta 4") || norm.includes("p4"))) {
+    // 0b. Preguntas frecuentes de estudiantes y demo/Q&A
+    else if (norm.includes("donde esta mi facultad") || norm === "mi facultad") {
       reply = {
         role: "assistant",
-        text: "Si Puerta 4 (Av. Jesús de Nazareth) presenta acumulación de agua, evita cruzar la vía anegada y utiliza la ruta alterna referencial hacia Explanada Sociales o Parque Max Díaz (cotas altas). En el mapa de simulación se activa automáticamente el desvío resaltado en verde/ámbar.",
-        action: { label: "Ver rutas seguras en Mapa UNT", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
+        text: "Escribe aquí el nombre de tu facultad o pabellón (por ejemplo: Ingeniería, Derecho, Enfermería o Comedor) o búscalo directamente en el Mapa UNT.",
+        action: { label: "Ver en mapa", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
       };
-    } else if (norm.includes("punto seguro") || norm.includes("zona segura")) {
+    } else if (norm.includes("como veo la simulacion") || norm.includes("abrir simulacion")) {
       reply = {
         role: "assistant",
-        text: "El campus cuenta con 5 puntos seguros referenciales de cota elevada (marcados con «S» verde pulsante en el mapa): Explanada Sociales, Parque Max Díaz, Parque Economía, Explanada Ingeniería y Zona Deportiva Alta. Sigue siempre la señalización de Defensa Civil UNT.",
-        action: { label: "Ubicar puntos seguros", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
+        text: "En «Simular lluvias» elige el Escenario tipo 2017 o tipo 2023 y pulsa «Ver simulación» para observar cómo evolucionaría el agua hora por hora.",
+        action: { label: "Abrir simulación", type: "nav", target: userRole === "admin" ? "hydro" : "student_sim" },
+      };
+    } else if (norm.includes("donde veo recomendaciones") || norm.includes("ver recomendaciones")) {
+      reply = {
+        role: "assistant",
+        text: "En «Prevención» encuentras primero qué puedes hacer ahora, la explicación breve y el boletín descargable.",
+        action: { label: "Ver recomendaciones", type: "nav", target: "prevention" },
+      };
+    } else if (norm.includes("inunda") && (norm.includes("puerta 4") || norm.includes("p4"))) {
+      reply = {
+        role: "assistant",
+        text: "Si Puerta 4 (Av. Jesús de Nazareth) presenta acumulación de agua, evita cruzar la vía anegada y utiliza rutas alternas referenciales hacia Explanada Sociales o Parque Max Díaz.",
+        action: { label: "Ver en mapa", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
+      };
+    } else if (norm.includes("punto seguro") || norm.includes("zona segura") || norm.includes("punto de encuentro")) {
+      reply = {
+        role: "assistant",
+        text: "El campus cuenta con puntos de encuentro referenciales en sectores de cota elevada (Explanada Sociales, Parque Max Díaz, Parque Economía, Explanada Ingeniería y Zona Deportiva Alta). Sigue siempre la señalización oficial de Defensa Civil UNT.",
+        action: { label: "Ver en mapa", type: "nav", target: userRole === "admin" ? "map" : "student_map" },
       };
     } else if (norm.includes("clases virtuales") || norm.includes("virtualidad") || norm.includes("como se decide")) {
       reply = {

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { Waves, ShieldCheck } from "lucide-react";
 
 const SIZE_CONFIG = {
   sm: {
@@ -28,6 +29,7 @@ export function YakuAlertLogo({
   iconOnly = false,
   className = "",
 }) {
+  const [imgError, setImgError] = useState(false);
   const cfg = SIZE_CONFIG[size] || SIZE_CONFIG.md;
   const isDark = variant === "dark";
 
@@ -40,13 +42,18 @@ export function YakuAlertLogo({
             : "bg-white shadow-sm ring-1 ring-slate-200/90 dark:bg-white dark:ring-white/20"
         }`}
       >
-        <img
-          src="/assets/yaku-alert-icon.png"
-          alt="Yaku Alert"
-          className="h-full w-full object-contain"
-          loading="eager"
-          decoding="async"
-        />
+        {!imgError ? (
+          <img
+            src="/assets/yaku-alert-icon.png"
+            alt="Yaku Alert"
+            onError={() => setImgError(true)}
+            className="h-full w-full object-contain"
+            loading="eager"
+            decoding="async"
+          />
+        ) : (
+          <Waves className="h-5 w-5 text-[#0369A1]" aria-hidden="true" />
+        )}
       </div>
 
       {!iconOnly && (
@@ -85,6 +92,7 @@ export function NexoRiskBadge({
   compact = false,
   className = "",
 }) {
+  const [imgError, setImgError] = useState(false);
   const isDark = variant === "dark";
 
   if (compact) {
@@ -97,13 +105,18 @@ export function NexoRiskBadge({
             : "bg-white ring-1 ring-slate-200 dark:bg-white/95"
         } ${className}`}
       >
-        <img
-          src="/assets/nexorisk-icon.png"
-          alt="NexoRisk"
-          className="h-6 w-6 object-contain"
-          loading="lazy"
-          decoding="async"
-        />
+        {!imgError ? (
+          <img
+            src="/assets/nexorisk-icon.png"
+            alt="NexoRisk"
+            onError={() => setImgError(true)}
+            className="h-6 w-6 object-contain"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <ShieldCheck className="h-5 w-5 text-[#0369A1]" aria-hidden="true" />
+        )}
       </div>
     );
   }
@@ -117,13 +130,18 @@ export function NexoRiskBadge({
       } ${className}`}
     >
       <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow-sm ring-1 ring-slate-200/80">
-        <img
-          src="/assets/nexorisk-icon.png"
-          alt="NexoRisk"
-          className="h-full w-full object-contain"
-          loading="lazy"
-          decoding="async"
-        />
+        {!imgError ? (
+          <img
+            src="/assets/nexorisk-icon.png"
+            alt="NexoRisk"
+            onError={() => setImgError(true)}
+            className="h-full w-full object-contain"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <ShieldCheck className="h-4 w-4 text-[#0369A1]" aria-hidden="true" />
+        )}
       </div>
       <div className="min-w-0 leading-tight">
         <div

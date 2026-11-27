@@ -8,6 +8,7 @@ COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund --fetch-timeout=120000
 
 COPY index.html vite.config.js tailwind.config.js postcss.config.js ./
+COPY public ./public
 COPY src ./src
 
 RUN npm run build

@@ -386,6 +386,7 @@ export default function App() {
           onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
           simActive={isSimulationContext}
           userRole={userRole}
+          onChangeRole={handleChangeRole}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">

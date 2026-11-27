@@ -11,6 +11,8 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  Building2,
+  GraduationCap,
 } from "lucide-react";
 import { YakuAlertLogo, NexoRiskBadge } from "./BrandLogo";
 
@@ -27,13 +29,13 @@ export const STUDENT_NAV_GROUPS = [
       {
         id: "student_map",
         label: "Mapa UNT",
-        fullTitle: "Mapa de facultades, puntos seguros y rutas",
+        fullTitle: "Buscar facultad, puntos de encuentro y rutas referenciales",
         icon: MapIcon,
       },
       {
         id: "student_sim",
-        label: "Simulación educativa",
-        fullTitle: "Simulación histórica de lluvias 2017 y 2023",
+        label: "Simular lluvias",
+        fullTitle: "Simulación experimental de lluvias tipo 2017 y 2023",
         icon: Waves,
       },
     ],
@@ -126,6 +128,7 @@ export default function Sidebar({
   onToggleCollapse,
   simActive,
   userRole = "student",
+  onChangeRole,
 }) {
   const groups = userRole === "admin" ? ADMIN_NAV_GROUPS : STUDENT_NAV_GROUPS;
 
@@ -271,10 +274,27 @@ export default function Sidebar({
           ))}
         </nav>
 
-        {/* Pie del sidebar: firma NexoRisk + metadata institucional */}
+        {/* Pie del sidebar: Acceso Comunidad vs Gestión UNT + firma NexoRisk */}
         <div className="border-t border-white/10 p-3">
           {!collapsed ? (
-            <div className="space-y-2.5">
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => onChangeRole?.(userRole === "admin" ? "student" : "admin")}
+                className="flex w-full items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
+              >
+                <span className="flex items-center gap-2">
+                  {userRole === "admin" ? (
+                    <GraduationCap className="h-3.5 w-3.5 text-[#38BDF8]" />
+                  ) : (
+                    <Building2 className="h-3.5 w-3.5 text-[#38BDF8]" />
+                  )}
+                  <span>{userRole === "admin" ? "Vista: Gestión UNT" : "Vista: Comunidad UNT"}</span>
+                </span>
+                <span className="text-[11px] font-bold text-[#38BDF8]">
+                  {userRole === "admin" ? "Salir" : "Gestión"}
+                </span>
+              </button>
               <NexoRiskBadge variant="dark" className="w-full" />
               <div className="flex items-center justify-between px-1 text-xs font-medium text-slate-300">
                 <span className="font-mono">TRL 3–4 · SINAGERD</span>
@@ -285,7 +305,15 @@ export default function Sidebar({
               </div>
             </div>
           ) : (
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onChangeRole?.(userRole === "admin" ? "student" : "admin")}
+                title={userRole === "admin" ? "Volver a Comunidad UNT" : "Acceso Gestión UNT"}
+                className="rounded-lg p-2 text-slate-300 hover:bg-white/10"
+              >
+                {userRole === "admin" ? <GraduationCap className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+              </button>
               <NexoRiskBadge variant="dark" compact />
             </div>
           )}

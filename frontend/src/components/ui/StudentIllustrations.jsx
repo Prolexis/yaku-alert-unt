@@ -112,32 +112,26 @@ const UNT_GATES = [
 ];
 
 function resolveGateState(gate, { simResult, hydroResult, campusReports = [] }) {
-  // 1. Revisar reportes anónimos activos de la comunidad
+  // 1. Revisar reportes de la comunidad diferenciando verificados vs pendientes
   const matchingReport = campusReports.find((r) => {
     if (r.status === "atendido") return false;
     const z = String(r.zone_name || "").toLowerCase();
     return gate.match.some((kw) => z.includes(kw));
   });
   if (matchingReport) {
-    if (matchingReport.category === "acceso_bloqueado" || matchingReport.severity === "alta") {
-      return {
-        key: "avoid",
-        label: "Evitar por aniego",
-        tone: "border-[#DC2626]/35 bg-[#FEF2F2] text-[#991B1B] dark:border-red-800 dark:bg-red-950/40 dark:text-red-200",
-        dot: "#DC2626",
-      };
-    }
-    if (matchingReport.category !== "zona_segura_ok") {
-      return {
-        key: "caution",
-        label: "Precaución",
-        tone: "border-[#D97706]/35 bg-[#FFFBEB] text-[#92400E] dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200",
-        dot: "#D97706",
-      };
-    }
+    const isVerified = matchingReport.status === "verificado";
+    return {
+      key: isVerified ? "verified_report" : "pending_report",
+      label: isVerified ? "Estado verificado (con reporte)" : "Reporte pendiente de verificar",
+      tone: isVerified
+        ? "border-[#DC2626]/35 bg-[#FEF2F2] text-[#991B1B] dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
+        : "border-[#D97706]/35 bg-[#FFFBEB] text-[#92400E] dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200",
+      dot: isVerified ? "#DC2626" : "#D97706",
+      sourceNote: isVerified ? "Reporte verificado en sistema" : "Reporte comunitario sin verificación en campo",
+    };
   }
 
-  // 2. Revisar simulación hidrológica activa si existe
+  // 2. Revisar simulación o antecedente referencial
   if (hydroResult?.elements?.length) {
     const affected = hydroResult.elements.find((e) => {
       if (e.first_hour_affected === null || e.first_hour_affected === undefined) return false;
@@ -145,23 +139,16 @@ function resolveGateState(gate, { simResult, hydroResult, campusReports = [] }) 
       return gate.match.some((kw) => nm.includes(kw));
     });
     if (affected) {
-      return (affected.max_depth_cm ?? 0) >= 10
-        ? {
-            key: "avoid",
-            label: "Evitar por aniego",
-            tone: "border-[#DC2626]/35 bg-[#FEF2F2] text-[#991B1B] dark:border-red-800 dark:bg-red-950/40 dark:text-red-200",
-            dot: "#DC2626",
-          }
-        : {
-            key: "caution",
-            label: "Precaución",
-            tone: "border-[#D97706]/35 bg-[#FFFBEB] text-[#92400E] dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200",
-            dot: "#D97706",
-          };
+      return {
+        key: "ref_model",
+        label: "Condición referencial (modelo)",
+        tone: "border-[#D97706]/35 bg-[#FFFBEB] text-[#92400E] dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200",
+        dot: "#D97706",
+        sourceNote: "Exposición en escenario exploratorio",
+      };
     }
   }
 
-  // 3. Revisar exposición espacial de referencia (solo precaución, no alerta real)
   if (simResult?.spatial_analysis?.restricted_accesses?.length) {
     const restricted = simResult.spatial_analysis.restricted_accesses.find((a) => {
       if (!a.inside_hazard_zone) return false;
@@ -170,19 +157,22 @@ function resolveGateState(gate, { simResult, hydroResult, campusReports = [] }) 
     });
     if (restricted) {
       return {
-        key: "caution",
-        label: "Precaución",
-        tone: "border-[#D97706]/35 bg-[#FFFBEB] text-[#92400E] dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200",
-        dot: "#D97706",
+        key: "ref_zone",
+        label: "Condición referencial",
+        tone: "border-sky-300/70 bg-sky-50/70 text-[#0369A1] dark:border-sky-800 dark:bg-sky-950/35 dark:text-sky-200",
+        dot: "#0284C7",
+        sourceNote: "En zona de atención referencial",
       };
     }
   }
 
+  // NUNCA declarar "Libre" por simple ausencia de reportes
   return {
-    key: "free",
-    label: "Libre",
-    tone: "border-[#059669]/30 bg-[#ECFDF5] text-[#065F46] dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-200",
-    dot: "#059669",
+    key: "no_updates",
+    label: "Sin información actualizada",
+    tone: "border-slate-200 bg-[#F8FAFC] text-[#475569] dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300",
+    dot: "#64748B",
+    sourceNote: "Sin reportes activos (no confirma verificación en campo)",
   };
 }
 
@@ -200,10 +190,10 @@ export function CampusAccessStatusStrip({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-extrabold text-[#0F172A] dark:text-white">
-            Estado referencial de puertas UNT (P1 – P4)
+            Accesos de la UNT (P1 – P4) · Estado referencial
           </h3>
           <p className="text-xs text-[#475569] dark:text-slate-300">
-            Cruce en vivo con reportes anónimos y zonas históricas de anegamiento.
+            La ausencia de reportes no confirma que un acceso esté despejado en campo.
           </p>
         </div>
         {onOpenMap && (
@@ -212,13 +202,13 @@ export function CampusAccessStatusStrip({
             onClick={onOpenMap}
             className="inline-flex items-center gap-1 text-xs font-bold text-[#0369A1] hover:underline dark:text-[#38BDF8]"
           >
-            <span>Ver en mapa</span>
+            <span>Ver accesos en mapa</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {UNT_GATES.map((gate) => {
           const st = resolveGateState(gate, { simResult, hydroResult, campusReports });
           return (
@@ -228,25 +218,18 @@ export function CampusAccessStatusStrip({
               onClick={() => onOpenMap?.()}
               className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition hover:shadow-sm ${st.tone}`}
             >
-              {/* Mini SVG de puerta / arco */}
-              <svg viewBox="0 0 32 32" className="h-8 w-8 shrink-0" aria-hidden="true">
-                <rect x="4" y="6" width="24" height="20" rx="5" fill="#0B2545" opacity="0.1" />
-                <path
-                  d="M9 24V12a7 7 0 0 1 14 0v12"
-                  fill="none"
-                  stroke={st.dot}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-                <circle cx="16" cy="18" r="3.2" fill={st.dot} />
-              </svg>
+              <span
+                className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: st.dot }}
+              />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-xs font-extrabold">{gate.code}</span>
                   <span className="truncate text-xs font-bold">{gate.label}</span>
                 </div>
                 <div className="mt-0.5 text-xs font-extrabold">{st.label}</div>
-                <div className="mt-0.5 truncate text-[11px] opacity-80">{gate.street}</div>
+                <div className="mt-0.5 truncate text-[11px] opacity-85">{gate.street}</div>
+                <div className="mt-0.5 text-[10px] opacity-75">{st.sourceNote}</div>
               </div>
             </button>
           );

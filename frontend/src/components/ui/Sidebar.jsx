@@ -59,14 +59,77 @@ export const STUDENT_NAV_GROUPS = [
   },
 ];
 
-export const ADMIN_NAV_GROUPS = [
+export const DIRECTIVO_NAV_GROUPS = [
   {
-    title: "Operación y Monitoreo",
+    title: "Decisión Ejecutiva",
     items: [
       {
         id: "dashboard",
         label: "Dashboard directivo",
-        fullTitle: "Semáforo ejecutivo y resumen de riesgo",
+        fullTitle: "Semáforo ejecutivo y confirmaciones por perfil",
+        icon: LayoutDashboard,
+      },
+      {
+        id: "prevention",
+        label: "Validar alertas CAP",
+        fullTitle: "Validación humana CAP 1.2 y difusión WhatsApp",
+        icon: ShieldCheck,
+      },
+      {
+        id: "continuity",
+        label: "Decisiones continuidad",
+        fullTitle: "Activar y finalizar medidas académicas y administrativas",
+        icon: BookOpen,
+      },
+    ],
+  },
+  {
+    title: "Consulta Operativa",
+    items: [
+      {
+        id: "hydro",
+        label: "Simulación en vivo",
+        fullTitle: "Consulta del simulacro activo en malla 10 m",
+        icon: Waves,
+        badge: "10m",
+      },
+      {
+        id: "map",
+        label: "Mapa UNT",
+        fullTitle: "Consulta de exposición y rutas seguras",
+        icon: MapIcon,
+      },
+      {
+        id: "monitoring",
+        label: "Monitoreo sinóptico",
+        fullTitle: "Pronóstico horario, presión atmosférica y viento",
+        icon: CloudRain,
+      },
+    ],
+  },
+];
+
+export const ADMIN_NAV_GROUPS = [
+  {
+    title: "Operación Técnica",
+    items: [
+      {
+        id: "hydro",
+        label: "Simulación dinámica",
+        fullTitle: "Activar simulación en vivo (10 m) y drenaje/canaletas",
+        icon: Waves,
+        badge: "10m",
+      },
+      {
+        id: "map",
+        label: "Mapa técnico + IoT",
+        fullTitle: "Mapa técnico del campus y red virtual YAKU SENSE (S01–S06)",
+        icon: MapIcon,
+      },
+      {
+        id: "dashboard",
+        label: "Panel y reportes",
+        fullTitle: "Resumen operativo y bandeja de reportes ciudadanos",
         icon: LayoutDashboard,
       },
       {
@@ -75,36 +138,11 @@ export const ADMIN_NAV_GROUPS = [
         fullTitle: "Pronóstico horario, presión atmosférica y viento",
         icon: CloudRain,
       },
-      {
-        id: "map",
-        label: "Mapa UNT + IoT",
-        fullTitle: "Mapa técnico del campus y propuesta YAKU SENSE",
-        icon: MapIcon,
-      },
-      {
-        id: "prevention",
-        label: "Prevención y avisos",
-        fullTitle: "Análisis preventivo explicable y generador de avisos",
-        icon: ShieldCheck,
-      },
-      {
-        id: "continuity",
-        label: "Continuidad",
-        fullTitle: "Orientaciones y continuidad académica y administrativa",
-        icon: BookOpen,
-      },
     ],
   },
   {
-    title: "Simulación e Ingeniería",
+    title: "Escenarios y Avisos",
     items: [
-      {
-        id: "hydro",
-        label: "Simulación dinámica",
-        fullTitle: "Agua modelada por hora en malla de 10 m",
-        icon: Waves,
-        badge: "10m",
-      },
       {
         id: "simulator",
         label: "Escenarios A/B/C/D",
@@ -112,9 +150,29 @@ export const ADMIN_NAV_GROUPS = [
         icon: Sliders,
         badge: "SIM",
       },
+      {
+        id: "prevention",
+        label: "Borradores CAP",
+        fullTitle: "Generador de borradores CAP 1.2 y reportes",
+        icon: ShieldCheck,
+      },
+      {
+        id: "continuity",
+        label: "Continuidad",
+        fullTitle: "Consulta de medidas de continuidad vigentes",
+        icon: BookOpen,
+      },
     ],
   },
 ];
+
+const ROLE_DISPLAY_NAMES = {
+  estudiante: "Estudiante",
+  docente: "Docente",
+  administrativo: "Administrativo",
+  directivo: "Directivo UNT",
+  operador_riesgos: "Operador Riesgos",
+};
 
 export const STUDENT_NAV_ITEMS = STUDENT_NAV_GROUPS.flatMap((g) => g.items);
 export const NAV_ITEMS = ADMIN_NAV_GROUPS.flatMap((g) => g.items);
@@ -128,9 +186,16 @@ export default function Sidebar({
   onToggleCollapse,
   simActive,
   userRole = "student",
+  activeDemoRole = "estudiante",
   onChangeRole,
 }) {
-  const groups = userRole === "admin" ? ADMIN_NAV_GROUPS : STUDENT_NAV_GROUPS;
+  const groups =
+    userRole === "admin"
+      ? activeDemoRole === "directivo"
+        ? DIRECTIVO_NAV_GROUPS
+        : ADMIN_NAV_GROUPS
+      : STUDENT_NAV_GROUPS;
+  const roleLabel = ROLE_DISPLAY_NAMES[activeDemoRole] || "Estudiante";
 
   return (
     <>
@@ -289,10 +354,10 @@ export default function Sidebar({
                   ) : (
                     <Building2 className="h-3.5 w-3.5 text-[#38BDF8]" />
                   )}
-                  <span>{userRole === "admin" ? "Vista: Gestión UNT" : "Vista: Comunidad UNT"}</span>
+                  <span>{roleLabel}</span>
                 </span>
                 <span className="text-[11px] font-bold text-[#38BDF8]">
-                  {userRole === "admin" ? "Salir" : "Gestión"}
+                  {userRole === "admin" ? "Comunidad" : "Gestión"}
                 </span>
               </button>
               <NexoRiskBadge variant="dark" className="w-full" />

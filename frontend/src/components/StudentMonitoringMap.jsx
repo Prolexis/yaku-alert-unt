@@ -68,26 +68,44 @@ const esc = (s) =>
     "'": "&#39;",
   }[c]));
 
-function resolveStudentNowAction(liveEvaluation, summary) {
+function resolveStudentNowAction(liveEvaluation, summary, activeDemoRole = "estudiante") {
   const level = liveEvaluation?.preventive_level || "INFORMATIVO";
   if (level === "PREPARACION_CRITICA" || level === "ATENCION_PREVENTIVA") {
+    const roleText =
+      activeDemoRole === "docente"
+        ? "Docente: suspende prácticas de laboratorio en planta baja, migra clases teóricas al aula virtual y conduce al grupo hacia el punto seguro más cercano."
+        : activeDemoRole === "administrativo"
+        ? "Administrativo: activa Mesa de Partes virtual, desconecta y resguarda equipos en planta baja y evita cruzar Puerta 4 / Av. Jesús de Nazareth."
+        : "Estudiante: evita desplazarte por sectores con acumulación de agua (Puerta 4 / Av. Jesús de Nazareth) y prioriza puntos seguros en cota alta.";
     return {
       tone: "border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100",
       dot: "bg-rose-600",
-      text: "Evita desplazarte por sectores con acumulación de agua (Puerta 4 / Av. Jesús de Nazareth) y prioriza pisos altos o pautas oficiales UNT.",
+      text: roleText,
     };
   }
   if (level === "VIGILANCIA_PREVENTIVA" || (summary?.max_intensity_mm_h ?? 0) >= 2) {
+    const roleText =
+      activeDemoRole === "docente"
+        ? "Docente: prepara transición a aula virtual y ubica el punto de encuentro más cercano a tu pabellón."
+        : activeDemoRole === "administrativo"
+        ? "Administrativo: verifica drenajes cercanos a tu oficina y prepara resguardo de expedientes y equipos en planta baja."
+        : "Estudiante: ten precaución en zonas bajas del campus y consulta comunicados oficiales de la UNT.";
     return {
       tone: "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100",
       dot: "bg-amber-500",
-      text: "Ten precaución en zonas bajas del campus y consulta comunicados oficiales de la UNT.",
+      text: roleText,
     };
   }
+  const normalText =
+    activeDemoRole === "docente"
+      ? "Docente: sin lluvias significativas previstas. Toca tu pabellón en el mapa para revisar el punto seguro asignado a tu grupo."
+      : activeDemoRole === "administrativo"
+      ? "Administrativo: sin lluvias significativas previstas. Toca tu edificio para revisar el protocolo de resguardo y acceso seguro."
+      : "Estudiante: sin lluvias significativas previstas. Ubica tu facultad y los puntos de encuentro referenciales en el mapa.";
   return {
     tone: "border-emerald-200 bg-emerald-50/80 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/35 dark:text-emerald-100",
     dot: "bg-emerald-600",
-    text: "Sin lluvias significativas previstas. Ubica tu facultad y los puntos de encuentro referenciales en el mapa.",
+    text: normalText,
   };
 }
 
@@ -214,7 +232,7 @@ export default function StudentMonitoringMap({
 
   const { local: updatedLima } = formatLimaTime(weather?.fetched_at_utc);
   const isLive = weather?.data_status === "LIVE_API";
-  const studentNow = resolveStudentNowAction(liveEvaluation, weather?.summary);
+  const studentNow = resolveStudentNowAction(liveEvaluation, weather?.summary, activeDemoRole);
   const maxProb24 =
     weather?.summary?.max_probability_24h_pct ?? weather?.summary?.max_probability_pct;
 

@@ -56,10 +56,30 @@ const FALLBACK_PHASES = {
   },
 };
 
+const DOCENTE_PHASES = {
+  antes: [
+    "Preparar el aula virtual UNT con enlaces de respaldo para migrar sesiones teóricas sin interrupciones.",
+    "Identificar el punto de encuentro seguro más cercano a tu pabellón o laboratorio antes de iniciar clases.",
+    "Coordinar con escuela profesional el protocolo de reprogramación de prácticas de laboratorio sin penalización.",
+  ],
+  durante: [
+    "Migrar clases teóricas a modalidad virtual y suspender prácticas de laboratorio o evaluaciones presenciales sin penalización.",
+    "Conducir ordenadamente a los estudiantes hacia el punto seguro del pabellón o aplicar refugio vertical en piso superior.",
+    "Registrar asistencia de seguridad del grupo y seguir exclusivamente comunicados de Defensa Civil UNT y Decanato.",
+  ],
+  despues: [
+    "Verificar inspección técnica del aula o laboratorio antes de reanudar actividades presenciales.",
+    "Publicar el cronograma flexible de recuperación de laboratorios y entregas afectadas por cortes de energía.",
+    "Reportar filtraciones o accesos obstruidos del pabellón al Operador de Gestión de Riesgos.",
+  ],
+};
+
 const PROFILE_LABELS = {
   estudiante: "Estudiante",
   docente: "Docente",
   administrativo: "Personal administrativo",
+  directivo: "Directivo UNT",
+  operador_riesgos: "Operador de Riesgos",
 };
 
 export default function ContinuityView({
@@ -83,11 +103,15 @@ export default function ContinuityView({
   const phasesMap = protocols?.continuity_phases || FALLBACK_PHASES;
   const currentPhase = phasesMap[selectedPhase] || FALLBACK_PHASES[selectedPhase];
 
-  // Adaptación automática al perfil público seleccionado
+  // Adaptación automática al perfil seleccionado (Estudiante vs Docente vs Administrativo)
   const isAdminProfile = activeDemoRole === "administrativo";
+  const isDocenteProfile = activeDemoRole === "docente";
+  const canManageDecisions = userRole === "admin" && activeDemoRole === "directivo";
   const profileLabel = PROFILE_LABELS[activeDemoRole] || "Estudiante";
   const primaryList = isAdminProfile
     ? currentPhase.administrative || []
+    : isDocenteProfile
+    ? DOCENTE_PHASES[selectedPhase] || currentPhase.academic || []
     : currentPhase.academic || [];
   const secondaryList = isAdminProfile
     ? currentPhase.academic || []
@@ -191,7 +215,7 @@ export default function ContinuityView({
                     </span>
                     <p className="mt-0.5 font-medium text-[#0F172A] dark:text-slate-200">{d.measure}</p>
                   </div>
-                  {userRole === "admin" && onResolveDecision && (
+                  {canManageDecisions && onResolveDecision && (
                     <button
                       type="button"
                       onClick={() => onResolveDecision(d.id)}
@@ -205,7 +229,13 @@ export default function ContinuityView({
             </div>
           )}
 
-          {userRole === "admin" && onCreateDecision && (
+          {userRole === "admin" && !canManageDecisions && (
+            <p className="mt-3 rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-2 text-xs text-[#475569] dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
+              Modo consulta ({profileLabel}): la activación y cierre de medidas institucionales de continuidad corresponde al perfil <strong>Directivo</strong>.
+            </p>
+          )}
+
+          {canManageDecisions && onCreateDecision && (
             <form
               onSubmit={handleSubmitDecision}
               className="mt-4 grid grid-cols-1 gap-2.5 border-t border-slate-200 pt-4 dark:border-slate-700 md:grid-cols-12"

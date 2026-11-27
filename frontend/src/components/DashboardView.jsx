@@ -50,6 +50,21 @@ function buildSimpleConclusion(summary) {
   return "Se estiman lluvias ligeras o intermitentes en las próximas 24 horas.";
 }
 
+const COMMUNITY_ROLE_GUIDE = {
+  estudiante: {
+    badge: "Perfil Estudiante",
+    text: "Ubica tu ruta segura a puntos altos, evita puertas con aniego (Puerta 4 / Puerta 3) y confirma recepción cuando se emita una alerta CAP.",
+  },
+  docente: {
+    badge: "Perfil Docente",
+    text: "Habilita aula virtual UNT para clases teóricas, reprograma laboratorios y evaluaciones sin penalización y conduce al grupo hacia el punto seguro de tu pabellón.",
+  },
+  administrativo: {
+    badge: "Perfil Personal Administrativo",
+    text: "Activa Mesa de Partes virtual UNT, desconecta y resguarda equipos y expedientes en planta baja y coordina trabajo remoto preventivo.",
+  },
+};
+
 export default function DashboardView({
   weather,
   weatherLoading,
@@ -69,6 +84,8 @@ export default function DashboardView({
   onResolveAlert,
   onValidateAlert,
   onConfirmAlert,
+  onSendWhatsApp,
+  whatsappStatus = null,
   onUpdateReportStatus,
   liveSimulation = null,
 }) {
@@ -132,6 +149,8 @@ export default function DashboardView({
           onResolveAlert={onResolveAlert}
           onValidateAlert={onValidateAlert}
           onConfirmAlert={onConfirmAlert}
+          onSendWhatsApp={onSendWhatsApp}
+          whatsappStatus={whatsappStatus}
           activeDemoRole={activeDemoRole}
         />
       )}
@@ -145,8 +164,12 @@ export default function DashboardView({
           liveEvaluation={liveEvaluation}
           simResult={simResult}
           hydroResult={hydroResult}
+          activeAlerts={activeAlerts}
+          activeDemoRole={activeDemoRole}
           onPrepareNotice={() => onNavigate("prevention")}
           onOpenMap={() => onNavigate("map")}
+          onOpenContinuity={() => onNavigate("continuity")}
+          onOpenHydro={() => onNavigate("hydro")}
         />
       ) : (
         <section
@@ -196,6 +219,16 @@ export default function DashboardView({
                   <strong>{summary?.accumulated_24h_mm ?? 0} mm</strong> en 24 h (intensidad máx.{" "}
                   <strong>{summary?.max_intensity_mm_h ?? 0} mm/h</strong>).
                 </p>
+                {COMMUNITY_ROLE_GUIDE[activeDemoRole] && (
+                  <div className="mt-2 rounded-xl border border-[#0369A1]/20 bg-[#F0F9FF]/75 px-3 py-2 text-xs text-[#0B2545] dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-100">
+                    <span className="font-extrabold text-[#0369A1] dark:text-[#38BDF8]">
+                      {COMMUNITY_ROLE_GUIDE[activeDemoRole].badge}:{" "}
+                    </span>
+                    <span className="font-medium">
+                      {COMMUNITY_ROLE_GUIDE[activeDemoRole].text}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

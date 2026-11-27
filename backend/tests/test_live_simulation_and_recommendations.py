@@ -215,3 +215,94 @@ def test_dynamic_building_recommendations_differentiate_critical_and_safe(isolat
     assert payload["active_simulation"] is True
     assert payload["total_buildings"] == len(buildings)
     client.post("/api/simulation/live/stop")
+
+
+def test_five_roles_end_to_end_audit_and_confirmations(isolated_db):
+    """Verifica el flujo completo de los 5 roles y la trazabilidad de roles reales en SQLite."""
+    client = TestClient(app)
+
+    # 1. Login rápido sintético para los 5 roles
+    for role in ("estudiante", "docente", "administrativo", "directivo", "operador_riesgos"):
+        r = client.post("/api/auth/demo-login", json={"quick_role": role})
+        assert r.status_code == 200
+        assert r.json()["user"]["role"] == role
+
+    # 2. Operador de Riesgos activa simulación en vivo (delay 0 para prueba inmediata) y verifica reporte
+    rep = client.post(
+        "/api/reports",
+        json={
+            "category": "aniego",
+            "zone_name": "Puerta 4 (Av. Jesús de Nazareth)",
+            "severity": "alta",
+            "note": "Agua ingresando por calzada",
+        },
+    ).json()
+    upd_rep = client.patch(
+        f"/api/reports/{rep['id']}/status",
+        json={"status": "verificado", "verified_by_role": "operador_riesgos"},
+    )
+    assert upd_rep.status_code == 200
+    assert upd_rep.json()["verified_by_role"] == "operador_riesgos"
+
+    sim = client.post(
+        "/api/simulation/live/activate",
+        json={
+            "scenario_id": "evento_2023_03_10",
+            "drainage_scenario": "base",
+            "inflow_p4": "alto",
+            "auto_alert_delay_sec": 0,
+            "send_whatsapp": False,
+            "activated_by_role": "operador_riesgos",
+            "offline": True,
+        },
+    ).json()
+    assert sim["active"] is True
+    assert sim["activated_by_role"] == "operador_riesgos"
+    assert sim["alert_dispatched"] is True
+    alert_id = sim["dispatched_alert_id"]
+    assert alert_id is not None
+
+    # 3. Comunidad UNT confirma recepción con sus 3 roles diferenciados
+    client.post(f"/api/alerts/{alert_id}/confirm", json={"role": "estudiante", "status": "en_zona_segura"})
+    client.post(f"/api/alerts/{alert_id}/confirm", json={"role": "docente", "status": "recibido"})
+    client.post(f"/api/alerts/{alert_id}/confirm", json={"role": "administrativo", "status": "recibido"})
+
+    alerts = client.get("/api/alerts?active_only=true").json()["active_alerts"]
+    emitted = next(a for a in alerts if a["id"] == alert_id)
+    by_role = emitted["confirmations"]["by_role"]
+    assert by_role["estudiante"]["en_zona_segura"] == 1
+    assert by_role["docente"]["recibido"] == 1
+    assert by_role["administrativo"]["recibido"] == 1
+
+    # 4. Directivo valida borrador CAP y registra decisión de continuidad
+    draft = client.post(
+        "/api/alerts",
+        json={
+            "level": "ATENCION_PREVENTIVA",
+            "severity": "NARANJA",
+            "what_happens": "Borrador operativo",
+            "what_to_do": "Migrar a aula virtual",
+            "status": "borrador_pendiente_validacion",
+        },
+    ).json()
+    validated = client.patch(
+        f"/api/alerts/{draft['id']}/validate",
+        json={"validated_by_role": "directivo", "send_whatsapp": False, "offline": True},
+    )
+    assert validated.status_code == 200
+    assert validated.json()["validated_by_role"] == "directivo"
+
+    dec = client.post(
+        "/api/continuity/decisions",
+        json={
+            "scope": "academica",
+            "target_area": "Todas las facultades UNT",
+            "measure": "Migrar clases teóricas a aula virtual UNT",
+            "valid_until": "Hoy 22:00",
+            "decided_by_role": "directivo",
+        },
+    )
+    assert dec.status_code == 201
+    assert dec.json()["decided_by_role"] == "directivo"
+
+    client.post("/api/simulation/live/stop")

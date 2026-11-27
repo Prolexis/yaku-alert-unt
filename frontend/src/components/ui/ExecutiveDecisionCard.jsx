@@ -153,9 +153,26 @@ export default function ExecutiveDecisionCard({
   liveEvaluation,
   simResult,
   hydroResult,
+  activeAlerts = [],
+  activeDemoRole = "directivo",
   onPrepareNotice,
   onOpenMap,
+  onOpenContinuity,
+  onOpenHydro,
 }) {
+  const isDirectivo = activeDemoRole === "directivo";
+  const confirmationCounts = useMemo(() => {
+    const counts = { estudiante: 0, docente: 0, administrativo: 0, total: 0 };
+    (activeAlerts || []).forEach((a) => {
+      if (a.status !== "emitida") return;
+      const byRole = a.confirmations?.by_role || {};
+      counts.estudiante += Number(byRole.estudiante?.total || 0);
+      counts.docente += Number(byRole.docente?.total || 0);
+      counts.administrativo += Number(byRole.administrativo?.total || 0);
+      counts.total += Number(a.confirmations?.total || 0);
+    });
+    return counts;
+  }, [activeAlerts]);
   const semaphoreKey = useMemo(
     () => resolveSemaphoreKey(liveEvaluation, hydroResult),
     [liveEvaluation, hydroResult]
@@ -194,7 +211,9 @@ export default function ExecutiveDecisionCard({
             <ShieldCheck className="h-3.5 w-3.5" />
           </span>
           <span className="text-xs font-extrabold uppercase tracking-wider text-[#0B2545] dark:text-slate-100">
-            Semáforo Ejecutivo · Gestión UNT / Municipal
+            {isDirectivo
+              ? "Semáforo Ejecutivo · Decisión Directivo UNT"
+              : "Panel Operativo · Operador de Gestión de Riesgos"}
           </span>
         </div>
 
@@ -314,31 +333,74 @@ export default function ExecutiveDecisionCard({
         {/* Bloque 3: Acciones en 1 clic */}
         <div className="flex flex-col justify-between gap-2.5 rounded-xl border border-slate-200/80 bg-white p-4 shadow-subtle dark:border-slate-700/80 dark:bg-[#0B2545]/95 lg:col-span-3">
           <div className="text-xs font-bold uppercase tracking-wider text-[#475569] dark:text-slate-300">
-            Acciones en 1 clic
+            {isDirectivo ? "Decisiones Directivo" : "Operación Técnica"}
           </div>
           <div className="space-y-2">
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              type="button"
-              onClick={onPrepareNotice}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0B2545] px-3.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#0369A1] dark:bg-[#0369A1] dark:hover:bg-[#00B4D8]"
-            >
-              <Send className="h-4 w-4" />
-              <span>Preparar aviso institucional</span>
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              type="button"
-              onClick={onOpenMap}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#0369A1]/35 bg-[#F0F9FF] px-3.5 text-xs font-bold text-[#0369A1] transition hover:bg-[#E0F2FE] dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-200 dark:hover:bg-sky-900/60"
-            >
-              <MapIcon className="h-4 w-4" />
-              <span>Ver mapa y rutas</span>
-            </motion.button>
+            {isDirectivo ? (
+              <>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={onPrepareNotice}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0B2545] px-3.5 text-xs font-bold text-white shadow-sm transition hover:bg-[#0369A1] dark:bg-[#0369A1] dark:hover:bg-[#00B4D8]"
+                >
+                  <Send className="h-4 w-4" />
+                  <span>Validar alertas CAP / WhatsApp</span>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={onOpenContinuity || onOpenMap}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#0369A1]/35 bg-[#F0F9FF] px-3.5 text-xs font-bold text-[#0369A1] transition hover:bg-[#E0F2FE] dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-200 dark:hover:bg-sky-900/60"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  <span>Registrar medida de continuidad</span>
+                </motion.button>
+              </>
+            ) : (
+              <>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={onOpenHydro || onPrepareNotice}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#059669] px-3.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700"
+                >
+                  <CloudRain className="h-4 w-4" />
+                  <span>Abrir Simulación en vivo (10 m)</span>
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={onOpenMap}
+                  className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#0369A1]/35 bg-[#F0F9FF] px-3.5 text-xs font-bold text-[#0369A1] transition hover:bg-[#E0F2FE] dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-200 dark:hover:bg-sky-900/60"
+                >
+                  <MapIcon className="h-4 w-4" />
+                  <span>Mapa técnico + YAKU SENSE</span>
+                </motion.button>
+              </>
+            )}
           </div>
           <p className="text-xs leading-snug text-[#475569] dark:text-slate-400">
             Apoyo ejecutivo TRL 3–4; medidas oficiales requieren validación UNT / SINAGERD.
           </p>
+        </div>
+      </div>
+
+      {/* Contador en vivo de confirmaciones de recepción segmentado por perfil */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200/80 bg-white/90 px-3.5 py-2 text-xs dark:border-slate-700/80 dark:bg-[#0B2545]/90">
+        <span className="font-extrabold text-[#0B2545] dark:text-white">
+          Confirmaciones CAP en vivo ({confirmationCounts.total}):
+        </span>
+        <div className="flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
+          <span className="rounded-lg bg-[#F0F9FF] px-2.5 py-0.5 font-bold text-[#0369A1] dark:bg-sky-950 dark:text-sky-300">
+            Estudiantes: {confirmationCounts.estudiante}
+          </span>
+          <span className="rounded-lg bg-[#ECFDF5] px-2.5 py-0.5 font-bold text-[#059669] dark:bg-emerald-950 dark:text-emerald-300">
+            Docentes: {confirmationCounts.docente}
+          </span>
+          <span className="rounded-lg bg-[#FFFBEB] px-2.5 py-0.5 font-bold text-[#B45309] dark:bg-amber-950 dark:text-amber-300">
+            Administrativos: {confirmationCounts.administrativo}
+          </span>
         </div>
       </div>
     </section>

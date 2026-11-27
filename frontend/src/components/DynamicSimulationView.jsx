@@ -246,7 +246,9 @@ export default function DynamicSimulationView({
   liveSimulation = null,
   onLiveSimulationChange,
   onRefreshAlerts,
+  onSwitchToOperator,
 }) {
+  const isOperator = activeDemoRole === "operador_riesgos";
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const catalogGroupRef = useRef(null);
@@ -935,21 +937,33 @@ export default function DynamicSimulationView({
                     </span>
                   )}
                 </span>
-                <button
-                  type="button"
-                  disabled={liveBusy}
-                  onClick={handleStopLiveSimulation}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#DC2626] px-3.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
-                >
-                  {liveBusy ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Pause className="h-4 w-4" />
-                  )}
-                  <span>Detener simulación en vivo</span>
-                </button>
+                {isOperator ? (
+                  <button
+                    type="button"
+                    disabled={liveBusy}
+                    onClick={handleStopLiveSimulation}
+                    className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#DC2626] px-3.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {liveBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Pause className="h-4 w-4" />
+                    )}
+                    <span>Detener simulación en vivo</span>
+                  </button>
+                ) : (
+                  onSwitchToOperator && (
+                    <button
+                      type="button"
+                      onClick={onSwitchToOperator}
+                      className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#0369A1]/40 bg-white px-3 text-xs font-bold text-[#0369A1] hover:bg-[#F0F9FF] dark:border-sky-700 dark:bg-slate-900 dark:text-[#38BDF8]"
+                    >
+                      <span>Operar como Operador de Riesgos</span>
+                    </button>
+                  )
+                )}
               </>
-            ) : (
+            ) : isOperator ? (
               <button
                 type="button"
                 disabled={liveBusy || loading}
@@ -963,6 +977,19 @@ export default function DynamicSimulationView({
                 )}
                 <span>Activar en vivo para Comunidad UNT</span>
               </button>
+            ) : (
+              <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 text-xs font-semibold text-[#475569] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                <span>Consulta Directivo (solo lectura)</span>
+                {onSwitchToOperator && (
+                  <button
+                    type="button"
+                    onClick={onSwitchToOperator}
+                    className="font-extrabold text-[#0369A1] underline dark:text-[#38BDF8]"
+                  >
+                    Cambiar a Operador
+                  </button>
+                )}
+              </span>
             )}
             <button
               type="button"

@@ -102,10 +102,12 @@ export function createReport(payload) {
   });
 }
 
-export function updateReportStatus(reportId, status) {
+export function updateReportStatus(reportId, status, verifiedByRole = null) {
+  const body = { status };
+  if (verifiedByRole) body.verified_by_role = verifiedByRole;
   return requestJson(`/reports/${encodeURIComponent(reportId)}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(body),
   });
 }
 

@@ -134,15 +134,34 @@ export default function App() {
   const handleSelectDemoRole = async (roleId) => {
     setActiveDemoRole(roleId);
     const isAdminRole = roleId === "directivo" || roleId === "operador_riesgos";
-    if (isAdminRole && userRole !== "admin") {
-      handleChangeRole("admin");
-    } else if (!isAdminRole && userRole !== "student") {
-      handleChangeRole("student");
+    if (isAdminRole) {
+      if (userRole !== "admin") {
+        setUserRole("admin");
+      }
+      if (roleId === "directivo") {
+        if (["student_map", "student_sim", "simulator"].includes(activeView)) {
+          setActiveView("dashboard");
+        }
+      } else if (roleId === "operador_riesgos") {
+        if (["student_map", "student_sim"].includes(activeView)) {
+          setActiveView("hydro");
+        }
+      }
+    } else {
+      if (userRole !== "student") {
+        setUserRole("student");
+        setEvalSourceMode("live");
+      }
+      if (["map", "monitoring"].includes(activeView)) {
+        setActiveView("student_map");
+      } else if (["hydro", "simulator"].includes(activeView)) {
+        setActiveView("student_sim");
+      }
     }
     try {
       const auth = await demoLogin({ quick_role: roleId });
       toast.success(`Perfil activo: ${auth.user.display_name}`, {
-        description: `${auth.user.email} · Acceso demo sin PII.`,
+        description: `${auth.user.email} · Sesión demo sintética (Ley N.° 29733).`,
       });
     } catch {
       // Operación offline segura
@@ -276,7 +295,11 @@ export default function App() {
 
   const handleUpdateReportStatus = async (reportId, nextStatus) => {
     try {
-      const updated = await updateReportStatus(reportId, nextStatus);
+      const updated = await updateReportStatus(
+        reportId,
+        nextStatus,
+        activeDemoRole === "directivo" ? "directivo" : "operador_riesgos"
+      );
       setCampusReports((prev) => prev.map((r) => (r.id === reportId ? updated : r)));
       toast.success(`Reporte #${reportId} marcado como ${nextStatus}`);
     } catch (err) {
@@ -309,12 +332,12 @@ export default function App() {
       });
     } else {
       if (!["directivo", "operador_riesgos"].includes(activeDemoRole)) {
-        setActiveDemoRole("directivo");
+        setActiveDemoRole("operador_riesgos");
       }
       if (activeView === "student_map") setActiveView("map");
       else if (activeView === "student_sim") setActiveView("hydro");
       toast.success("Vista Gestión UNT activada", {
-        description: "Semáforo ejecutivo, validación CAP 1.2 y simuladores habilitados.",
+        description: "Operación técnica (Simulación en vivo 10 m) y Decisión ejecutiva habilitadas.",
       });
     }
   };
@@ -506,6 +529,7 @@ export default function App() {
           onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
           simActive={isSimulationContext}
           userRole={userRole}
+          activeDemoRole={activeDemoRole}
           onChangeRole={handleChangeRole}
         />
 
@@ -580,6 +604,8 @@ export default function App() {
                     onResolveAlert={handleResolveAlert}
                     onValidateAlert={handleValidateAlert}
                     onConfirmAlert={handleConfirmAlert}
+                    onSendWhatsApp={handleSendAlertWhatsApp}
+                    whatsappStatus={whatsappStatus}
                     onUpdateReportStatus={handleUpdateReportStatus}
                     liveSimulation={liveSimulation}
                   />
@@ -709,6 +735,7 @@ export default function App() {
                     liveSimulation={liveSimulation}
                     onLiveSimulationChange={setLiveSimulation}
                     onRefreshAlerts={refreshAlertsAndReports}
+                    onSwitchToOperator={() => handleSelectDemoRole("operador_riesgos")}
                   />
                 )}
 

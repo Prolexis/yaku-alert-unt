@@ -71,6 +71,7 @@ export default function ActiveAlertsBanner({
   if (!alerts.length) return null;
 
   const isCommunity = ["estudiante", "docente", "administrativo"].includes(activeDemoRole);
+  const isDirectivo = activeDemoRole === "directivo";
 
   const handleConfirm = async (alertId, status) => {
     if (!onConfirmAlert) return;
@@ -257,8 +258,8 @@ export default function ActiveAlertsBanner({
                     </button>
                   )}
 
-                  {/* Acciones de Gestión (Validación Humana + Descargar CAP 1.2 + Cerrar) */}
-                  {canResolve && isDraft && onValidateAlert && (
+                  {/* Acciones de Gestión (Validación Humana + WhatsApp para Directivo, CAP 1.2) */}
+                  {canResolve && isDraft && onValidateAlert && isDirectivo && (
                     <button
                       type="button"
                       onClick={() => onValidateAlert(alert.id)}
@@ -269,7 +270,13 @@ export default function ActiveAlertsBanner({
                     </button>
                   )}
 
-                  {canResolve && !isDraft && onSendWhatsApp && (
+                  {canResolve && isDraft && !isDirectivo && (
+                    <span className="inline-flex h-9 items-center rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-bold text-amber-900 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200">
+                      Pendiente de validación por Directivo
+                    </span>
+                  )}
+
+                  {canResolve && !isDraft && onSendWhatsApp && isDirectivo && (
                     <button
                       type="button"
                       disabled={sendingWaId === alert.id}

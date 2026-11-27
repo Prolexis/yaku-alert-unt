@@ -25,11 +25,14 @@ import {
   X,
 } from "lucide-react";
 import {
+  activateLiveSimulation,
   fetchHydroForecast,
   fetchHydroPresets,
   fetchHydroRun,
+  fetchLiveSimulation,
   fetchSimulationHistory,
   recordSimulationRun,
+  stopLiveSimulation,
 } from "../services/api";
 import SensorDetailPanel from "./ui/SensorDetailPanel";
 import SimulationHyetograph from "./ui/SimulationHyetograph";
@@ -240,6 +243,9 @@ export default function DynamicSimulationView({
   offline: offlineProp = false,
   activeDemoRole = "operador_riesgos",
   onIssueAlert,
+  liveSimulation = null,
+  onLiveSimulationChange,
+  onRefreshAlerts,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -288,6 +294,55 @@ export default function DynamicSimulationView({
   const [historyRuns, setHistoryRuns] = useState([]);
   const [savingRun, setSavingRun] = useState(false);
   const [creatingCap, setCreatingCap] = useState(false);
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [localLiveSim, setLocalLiveSim] = useState(liveSimulation);
+  const [countdownSec, setCountdownSec] = useState(0);
+
+  const effectiveLiveSim = liveSimulation ?? localLiveSim;
+
+  useEffect(() => {
+    if (liveSimulation) {
+      setLocalLiveSim(liveSimulation);
+    }
+  }, [liveSimulation]);
+
+  // Cuenta regresiva suave cada segundo mientras la alerta automática de 10 s está pendiente
+  useEffect(() => {
+    if (!effectiveLiveSim?.active || effectiveLiveSim?.alert_dispatched) {
+      setCountdownSec(0);
+      return;
+    }
+    const updateTick = () => {
+      const startedMs = effectiveLiveSim.started_at
+        ? new Date(effectiveLiveSim.started_at).getTime()
+        : Date.now();
+      const delaySec = effectiveLiveSim.auto_alert_delay_sec ?? 10;
+      const elapsed = Math.max(0, (Date.now() - startedMs) / 1000);
+      const rem = Math.max(0, Math.ceil(delaySec - elapsed));
+      setCountdownSec(rem);
+      if (rem === 0) {
+        fetchLiveSimulation()
+          .then((fresh) => {
+            setLocalLiveSim(fresh);
+            onLiveSimulationChange?.(fresh);
+            if (fresh?.alert_dispatched) {
+              onRefreshAlerts?.();
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    updateTick();
+    const t = setInterval(updateTick, 1000);
+    return () => clearInterval(t);
+  }, [
+    effectiveLiveSim?.active,
+    effectiveLiveSim?.alert_dispatched,
+    effectiveLiveSim?.started_at,
+    effectiveLiveSim?.auto_alert_delay_sec,
+    onLiveSimulationChange,
+    onRefreshAlerts,
+  ]);
 
   // Blindaje offline automático -> Solo vectorial
   useEffect(() => {
@@ -786,6 +841,66 @@ export default function DynamicSimulationView({
     }
   };
 
+  const handleActivateLiveSimulation = async () => {
+    if (liveBusy) return;
+    setLiveBusy(true);
+    try {
+      const card = QUICK_PRESETS.find((q) => q.id === activePresetId);
+      const apiPreset = presets.find((p) => p.id === source);
+      const series =
+        result?.parameters?.rainfall_mm_h ||
+        apiPreset?.rainfall_mm_h ||
+        card?.series ||
+        QUICK_PRESETS[1].series;
+      const live = await activateLiveSimulation({
+        scenario_id: source || activePresetId,
+        scenario_label: activePresetTitle,
+        drainage_scenario: drainageScenario,
+        drainage_state: drainageState,
+        rainfall_mm_h: series,
+        duration_hours: series.length,
+        inflow_p4: inflowP4,
+        secondary_inflow: Boolean(card?.secondaryInflow),
+        use_reported_sinks: useReportedSinks,
+        auto_alert_delay_sec: 10,
+        send_whatsapp: true,
+        activated_by_role:
+          activeDemoRole === "directivo" ? "directivo" : "operador_riesgos",
+        offline: offlineProp,
+      });
+      setLocalLiveSim(live);
+      onLiveSimulationChange?.(live);
+      toast.success("Simulación en vivo activada para Comunidad UNT", {
+        description: `Alerta CAP automática programada en ${live.auto_alert_delay_sec ?? 10} s (Certeza modelada: ${live.confidence_pct}%).`,
+      });
+    } catch (err) {
+      toast.error("No se pudo activar la simulación en vivo", {
+        description: err.message,
+      });
+    } finally {
+      setLiveBusy(false);
+    }
+  };
+
+  const handleStopLiveSimulation = async () => {
+    if (liveBusy) return;
+    setLiveBusy(true);
+    try {
+      const stopped = await stopLiveSimulation();
+      setLocalLiveSim(stopped);
+      onLiveSimulationChange?.(stopped);
+      toast.info("Simulación en vivo detenida", {
+        description: "Comunidad UNT regresó al estado normal de pronóstico.",
+      });
+    } catch (err) {
+      toast.error("No se pudo detener la simulación en vivo", {
+        description: err.message,
+      });
+    } finally {
+      setLiveBusy(false);
+    }
+  };
+
   return (
     <div className="min-w-0 space-y-4">
       {/* ZONA SUPERIOR: Cabecera + 3 Presets en 1 clic + Parámetros colapsables */}
@@ -806,6 +921,49 @@ export default function DynamicSimulationView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {effectiveLiveSim?.active ? (
+              <>
+                <span className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#0369A1]/40 bg-[#F0F9FF] px-3 text-xs font-extrabold text-[#0B2545] dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100">
+                  <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#DC2626]" />
+                  {effectiveLiveSim.alert_dispatched ? (
+                    <span>
+                      Alerta CAP emitida (Certeza {effectiveLiveSim.confidence_pct}%)
+                    </span>
+                  ) : (
+                    <span>
+                      Emitiendo alerta CAP automática en {countdownSec}s...
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  disabled={liveBusy}
+                  onClick={handleStopLiveSimulation}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#DC2626] px-3.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  {liveBusy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Pause className="h-4 w-4" />
+                  )}
+                  <span>Detener simulación en vivo</span>
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={liveBusy || loading}
+                onClick={handleActivateLiveSimulation}
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#059669] px-3.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {liveBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Radio className="h-4 w-4" />
+                )}
+                <span>Activar en vivo para Comunidad UNT</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={openHistoryModal}

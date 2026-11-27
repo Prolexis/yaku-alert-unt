@@ -18,10 +18,24 @@ import { formatLimaTime, normalizeText } from "../utils/formatters";
 import { buildCampusCatalog, getFeatureDisplayName } from "../utils/campusCatalog";
 import ExplainabilityStrip from "./ui/ExplainabilityStrip";
 import ActiveAlertsBanner from "./ui/ActiveAlertsBanner";
+import BuildingDynamicCard from "./ui/BuildingDynamicCard";
 import { REPORT_CATEGORIES } from "./ui/CampusReportModal";
 import WhereAmISafeRouteBar from "./ui/WhereAmISafeRouteBar";
 import { findNearestSafeRoute } from "../utils/safeRouteHelper";
 import { renderEvacuationLayers } from "../utils/evacuationLayers";
+
+const LIVE_WATER_STYLES = {
+  leve: { color: "#38BDF8", weight: 0.8, fillColor: "#BAE6FD", fillOpacity: 0.65 },
+  moderada: { color: "#0284C7", weight: 1.0, fillColor: "#38BDF8", fillOpacity: 0.72 },
+  alta: { color: "#DC2626", weight: 1.5, fillColor: "#1D4ED8", fillOpacity: 0.82 },
+};
+
+const BUILDING_RISK_FILL = {
+  critico: { color: "#DC2626", weight: 2, fillColor: "#EF4444", fillOpacity: 0.55 },
+  alto: { color: "#D97706", weight: 1.8, fillColor: "#F59E0B", fillOpacity: 0.5 },
+  moderado: { color: "#0284C7", weight: 1.5, fillColor: "#38BDF8", fillOpacity: 0.45 },
+  seguro: { color: "#1D4ED8", weight: 1.2, fillColor: "#3B82F6", fillOpacity: 0.42 },
+};
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -91,11 +105,15 @@ export default function StudentMonitoringMap({
   onConfirmAlert,
   campusReports = [],
   onOpenReportModal,
+  liveSimulation = null,
+  buildingStatusById = null,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const baseGroupRef = useRef(null);
   const attentionGroupRef = useRef(null);
+  const liveWaterGroupRef = useRef(null);
+  const liveGatesGroupRef = useRef(null);
   const evacuationGroupRef = useRef(null);
   const trujilloContextGroupRef = useRef(null);
   const reportsGroupRef = useRef(null);
@@ -155,8 +173,23 @@ export default function StudentMonitoringMap({
         if (z.includes("puerta 1")) blockedGates.add("P1");
       }
     });
+    if (liveSimulation?.active && Array.isArray(liveSimulation.affected_gates)) {
+      liveSimulation.affected_gates.forEach((g) => {
+        const s = String(g || "").toLowerCase();
+        if (s.includes("4")) blockedGates.add("P4");
+        if (s.includes("3")) blockedGates.add("P3");
+        if (s.includes("2")) blockedGates.add("P2");
+        if (s.includes("1")) blockedGates.add("P1");
+      });
+    }
     return blockedGates;
-  }, [campusReports]);
+  }, [campusReports, liveSimulation]);
+
+  const activeBuildingStatus = useMemo(() => {
+    const targetId = focusedBuildingId || myLocationId || "";
+    if (!targetId || !buildingStatusById) return null;
+    return buildingStatusById.get(targetId) || null;
+  }, [focusedBuildingId, myLocationId, buildingStatusById]);
 
   const mySafeRoute = useMemo(() => {
     if (!myLocationId) return null;
@@ -198,7 +231,9 @@ export default function StudentMonitoringMap({
     map.attributionControl.addAttribution("Datos del campus &copy; OpenStreetMap (ODbL)");
     baseGroupRef.current = L.layerGroup().addTo(map);
     attentionGroupRef.current = L.layerGroup().addTo(map);
+    liveWaterGroupRef.current = L.layerGroup().addTo(map);
     evacuationGroupRef.current = L.layerGroup().addTo(map);
+    liveGatesGroupRef.current = L.layerGroup().addTo(map);
     trujilloContextGroupRef.current = L.layerGroup().addTo(map);
     reportsGroupRef.current = L.layerGroup().addTo(map);
     myRouteGroupRef.current = L.layerGroup().addTo(map);
@@ -209,6 +244,8 @@ export default function StudentMonitoringMap({
       mapInstanceRef.current = null;
       baseGroupRef.current = null;
       attentionGroupRef.current = null;
+      liveWaterGroupRef.current = null;
+      liveGatesGroupRef.current = null;
       evacuationGroupRef.current = null;
       trujilloContextGroupRef.current = null;
       reportsGroupRef.current = null;
@@ -304,23 +341,49 @@ export default function StudentMonitoringMap({
         }).addTo(group);
       });
 
-    // Edificios reales OSM (con etiquetas enriquecidas y tooltip al pasar el cursor)
+    // Edificios reales OSM (coloreados dinámicamente si hay simulación en vivo activa)
     features
       .filter((f) => f.properties?.category === "edificio")
       .forEach((f) => {
+        const bldId = f.properties?.id || "";
         const name = getFeatureDisplayName(f.properties);
         const isNamed = !/^Edificio sin nombre/i.test(f.properties?.name || "");
+        const dyn = buildingStatusById?.get(bldId);
+        const dynStyle =
+          liveSimulation?.active && dyn && dyn.risk_level !== "seguro"
+            ? BUILDING_RISK_FILL[dyn.risk_level] || BUILDING_RISK_FILL.seguro
+            : {
+                color: isNamed ? "#1D4ED8" : "#94A3B8",
+                weight: 1.2,
+                fillColor: isNamed ? "#3B82F6" : "#CBD5E1",
+                fillOpacity: 0.45,
+              };
         L.geoJSON(f, {
-          style: {
-            color: isNamed ? "#1D4ED8" : "#94A3B8",
-            weight: 1.2,
-            fillColor: isNamed ? "#3B82F6" : "#CBD5E1",
-            fillOpacity: 0.45,
-          },
+          style: dynStyle,
           onEachFeature: (_feat, lyr) => {
-            const statusBadge = isNamed
-              ? `<span style="display:inline-block;padding:1px 6px;border-radius:999px;background:#ECFDF5;color:#059669;font:700 10px/1.4 system-ui,sans-serif;border:1px solid #A7F3D0;">Campus UNT</span>`
-              : `<span style="display:inline-block;padding:1px 6px;border-radius:999px;background:#F1F5F9;color:#475569;font:700 10px/1.4 system-ui,sans-serif;">Referencia</span>`;
+            const badgeText = dyn
+              ? `${dyn.risk_label || dyn.risk_level} · ${dyn.max_depth_cm} cm`
+              : isNamed
+              ? "Campus UNT"
+              : "Referencia";
+            const badgeBg =
+              dyn?.risk_level === "critico"
+                ? "background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;"
+                : dyn?.risk_level === "alto"
+                ? "background:#FFFBEB;color:#D97706;border:1px solid #FDE68A;"
+                : dyn?.risk_level === "moderado"
+                ? "background:#F0F9FF;color:#0284C7;border:1px solid #BAE6FD;"
+                : "background:#ECFDF5;color:#059669;border:1px solid #A7F3D0;";
+            const statusBadge = `<span style="display:inline-block;padding:1px 6px;border-radius:999px;${badgeBg}font:700 10px/1.4 system-ui,sans-serif;">${esc(badgeText)}</span>`;
+            const roleKey =
+              activeDemoRole === "docente"
+                ? "docente"
+                : activeDemoRole === "administrativo"
+                ? "administrativo"
+                : "estudiante";
+            const dynRec =
+              dyn?.recommendations_by_role?.[roleKey] ||
+              "Haz clic para ver el estado y trazar la ruta segura más cercana.";
             lyr.bindTooltip(
               `<div style="min-width:140px;">
                 <div style="font-weight:800;color:#0F172A;font-size:12px;">${esc(name)}</div>
@@ -329,21 +392,25 @@ export default function StudentMonitoringMap({
               { sticky: true, direction: "top" }
             );
             lyr.bindPopup(
-              `<div class="space-y-1.5 max-w-[235px]">
+              `<div class="space-y-1.5 max-w-[245px]">
                 <div class="flex items-center justify-between gap-2">${statusBadge}</div>
                 <div class="font-extrabold text-[#0F172A] text-xs">${esc(name)}</div>
-                <div class="text-xs text-[#475569]">Ubica el punto seguro verde más cercano y revisa el pronóstico 48 h antes de desplazarte.</div>
+                <div class="text-xs text-[#475569]">${esc(dynRec)}</div>
               </div>`,
               { className: "yaku-popup" }
             );
             lyr.on("click", () => {
-              onSelectBuilding?.(f.properties?.id || "");
-              setSelectedCard({
-                name,
-                infoType: f.properties?.verified ? "Instalación verificada" : "Referencia cartográfica",
-                explanation:
-                  "Instalación registrada en la Ciudad Universitaria UNT. Consulta las zonas de atención o la Simulación educativa (2017 / 2023) para explorar escenarios referenciales.",
-              });
+              onSelectBuilding?.(bldId);
+              if (!dyn) {
+                setSelectedCard({
+                  name,
+                  infoType: f.properties?.verified ? "Instalación verificada" : "Referencia cartográfica",
+                  explanation:
+                    "Instalación registrada en la Ciudad Universitaria UNT. Selecciona tu facultad abajo para trazar la ruta segura más cercana.",
+                });
+              } else {
+                setSelectedCard(null);
+              }
             });
           },
         }).addTo(group);
@@ -393,7 +460,65 @@ export default function StudentMonitoringMap({
           })
           .addTo(group);
       });
-  }, [campusLayers, onSelectBuilding]);
+  }, [campusLayers, onSelectBuilding, buildingStatusById, liveSimulation?.active, activeDemoRole]);
+
+  // Capa en vivo de celdas inundadas y puertas bloqueadas cuando Gestión UNT activa simulación en vivo
+  useEffect(() => {
+    const waterGroup = liveWaterGroupRef.current;
+    const gatesGroup = liveGatesGroupRef.current;
+    if (!waterGroup || !gatesGroup) return;
+    waterGroup.clearLayers();
+    gatesGroup.clearLayers();
+
+    if (!liveSimulation?.active) return;
+
+    const frames = liveSimulation.frames || [];
+    const targetHr = liveSimulation.current_sim_hour || liveSimulation.summary?.peak_hour || 1;
+    const frame =
+      frames.find((f) => f.hour === targetHr) ||
+      frames.find((f) => f.hour === liveSimulation.summary?.peak_hour) ||
+      frames[frames.length - 1];
+
+    if (frame?.geojson?.features?.length) {
+      frame.geojson.features.forEach((feat) => {
+        const cls = feat.properties?.depth_class || "leve";
+        const style = LIVE_WATER_STYLES[cls] || LIVE_WATER_STYLES.leve;
+        const label =
+          cls === "alta"
+            ? "> 15 cm · Inundación crítica (Simulación en vivo)"
+            : cls === "moderada"
+            ? "5–15 cm · Aniego peatonal (Simulación en vivo)"
+            : "2–5 cm · Encharcamiento leve (Simulación en vivo)";
+        L.geoJSON(feat, { style })
+          .bindTooltip(label, { sticky: true })
+          .addTo(waterGroup);
+      });
+    }
+
+    // Marcar puertas P1-P4 bloqueadas / libres en vivo
+    const features = campusLayers?.campus?.features || [];
+    features
+      .filter((f) => f.properties?.category === "acceso" && f.geometry?.type === "Point")
+      .forEach((f) => {
+        const [lon, lat] = f.geometry.coordinates;
+        const nm = String(f.properties?.name || "");
+        const m = nm.match(/Puerta\s*([1-4])/i);
+        if (!m) return;
+        const code = `P${m[1]}`;
+        const isBlocked = blockedGatesFromReports.has(code);
+        const color = isBlocked ? "#DC2626" : "#059669";
+        const label = isBlocked ? "Bloqueada (Simulación en vivo)" : "Libre";
+        const icon = L.divIcon({
+          className: "yaku-gate-marker",
+          html: `<div class="${isBlocked ? "yaku-alert-pulse" : ""}" style="display:flex;align-items:center;justify-content:center;padding:2px 6px;border-radius:999px;background:${color};color:#fff;font:800 11px/1.2 'JetBrains Mono',monospace;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;">${esc(code)}</div>`,
+          iconSize: [34, 22],
+          iconAnchor: [17, 11],
+        });
+        L.marker([lat, lon], { icon, zIndexOffset: 760 })
+          .bindTooltip(`${esc(nm)} · ${label}`, { direction: "top" })
+          .addTo(gatesGroup);
+      });
+  }, [liveSimulation, campusLayers, blockedGatesFromReports]);
 
   // Capa comprensible «Zonas de atención» (reutiliza evidencias documentadas y capas exploratorias existentes)
   useEffect(() => {
@@ -668,6 +793,12 @@ export default function StudentMonitoringMap({
             {!isLive && (
               <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-200">
                 Caché offline
+              </span>
+            )}
+            {liveSimulation?.active && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#0369A1]/40 bg-[#F0F9FF] px-3 py-0.5 text-[11px] font-bold text-[#0B2545] dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[#0284C7]" />
+                <span>Simulación en vivo activa · Datos sintéticos</span>
               </span>
             )}
           </div>
@@ -954,9 +1085,22 @@ export default function StudentMonitoringMap({
           </div>
         </div>
 
-        {/* Panel derecho: ficha corta de la instalación seleccionada + ruta referencial + lugares frecuentes */}
+        {/* Panel derecho: estado dinámico del edificio + ruta referencial + lugares frecuentes */}
         <div className="space-y-4 lg:col-span-4">
-          {selectedCard ? (
+          {activeBuildingStatus ? (
+            <BuildingDynamicCard
+              buildingStatus={activeBuildingStatus}
+              activeDemoRole={activeDemoRole}
+              onTraceRoute={(bld) => {
+                setMyLocationId(bld.id);
+                onSelectBuilding?.(bld.id);
+              }}
+              onClose={() => {
+                onSelectBuilding?.("");
+                setSelectedCard(null);
+              }}
+            />
+          ) : selectedCard ? (
             <section className="rounded-2xl border border-[#2563EB]/40 bg-white p-4 shadow-sm dark:border-blue-800 dark:bg-[#0B2545]">
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -994,7 +1138,7 @@ export default function StudentMonitoringMap({
                 Lugares frecuentes del campus
               </h3>
               <p className="mt-0.5 text-xs text-[#475569] dark:text-slate-300">
-                Selecciona uno para ubicarlo en el mapa:
+                Selecciona uno para ver su estado real y trazar tu ruta segura:
               </p>
               <div className="mt-2.5 max-h-52 space-y-1 overflow-y-auto">
                 {filteredCatalog.map((item) => (
@@ -1017,7 +1161,10 @@ export default function StudentMonitoringMap({
           <WhereAmISafeRouteBar
             options={facultyOptions}
             selectedId={myLocationId}
-            onSelectOrigin={setMyLocationId}
+            onSelectOrigin={(id) => {
+              setMyLocationId(id);
+              if (id) onSelectBuilding?.(id);
+            }}
             safeRoute={mySafeRoute}
             onClear={() => setMyLocationId("")}
           />

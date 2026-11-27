@@ -178,3 +178,25 @@ export function sendAlertWhatsApp(alertId, payload = {}) {
     body: JSON.stringify(payload),
   });
 }
+
+// --- Simulación en vivo (Gestión -> Comunidad) + Estado dinámico por edificio
+export function activateLiveSimulation(payload) {
+  return requestJson("/simulation/live/activate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchLiveSimulation() {
+  return requestJson("/simulation/live");
+}
+
+export function stopLiveSimulation() {
+  return requestJson("/simulation/live/stop", {
+    method: "POST",
+  });
+}
+
+export function fetchCampusBuildingStatus(offline = false) {
+  return requestJson(`/campus/building-status?offline=${offline ? "true" : "false"}`);
+}

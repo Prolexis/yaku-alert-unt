@@ -230,10 +230,10 @@ def test_demo_student_phone_used_by_default_and_masked(tmp_path, monkeypatch):
     users_resp = client.get("/api/auth/demo-users")
     assert users_resp.status_code == 200
     student = next(u for u in users_resp.json()["users"] if u["role"] == "estudiante")
-    assert student["whatsapp_phone_masked"] == "519****920"
-    assert "997325920" not in str(users_resp.json())
+    assert student["whatsapp_phone_masked"] == "519****346"
+    assert "902455346" not in str(users_resp.json())
 
     st = client.get("/api/whatsapp/status")
     assert st.status_code == 200
     assert st.json()["recipients_count"] == 1
-    assert st.json()["masked_recipients"] == ["519****920"]
+    assert st.json()["masked_recipients"] == ["519****346"]

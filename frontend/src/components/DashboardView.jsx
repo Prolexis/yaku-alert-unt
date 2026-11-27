@@ -70,6 +70,7 @@ export default function DashboardView({
   onValidateAlert,
   onConfirmAlert,
   onUpdateReportStatus,
+  liveSimulation = null,
 }) {
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [showFacultySearch, setShowFacultySearch] = useState(false);
@@ -172,6 +173,16 @@ export default function DashboardView({
                   <span className="text-xs text-[#475569] dark:text-slate-300" title={utc}>
                     Pronóstico Open-Meteo · {local}
                   </span>
+                  {liveSimulation?.active && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate("student_map")}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#0369A1]/35 bg-[#F0F9FF] px-2.5 py-0.5 text-[11px] font-bold text-[#0369A1] transition hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-200"
+                    >
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#0284C7]" />
+                      <span>Simulación en vivo activa · Ver Mapa UNT</span>
+                    </button>
+                  )}
                 </div>
 
                 <h2 className="text-xl font-extrabold tracking-tight text-[#0F172A] dark:text-white sm:text-2xl">

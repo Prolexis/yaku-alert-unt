@@ -228,6 +228,29 @@ def init_db() -> Path:
             """
         )
 
+        # 8. active_simulation_state (Estado único de simulación en vivo Gestión -> Comunidad)
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS active_simulation_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                active INTEGER NOT NULL DEFAULT 0,
+                scenario_id TEXT NOT NULL DEFAULT '',
+                scenario_label TEXT NOT NULL DEFAULT '',
+                drainage_scenario TEXT NOT NULL DEFAULT 'base',
+                params_json TEXT NOT NULL DEFAULT '{}',
+                started_at TEXT,
+                auto_alert_delay_sec INTEGER NOT NULL DEFAULT 10,
+                alert_dispatched INTEGER NOT NULL DEFAULT 0,
+                dispatched_alert_id INTEGER,
+                confidence_pct INTEGER NOT NULL DEFAULT 0,
+                confidence_factors_json TEXT NOT NULL DEFAULT '[]',
+                activated_by_role TEXT NOT NULL DEFAULT 'operador_riesgos',
+                result_json TEXT NOT NULL DEFAULT '{}',
+                updated_at TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+
         # Sembrar las 5 cuentas demo sintéticas (idempotente)
         now = _now_iso()
         for email, display_name, role, wa_phone in DEMO_ACCOUNTS:
@@ -1006,3 +1029,202 @@ def get_db_stats() -> dict[str, Any]:
         "weather_snapshots": int(snapshots_count),
         "latest_snapshot_utc": str(last_snap["fetched_at_utc"]) if last_snap else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# 8. Estado de simulación en vivo (fila única id = 1)
+# ---------------------------------------------------------------------------
+def _row_to_active_simulation(row: sqlite3.Row) -> dict[str, Any]:
+    def _safe_json(raw: str | None, fallback: Any) -> Any:
+        if not raw:
+            return fallback
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return fallback
+
+    return {
+        "id": int(row["id"]),
+        "active": bool(row["active"]),
+        "scenario_id": str(row["scenario_id"] or ""),
+        "scenario_label": str(row["scenario_label"] or ""),
+        "drainage_scenario": str(row["drainage_scenario"] or "base"),
+        "params": _safe_json(row["params_json"], {}),
+        "started_at": str(row["started_at"]) if row["started_at"] else None,
+        "auto_alert_delay_sec": int(row["auto_alert_delay_sec"] if row["auto_alert_delay_sec"] is not None else 10),
+        "alert_dispatched": bool(row["alert_dispatched"]),
+        "dispatched_alert_id": int(row["dispatched_alert_id"]) if row["dispatched_alert_id"] is not None else None,
+        "confidence_pct": int(row["confidence_pct"] or 0),
+        "confidence_factors": _safe_json(row["confidence_factors_json"], []),
+        "activated_by_role": str(row["activated_by_role"] or "operador_riesgos"),
+        "result": _safe_json(row["result_json"], {}),
+        "updated_at": str(row["updated_at"] or ""),
+    }
+
+
+def save_active_simulation(
+    *,
+    scenario_id: str,
+    scenario_label: str,
+    drainage_scenario: str = "base",
+    params: dict[str, Any] | None = None,
+    started_at: str | None = None,
+    auto_alert_delay_sec: int = 10,
+    confidence_pct: int = 0,
+    confidence_factors: list[dict[str, Any]] | None = None,
+    activated_by_role: str = "operador_riesgos",
+    result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Guarda o reemplaza la simulación en vivo activa (fila única id = 1)."""
+    init_db()
+    now = _now_iso()
+    start_iso = started_at or now
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO active_simulation_state (
+                id, active, scenario_id, scenario_label, drainage_scenario,
+                params_json, started_at, auto_alert_delay_sec,
+                alert_dispatched, dispatched_alert_id,
+                confidence_pct, confidence_factors_json,
+                activated_by_role, result_json, updated_at
+            )
+            VALUES (1, 1, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                active = 1,
+                scenario_id = excluded.scenario_id,
+                scenario_label = excluded.scenario_label,
+                drainage_scenario = excluded.drainage_scenario,
+                params_json = excluded.params_json,
+                started_at = excluded.started_at,
+                auto_alert_delay_sec = excluded.auto_alert_delay_sec,
+                alert_dispatched = 0,
+                dispatched_alert_id = NULL,
+                confidence_pct = excluded.confidence_pct,
+                confidence_factors_json = excluded.confidence_factors_json,
+                activated_by_role = excluded.activated_by_role,
+                result_json = excluded.result_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                scenario_id.strip(),
+                scenario_label.strip(),
+                drainage_scenario.strip(),
+                json.dumps(params or {}, ensure_ascii=False),
+                start_iso,
+                max(0, int(auto_alert_delay_sec)),
+                max(0, min(100, int(confidence_pct))),
+                json.dumps(confidence_factors or [], ensure_ascii=False),
+                activated_by_role.strip() or "operador_riesgos",
+                json.dumps(result or {}, ensure_ascii=False),
+                now,
+            ),
+        )
+        row = conn.execute("SELECT * FROM active_simulation_state WHERE id = 1").fetchone()
+        conn.commit()
+    return _row_to_active_simulation(row)
+
+
+def get_active_simulation() -> dict[str, Any] | None:
+    """Devuelve el estado persistido de la simulación en vivo, o None si nunca se activó."""
+    init_db()
+    with _connect() as conn:
+        row = conn.execute("SELECT * FROM active_simulation_state WHERE id = 1").fetchone()
+    if row is None:
+        return None
+    return _row_to_active_simulation(row)
+
+
+def claim_active_simulation_alert_dispatch() -> dict[str, Any] | None:
+    """Reclama de forma atómica el disparo único de alerta CAP en SQLite (BEGIN IMMEDIATE)."""
+    init_db()
+    now = _now_iso()
+    db_path = get_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path), timeout=10.0, isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT * FROM active_simulation_state WHERE id = 1 AND active = 1 AND alert_dispatched = 0"
+        ).fetchone()
+        if row is None:
+            conn.execute("ROLLBACK")
+            return None
+        cur = conn.execute(
+            """
+            UPDATE active_simulation_state
+            SET alert_dispatched = 1, updated_at = ?
+            WHERE id = 1 AND active = 1 AND alert_dispatched = 0
+            """,
+            (now,),
+        )
+        if cur.rowcount != 1:
+            conn.execute("ROLLBACK")
+            return None
+        conn.execute("COMMIT")
+        claimed = _row_to_active_simulation(row)
+        claimed["alert_dispatched"] = True
+        return claimed
+    except Exception:
+        try:
+            conn.execute("ROLLBACK")
+        except sqlite3.Error:
+            pass
+        raise
+    finally:
+        conn.close()
+
+
+def mark_active_simulation_alert_dispatched(alert_id: int) -> dict[str, Any] | None:
+    """Marca la alerta automática como emitida y asocia el ID de issued_alerts."""
+    init_db()
+    now = _now_iso()
+    with _connect() as conn:
+        row = conn.execute("SELECT id FROM active_simulation_state WHERE id = 1").fetchone()
+        if row is None:
+            return None
+        conn.execute(
+            """
+            UPDATE active_simulation_state
+            SET alert_dispatched = 1, dispatched_alert_id = ?, updated_at = ?
+            WHERE id = 1
+            """,
+            (int(alert_id), now),
+        )
+        updated = conn.execute("SELECT * FROM active_simulation_state WHERE id = 1").fetchone()
+        conn.commit()
+    return _row_to_active_simulation(updated)
+
+
+def stop_active_simulation() -> dict[str, Any]:
+    """Desactiva la simulación en vivo devolviendo Comunidad UNT al pronóstico normal."""
+    init_db()
+    now = _now_iso()
+    with _connect() as conn:
+        row = conn.execute("SELECT id FROM active_simulation_state WHERE id = 1").fetchone()
+        if row is None:
+            return {
+                "id": 1,
+                "active": False,
+                "scenario_id": "",
+                "scenario_label": "",
+                "drainage_scenario": "base",
+                "params": {},
+                "started_at": None,
+                "auto_alert_delay_sec": 10,
+                "alert_dispatched": False,
+                "dispatched_alert_id": None,
+                "confidence_pct": 0,
+                "confidence_factors": [],
+                "activated_by_role": "operador_riesgos",
+                "result": {},
+                "updated_at": now,
+            }
+        conn.execute(
+            "UPDATE active_simulation_state SET active = 0, updated_at = ? WHERE id = 1",
+            (now,),
+        )
+        updated = conn.execute("SELECT * FROM active_simulation_state WHERE id = 1").fetchone()
+        conn.commit()
+    return _row_to_active_simulation(updated)

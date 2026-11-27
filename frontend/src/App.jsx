@@ -6,10 +6,12 @@ import {
   createContinuityDecision,
   demoLogin,
   fetchAlerts,
+  fetchCampusBuildingStatus,
   fetchCampusLayers,
   fetchConditionsCatalog,
   fetchContinuityDecisions,
   fetchLiveEvaluation,
+  fetchLiveSimulation,
   fetchProtocols,
   fetchReports,
   fetchVirtualSensors,
@@ -96,6 +98,20 @@ export default function App() {
   const [continuityDecisions, setContinuityDecisions] = useState([]);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [whatsappStatus, setWhatsappStatus] = useState(null);
+  const [liveSimulation, setLiveSimulation] = useState(null);
+  const [campusBuildingStatus, setCampusBuildingStatus] = useState([]);
+
+  const buildingStatusById = useMemo(() => {
+    const list =
+      liveSimulation?.active && Array.isArray(liveSimulation.building_status)
+        ? liveSimulation.building_status
+        : campusBuildingStatus;
+    const map = new Map();
+    (list || []).forEach((item) => {
+      if (item?.id) map.set(item.id, item);
+    });
+    return map;
+  }, [liveSimulation, campusBuildingStatus]);
 
   const refreshAlertsAndReports = () => {
     fetchAlerts(false)
@@ -416,6 +432,42 @@ export default function App() {
       .catch((err) => console.warn("Condiciones externas no disponibles:", err));
     runSimulation(DEFAULT_SIM_PARAMS).then(setSimResult).catch(onFail);
     refreshAlertsAndReports();
+    fetchLiveSimulation().then(setLiveSimulation).catch(() => {});
+  }, []);
+
+  // Estado dinámico por edificio (usa pronóstico si no hay simulación en vivo activa)
+  useEffect(() => {
+    if (liveSimulation?.active) return;
+    fetchCampusBuildingStatus(forceOffline || browserOffline)
+      .then((res) => setCampusBuildingStatus(res.buildings || []))
+      .catch(() => {});
+  }, [forceOffline, browserOffline, liveSimulation?.active]);
+
+  // Polling ligero cada 3 segundos para sincronizar simulación en vivo y alertas CAP 1.2
+  useEffect(() => {
+    let mounted = true;
+    const pollLive = () => {
+      fetchLiveSimulation()
+        .then((live) => {
+          if (mounted) setLiveSimulation(live);
+        })
+        .catch(() => {});
+      fetchAlerts(false)
+        .then((res) => {
+          if (!mounted) return;
+          const visible = [
+            ...(res.active_alerts || []),
+            ...(res.draft_alerts || []),
+          ];
+          setActiveAlerts(visible);
+        })
+        .catch(() => {});
+    };
+    const timer = setInterval(pollLive, 3000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
   }, []);
 
   // Solo el rol Administrador carga el catálogo técnico de sensores IoT virtuales y estado WhatsApp
@@ -529,6 +581,7 @@ export default function App() {
                     onValidateAlert={handleValidateAlert}
                     onConfirmAlert={handleConfirmAlert}
                     onUpdateReportStatus={handleUpdateReportStatus}
+                    liveSimulation={liveSimulation}
                   />
                 )}
 
@@ -558,6 +611,8 @@ export default function App() {
                     onConfirmAlert={handleConfirmAlert}
                     campusReports={campusReports}
                     onOpenReportModal={() => setReportModalOpen(true)}
+                    liveSimulation={liveSimulation}
+                    buildingStatusById={buildingStatusById}
                   />
                 )}
 
@@ -588,6 +643,8 @@ export default function App() {
                     disconnectedSensors={disconnectedSensors}
                     onToggleDisconnectSensor={handleToggleDisconnectSensor}
                     offline={forceOffline || browserOffline}
+                    activeDemoRole={activeDemoRole}
+                    buildingStatusById={buildingStatusById}
                   />
                 )}
 
@@ -649,6 +706,9 @@ export default function App() {
                     offline={forceOffline || browserOffline}
                     activeDemoRole={activeDemoRole}
                     onIssueAlert={handleIssueAlert}
+                    liveSimulation={liveSimulation}
+                    onLiveSimulationChange={setLiveSimulation}
+                    onRefreshAlerts={refreshAlertsAndReports}
                   />
                 )}
 

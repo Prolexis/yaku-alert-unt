@@ -5,6 +5,7 @@ import { normalizeText } from "../utils/formatters";
 import { buildCampusCatalog, CAMPUS_CATEGORIES, getFeatureDisplayName } from "../utils/campusCatalog";
 import ExternalConditionsPanel from "./ui/ExternalConditionsPanel";
 import SensorDetailPanel from "./ui/SensorDetailPanel";
+import BuildingDynamicCard from "./ui/BuildingDynamicCard";
 import {
   SENSOR_STATUS_STYLES,
   resolveSensorReading,
@@ -71,12 +72,15 @@ export default function CampusMapView({
   disconnectedSensors = {},
   onToggleDisconnectSensor,
   offline = false,
+  activeDemoRole = "operador_riesgos",
+  buildingStatusById = null,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const baseGroupRef = useRef(null);
   const overlayGroupRef = useRef(null);
   const evacuationGroupRef = useRef(null);
+  const customRouteGroupRef = useRef(null);
   const sensorsGroupRef = useRef(null);
   const focusLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
@@ -150,6 +154,7 @@ export default function CampusMapView({
     baseGroupRef.current = L.layerGroup().addTo(map);
     overlayGroupRef.current = L.layerGroup().addTo(map);
     evacuationGroupRef.current = L.layerGroup().addTo(map);
+    customRouteGroupRef.current = L.layerGroup().addTo(map);
     sensorsGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
@@ -159,6 +164,7 @@ export default function CampusMapView({
       baseGroupRef.current = null;
       overlayGroupRef.current = null;
       evacuationGroupRef.current = null;
+      customRouteGroupRef.current = null;
       tileLayerRef.current = null;
     };
   }, []);
@@ -463,6 +469,9 @@ export default function CampusMapView({
             { className: "yaku-popup" }
           );
         layer.bindTooltip(esc(displayName), { sticky: true, direction: "top" });
+        layer.on("click", () => {
+          onSelectBuilding?.(id);
+        });
         layer.addTo(group);
       } else if (category === "ruta_referencial" && visibleLayers.rutas) {
         L.geoJSON(feat, { style: { color: "#7C3AED", weight: 3, dashArray: "5 6" } })
@@ -945,6 +954,47 @@ export default function CampusMapView({
         {/* Panel lateral compacto (~30%) */}
         <div className="flex flex-col justify-between space-y-4 rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33] lg:col-span-4">
           <div className="space-y-4">
+            {focusedBuildingId && buildingStatusById?.get(focusedBuildingId) && (
+              <BuildingDynamicCard
+                buildingStatus={buildingStatusById.get(focusedBuildingId)}
+                activeDemoRole={activeDemoRole}
+                allowRolePreview
+                onTraceRoute={(bld) => {
+                  const map = mapInstanceRef.current;
+                  const rg = customRouteGroupRef.current;
+                  const mp = bld?.nearest_safe_meeting_point;
+                  const orig = bld?.centroid;
+                  if (!map || !rg || !mp || !orig) return;
+                  rg.clearLayers();
+                  L.polyline(
+                    [
+                      [orig.lat, orig.lon],
+                      [mp.lat, mp.lon],
+                    ],
+                    { color: "#00B4D8", weight: 6, opacity: 0.35 }
+                  ).addTo(rg);
+                  L.polyline(
+                    [
+                      [orig.lat, orig.lon],
+                      [mp.lat, mp.lon],
+                    ],
+                    { color: "#059669", weight: 3.5, dashArray: "8 6", opacity: 0.95 }
+                  ).addTo(rg);
+                  map.fitBounds(
+                    [
+                      [orig.lat, orig.lon],
+                      [mp.lat, mp.lon],
+                    ],
+                    { padding: [60, 60], maxZoom: 18 }
+                  );
+                }}
+                onClose={() => {
+                  customRouteGroupRef.current?.clearLayers();
+                  onSelectBuilding?.("");
+                }}
+              />
+            )}
+
             {visibleLayers.sensores_iot && selectedSensor && (
               <SensorDetailPanel
                 sensor={selectedSensor}

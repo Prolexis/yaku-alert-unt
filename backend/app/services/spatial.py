@@ -602,3 +602,350 @@ def analyze_conditions_exposure(
         spatial_engine="Shapely 2.x (intersección geométrica real; zona armada por condiciones externas declaradas)",
     )
     return result, hazard_feature, synthetic_geojson
+
+
+# ---------------------------------------------------------------------------
+# Motor contextual dinámico por edificio y por rol (Bloque 2)
+# ---------------------------------------------------------------------------
+BUILDING_RISK_META: dict[str, dict[str, str]] = {
+    "critico": {
+        "label": "Crítico (> 15 cm)",
+        "summary": "Inundación modelada en entorno o acceso principal",
+    },
+    "alto": {
+        "label": "Alto (5–15 cm)",
+        "summary": "Aniego peatonal cercano en accesos o planta baja",
+    },
+    "moderado": {
+        "label": "Moderado (2–5 cm)",
+        "summary": "Encharcamiento leve en veredas y vías adyacentes",
+    },
+    "seguro": {
+        "label": "Seguro (< 2 cm)",
+        "summary": "Sector seco en cota favorable, apto para resguardo temporal",
+    },
+}
+
+
+def _classify_building_depth(max_depth_cm: float) -> str:
+    if max_depth_cm > 15.0:
+        return "critico"
+    if max_depth_cm >= 5.0:
+        return "alto"
+    if max_depth_cm >= 2.0:
+        return "moderado"
+    return "seguro"
+
+
+def _metric_distance_m(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    dx = (lon2 - lon1) * KX
+    dy = (lat2 - lat1) * KY
+    return math.hypot(dx, dy)
+
+
+def _short_gate_name(raw_name: str) -> str:
+    import re as _re
+
+    match = _re.search(r"\bPuerta\s*([1-4])\b", raw_name or "", _re.IGNORECASE)
+    if match:
+        return f"Puerta {match.group(1)}"
+    return (raw_name or "Acceso perimetral").strip()
+
+
+def _to_metric(geom):
+    return shapely.transform(
+        geom,
+        lambda coords: np.column_stack((
+            (coords[:, 0] + 79.0) * KX,
+            (coords[:, 1] - LAT0) * KY,
+        )),
+    )
+
+
+def _extract_hydro_dict(hydro_result: Any) -> dict[str, Any]:
+    if hasattr(hydro_result, "model_dump"):
+        return hydro_result.model_dump()
+    if isinstance(hydro_result, dict):
+        return hydro_result
+    raise ValueError("hydro_result debe ser HydroRunResponse o dict.")
+
+
+def build_building_recommendations(
+    hydro_result: Any,
+    campus_geojson: dict[str, Any] | None = None,
+    evacuation_geojson: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Cruza cada edificio de campus_unt.geojson con la malla real de hydro.py (~18 m de borde).
+
+    Devuelve recomendaciones diferenciadas por edificio y por rol (estudiante, docente, administrativo).
+    """
+    hydro = _extract_hydro_dict(hydro_result)
+    campus = campus_geojson if campus_geojson is not None else load_campus_geojson()
+    evacuation = evacuation_geojson if evacuation_geojson is not None else load_evacuation_geojson()
+
+    elements_by_id: dict[str, dict[str, Any]] = {
+        str(el.get("id")): el for el in (hydro.get("elements") or []) if el.get("id")
+    }
+    frames = hydro.get("frames") or []
+
+    # Preprocesar polígonos inundados por hora en coordenadas métricas
+    parsed_frames: list[tuple[int, list[tuple[Any, str, float, float]]]] = []
+    class_floor_cm = {"leve": 2.5, "moderada": 6.0, "alta": 16.0}
+    for frame in frames:
+        hour = int(frame.get("hour", 1))
+        fc = frame.get("geojson") or {}
+        feats = fc.get("features") or []
+        frame_items: list[tuple[Any, str, float, float]] = []
+        for feat in feats:
+            geom_raw = feat.get("geometry")
+            if not geom_raw:
+                continue
+            props = feat.get("properties") or {}
+            cls = str(props.get("depth_class") or "leve")
+            min_cm = float(props.get("min_depth_cm") or class_floor_cm.get(cls, 2.0))
+            max_cm = float(props.get("max_depth_cm") or min_cm)
+            try:
+                geom_m = _to_metric(shape(geom_raw))
+                frame_items.append((geom_m, cls, min_cm, max_cm))
+            except Exception:
+                continue
+        if frame_items:
+            parsed_frames.append((hour, frame_items))
+
+    # 1. Identificar puertas nominales (P1-P4) y su afectación
+    gates: list[dict[str, Any]] = []
+    for feat in campus.get("features", []):
+        props = feat.get("properties") or {}
+        if props.get("category") != "acceso":
+            continue
+        name = str(props.get("name") or "")
+        short_name = _short_gate_name(name)
+        if not short_name.startswith("Puerta "):
+            continue
+        geom = shape(feat["geometry"])
+        c = geom.centroid
+        el = elements_by_id.get(str(props.get("id") or ""))
+        gate_depth = float(el.get("max_depth_cm") or 0.0) if el else 0.0
+        if gate_depth < 2.0 and parsed_frames:
+            gate_buf = _to_metric(geom).buffer(15.0)
+            for _hr, items in parsed_frames:
+                for g_m, cls, min_cm, _max_cm in items:
+                    if gate_buf.intersects(g_m):
+                        gate_depth = max(gate_depth, max(min_cm, class_floor_cm.get(cls, 2.0)))
+        gates.append({
+            "id": str(props.get("id") or short_name),
+            "name": name,
+            "short_name": short_name,
+            "lon": float(c.x),
+            "lat": float(c.y),
+            "max_depth_cm": round(gate_depth, 1),
+            "affected": gate_depth >= 2.0,
+        })
+
+    affected_gates_all = [g for g in gates if g["affected"]]
+    free_gates_all = [g for g in gates if not g["affected"]]
+
+    # 2. Evaluar puntos de encuentro de evacuation_reference.geojson (libres si < 2 cm)
+    meeting_points: list[dict[str, Any]] = []
+    for feat in evacuation.get("features", []):
+        props = feat.get("properties") or {}
+        ltype = props.get("layer_type") or props.get("zone_type")
+        if ltype not in ("meeting_point", "safe_point"):
+            continue
+        geom = shape(feat["geometry"])
+        c = geom.centroid
+        pt_depth = 0.0
+        if parsed_frames:
+            pt_buf = _to_metric(geom).buffer(8.0)
+            for _hr, items in parsed_frames:
+                for g_m, cls, min_cm, _max_cm in items:
+                    if pt_buf.intersects(g_m):
+                        pt_depth = max(pt_depth, max(min_cm, class_floor_cm.get(cls, 2.0)))
+        meeting_points.append({
+            "id": str(props.get("id") or props.get("name") or "mp"),
+            "name": str(props.get("name") or "Punto de encuentro UNT"),
+            "lon": float(c.x),
+            "lat": float(c.y),
+            "max_depth_cm": round(pt_depth, 1),
+            "is_safe": pt_depth < 2.0,
+        })
+
+    safe_meeting_points = [mp for mp in meeting_points if mp["is_safe"]]
+    candidate_meeting_points = safe_meeting_points if safe_meeting_points else meeting_points
+
+    # 3. Cruzar cada edificio con la malla real (interior + borde de ~18 m)
+    summary_peak_hour = int((hydro.get("summary") or {}).get("peak_hour") or 1)
+    results: list[dict[str, Any]] = []
+
+    for feat in campus.get("features", []):
+        props = feat.get("properties") or {}
+        if props.get("category") != "edificio":
+            continue
+        bld_id = str(props.get("id") or "")
+        bld_name = str(props.get("name") or "Edificio UNT")
+        geom = shape(feat["geometry"])
+        centroid = geom.centroid
+        bld_lon, bld_lat = float(centroid.x), float(centroid.y)
+        bld_buf_m = _to_metric(geom).buffer(18.0)
+
+        el = elements_by_id.get(bld_id)
+        elem_depth_cm = float(el.get("max_depth_cm") or 0.0) if el else 0.0
+        elem_first_hr = el.get("first_hour_affected") if el else None
+
+        max_depth_cm = elem_depth_cm
+        peak_hour: int | None = int(elem_first_hr) if elem_first_hr is not None else None
+        best_frame_depth = 0.0
+
+        for hr, items in parsed_frames:
+            hr_depth = 0.0
+            for g_m, cls, min_cm, max_cm in items:
+                if bld_buf_m.intersects(g_m):
+                    # Usar el piso real de la clase (o el valor exacto del elemento si está en esa clase)
+                    est_cm = max(min_cm, class_floor_cm.get(cls, 2.0))
+                    if cls == "alta":
+                        est_cm = max(15.5, min(max_cm, max(elem_depth_cm, 15.5)))
+                    elif cls == "moderada":
+                        est_cm = max(5.5, min(14.9, max(elem_depth_cm, min_cm)))
+                    elif cls == "leve":
+                        est_cm = max(2.2, min(4.9, max(elem_depth_cm, min_cm)))
+                    hr_depth = max(hr_depth, est_cm)
+            if hr_depth > best_frame_depth:
+                best_frame_depth = hr_depth
+                peak_hour = hr
+
+        max_depth_cm = round(max(elem_depth_cm, best_frame_depth), 1)
+        if peak_hour is None:
+            peak_hour = summary_peak_hour if max_depth_cm >= 2.0 else None
+
+        risk_level = _classify_building_depth(max_depth_cm)
+        risk_meta = BUILDING_RISK_META[risk_level]
+
+        # Puertas afectadas más cercanas a evitar
+        sorted_affected = sorted(
+            affected_gates_all,
+            key=lambda g: _metric_distance_m(bld_lon, bld_lat, g["lon"], g["lat"]),
+        )
+        avoid_gates = [g["short_name"] for g in sorted_affected[:2]]
+        avoid_text = ", ".join(avoid_gates) if avoid_gates else "accesos con agua acumulada"
+
+        # Puerta libre más cercana (referencia)
+        sorted_free = sorted(
+            free_gates_all,
+            key=lambda g: _metric_distance_m(bld_lon, bld_lat, g["lon"], g["lat"]),
+        )
+        nearest_free_gate = sorted_free[0]["short_name"] if sorted_free else "el acceso en cota más alta"
+
+        # Punto de encuentro seguro más cercano (< 2 cm)
+        nearest_mp: dict[str, Any] | None = None
+        if candidate_meeting_points:
+            best_mp = min(
+                candidate_meeting_points,
+                key=lambda mp: _metric_distance_m(bld_lon, bld_lat, mp["lon"], mp["lat"]),
+            )
+            dist_m = round(_metric_distance_m(bld_lon, bld_lat, best_mp["lon"], best_mp["lat"]))
+            walk_min = max(1, round(dist_m / 70.0))
+            nearest_mp = {
+                "id": best_mp["id"],
+                "name": best_mp["name"],
+                "distance_m": int(dist_m),
+                "walk_time_min": int(walk_min),
+                "lat": best_mp["lat"],
+                "lon": best_mp["lon"],
+                "max_depth_cm": best_mp["max_depth_cm"],
+            }
+        mp_name = nearest_mp["name"] if nearest_mp else "el punto de encuentro seguro más cercano"
+        mp_dist_txt = (
+            f"{nearest_mp['distance_m']} m (~{nearest_mp['walk_time_min']} min a pie)"
+            if nearest_mp
+            else "cota alta libre de aniego"
+        )
+        peak_txt = f"h+{peak_hour}" if peak_hour is not None else "el periodo evaluado"
+
+        if risk_level == "critico":
+            recs = {
+                "estudiante": (
+                    f"Evacúa preventivamente {bld_name} hacia {mp_name} ({mp_dist_txt}) antes de {peak_txt} "
+                    f"o aplica refugio vertical en el 2.° piso si el agua rodea la salida ({max_depth_cm} cm modelados). "
+                    f"Evita {avoid_text}."
+                ),
+                "docente": (
+                    f"Suspende de inmediato la sesión en {bld_name} ({max_depth_cm} cm modelados en {peak_txt}), "
+                    f"corta energía de equipos de laboratorio y guía al grupo en orden hacia {mp_name} "
+                    f"(o piso superior si el acceso está anegado), evitando {avoid_text}."
+                ),
+                "administrativo": (
+                    f"Cierra atención presencial en planta baja de {bld_name}, desconecta tomas bajas y resguarda "
+                    f"equipos críticos en nivel superior ante lámina crítica ({max_depth_cm} cm en {peak_txt}). "
+                    f"Coordina evacuación hacia {mp_name} sin cruzar {avoid_text}."
+                ),
+            }
+        elif risk_level == "alto":
+            recs = {
+                "estudiante": (
+                    f"Restringe el tránsito por los accesos bajos de {bld_name} ({max_depth_cm} cm en {peak_txt}). "
+                    f"Sal con anticipación por {nearest_free_gate} o dirígete a {mp_name} ({mp_dist_txt}), "
+                    f"evitando {avoid_text}."
+                ),
+                "docente": (
+                    f"Concluye actividades en planta baja de {bld_name} antes del pico ({peak_txt}, {max_depth_cm} cm), "
+                    f"resguarda proyectores y material docente en altura y orienta la salida hacia {mp_name} "
+                    f"o {nearest_free_gate}, evitando {avoid_text}."
+                ),
+                "administrativo": (
+                    f"Eleva equipos de cómputo y archivos del primer nivel en {bld_name} ({max_depth_cm} cm en {peak_txt}), "
+                    f"coloca señalización preventiva en puertas bajas y deriva el flujo peatonal hacia {nearest_free_gate} "
+                    f"y {mp_name}."
+                ),
+            }
+        elif risk_level == "moderado":
+            recs = {
+                "estudiante": (
+                    f"Encharcamiento leve cerca de {bld_name} ({max_depth_cm} cm en {peak_txt}). "
+                    f"Transita solo por veredas elevadas, evita {avoid_text} y ten ubicado {mp_name} ({mp_dist_txt}) "
+                    f"si la lluvia persiste la próxima hora."
+                ),
+                "docente": (
+                    f"Mantén vigilancia durante la próxima hora en {bld_name} ({max_depth_cm} cm en {peak_txt}); "
+                    f"evita prácticas en exteriores cercanos y prevé flexibilidad de salida hacia {mp_name} "
+                    f"si aumenta la acumulación."
+                ),
+                "administrativo": (
+                    f"Verifica sumideros y canaletas de entrada en {bld_name} ante encharcamiento leve ({max_depth_cm} cm), "
+                    f"mantén despejada la ruta hacia {mp_name} y reporta obstrucciones en el panel."
+                ),
+            }
+        else:
+            recs = {
+                "estudiante": (
+                    f"{bld_name} permanece seco en cota favorable (< 2 cm; {max_depth_cm} cm modelados). "
+                    f"Puedes permanecer resguardado aquí y apoyar la orientación hacia {mp_name} ({mp_dist_txt}); "
+                    f"evita desplazarte hacia {avoid_text}."
+                ),
+                "docente": (
+                    f"{bld_name} está en sector seguro (< 2 cm). Puede operar como espacio de resguardo temporal "
+                    f"para estudiantes de zonas bajas mientras pasa el pico; evita liberar grupos hacia {avoid_text}."
+                ),
+                "administrativo": (
+                    f"{bld_name} presenta cota favorable (< 2 cm) y es apto como punto de apoyo logístico y "
+                    f"resguardo temporal en coordinación con {mp_name}. Mantén habilitado el acceso para evacuados."
+                ),
+            }
+
+        results.append({
+            "id": bld_id,
+            "name": bld_name,
+            "max_depth_cm": max_depth_cm,
+            "risk_level": risk_level,
+            "risk_label": risk_meta["label"],
+            "risk_summary": risk_meta["summary"],
+            "peak_hour": peak_hour,
+            "avoid_gates": avoid_gates,
+            "nearest_safe_meeting_point": nearest_mp,
+            "recommendations_by_role": recs,
+            "centroid": {"lat": round(bld_lat, 6), "lon": round(bld_lon, 6)},
+        })
+
+    # Ordenar por severidad/profundidad descendente, luego nombre
+    risk_order = {"critico": 0, "alto": 1, "moderado": 2, "seguro": 3}
+    results.sort(key=lambda b: (risk_order.get(b["risk_level"], 4), -b["max_depth_cm"], b["name"]))
+    return results

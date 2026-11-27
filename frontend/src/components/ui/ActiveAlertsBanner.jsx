@@ -95,6 +95,10 @@ export default function ActiveAlertsBanner({
           const conf = alert.confirmations || { total: 0, recibido: 0, en_zona_segura: 0, by_role: {} };
           const myStatus = confirmedMap[alert.id];
           const isDraft = alert.status === "borrador_pendiente_validacion";
+          const certaintyMatch = String(alert.what_happens || alert.title || "").match(
+            /Certeza(?:\s+modelada)?:\s*(\d{1,3})%/i
+          );
+          const certaintyPct = certaintyMatch ? certaintyMatch[1] : null;
 
           return (
             <div
@@ -113,6 +117,11 @@ export default function ActiveAlertsBanner({
                   <span className="rounded bg-white/90 px-2 py-0.5 font-mono text-xs font-bold text-[#0B2545] ring-1 ring-slate-200 dark:bg-slate-900 dark:text-[#38BDF8] dark:ring-slate-700">
                     {alert.cap_identifier || `CAP-${alert.id}`}
                   </span>
+                  {certaintyPct && (
+                    <span className="rounded-full bg-[#0B2545] px-2.5 py-0.5 font-mono text-[11px] font-extrabold text-white dark:bg-[#0369A1]">
+                      Certeza modelada: {certaintyPct}%
+                    </span>
+                  )}
                   <span className="inline-flex items-center gap-1 font-mono text-xs font-semibold text-[#475569] tabular-nums dark:text-slate-300">
                     <Clock className="h-3.5 w-3.5" />
                     {local}

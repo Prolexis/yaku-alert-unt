@@ -27,6 +27,7 @@ import {
 import {
   fetchCampusLayers,
   fetchLiveEvaluation,
+  fetchLiveSimulation,
   fetchPublicDrillState,
   fetchPublicSimulation,
   fetchWeather,
@@ -333,6 +334,8 @@ export default function YakuMobileApp() {
 
   // Estado del simulacro sincronizado desde el servidor
   const [drillSession, setDrillSession] = useState(null);
+  const [managementSimulation, setManagementSimulation] = useState(null);
+  const managementSimulationActiveRef = useRef(false);
   const lastRevisionRef = useRef(-1);
   const simCacheRef = useRef({});
   const [activeSimData, setActiveSimData] = useState(null);
@@ -697,11 +700,12 @@ export default function YakuMobileApp() {
   // Carga inicial de datos meteorológicos, capas GIS y registro del dispositivo
   const loadInitialData = useCallback(async () => {
     try {
-      const [w, ev, layers, drillSnap] = await Promise.all([
+      const [w, ev, layers, drillSnap, liveSim] = await Promise.all([
         fetchWeather(false),
         fetchLiveEvaluation(false, []),
         fetchCampusLayers(),
         fetchPublicDrillState().catch(() => null),
+        fetchLiveSimulation().catch(() => null),
       ]);
       setWeather(w);
       setLiveEval(ev);
@@ -713,6 +717,16 @@ export default function YakuMobileApp() {
 
       if (drillSnap?.push_status) {
         setPushStatusInfo(drillSnap.push_status);
+      }
+      if (liveSim) {
+        setManagementSimulation(liveSim);
+        if (liveSim.active) {
+          managementSimulationActiveRef.current = true;
+          setLocalPlaying(false);
+          setActiveSimData(liveSim);
+          setDisplayHour(Number(liveSim.current_sim_hour) || 1);
+          setMapContext("drill");
+        }
       }
     } catch {
       setIsOffline(true);
@@ -731,6 +745,41 @@ export default function YakuMobileApp() {
       })
       .catch(() => {});
   }, [loadInitialData, notificationsEnabled]);
+
+  // La vista móvil observa la simulación de Gestión y refleja su hora/capas sin controles de escritura.
+  useEffect(() => {
+    let stopped = false;
+    const syncManagementSimulation = () => {
+      fetchLiveSimulation()
+        .then((live) => {
+          if (stopped || !live) return;
+          setManagementSimulation(live);
+          if (live.active) {
+            managementSimulationActiveRef.current = true;
+            setLocalPlaying(false);
+            setActiveSimData(live);
+            setDisplayHour(Number(live.current_sim_hour) || 1);
+            setMapContext("drill");
+          } else if (managementSimulationActiveRef.current) {
+            managementSimulationActiveRef.current = false;
+            if (!drillSession?.is_public) {
+              setLocalPlaying(false);
+              setActiveSimData(null);
+              setDisplayHour(1);
+              setMapContext("monitoring");
+            }
+          }
+        })
+        .catch(() => {});
+    };
+
+    syncManagementSimulation();
+    const timer = setInterval(syncManagementSimulation, 3000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [drillSession?.is_public]);
 
   // Aplicar un snapshot de estado de simulacro (con control de revisión monótona)
   const applyDrillSnapshot = useCallback(
@@ -1200,7 +1249,7 @@ export default function YakuMobileApp() {
       .slice(0, 5);
   }, [activeSimData]);
 
-  const isLiveAdminDrill = Boolean(drillSession?.is_public);
+  const isLiveAdminDrill = Boolean(drillSession?.is_public || managementSimulation?.active);
   const isFinishedAdminDrill = drillSession?.status === "finished";
 
   const handleStartLocalDrill = async (scenarioId = localScenarioId) => {
@@ -1302,7 +1351,11 @@ export default function YakuMobileApp() {
         >
           <div className="flex items-center gap-1.5">
             <FlaskConical className="h-4 w-4 shrink-0 text-[#D97706]" />
-            <span>SIMULACRO EDUCATIVO — NO ES UNA EMERGENCIA REAL</span>
+            <span>
+              {managementSimulation?.active
+                ? "SIMULACIÓN DE GESTIÓN UNT — SOLO VISUALIZACIÓN · NO ES UNA EMERGENCIA REAL"
+                : "SIMULACRO EDUCATIVO — NO ES UNA EMERGENCIA REAL"}
+            </span>
           </div>
           <button
             type="button"
@@ -1449,7 +1502,9 @@ export default function YakuMobileApp() {
           <div className="pointer-events-none absolute bottom-3 left-3 z-[400] flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white/95 px-3 py-1.5 font-mono text-xs font-extrabold text-[#0B2545] shadow-md dark:border-slate-700 dark:bg-[#0B2545]/95 dark:text-white">
               <span>
-                {activeSimData?.public_preset?.title ||
+                {managementSimulation?.active
+                  ? managementSimulation.scenario_label || "Simulación de Gestión UNT"
+                  : activeSimData?.public_preset?.title ||
                   drillSession?.scenario_title ||
                   "Escenario simulado"}
               </span>
@@ -1563,7 +1618,9 @@ export default function YakuMobileApp() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-sm font-extrabold text-[#0F172A] dark:text-white">
-                    {activeSimData?.public_preset?.title ||
+                    {managementSimulation?.active
+                      ? managementSimulation.scenario_label || "Simulación de Gestión UNT"
+                      : activeSimData?.public_preset?.title ||
                       drillSession?.scenario_title ||
                       "Escenario tipo 2017"}
                   </div>

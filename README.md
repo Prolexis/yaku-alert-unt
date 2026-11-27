@@ -73,6 +73,16 @@ Para detener los contenedores:
 docker compose down
 ```
 
+### Ejecutar sin Docker y abrir la vista móvil con QR
+
+Instala primero las dependencias del backend y la web (Python, `pip install -r backend/requirements.txt`, Node.js y `npm install` dentro de `frontend`). Luego ejecuta:
+
+```powershell
+./scripts/start-demo-tunnel.ps1
+```
+
+El script inicia el backend y la web localmente, abre un túnel temporal de Cloudflare hacia la web, crea el QR para la vista móvil y muestra su enlace. Escanea `YAKU_ALERT_QR_ACTUAL.png` desde el celular. Mantén esa terminal abierta mientras uses la app; `Ctrl+C` detiene los servicios. Cada ejecución puede producir un enlace distinto y reemplaza el QR anterior.
+
 ---
 
 ## Instalación y Ejecución Local (Sin Docker)

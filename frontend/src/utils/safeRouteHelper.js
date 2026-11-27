@@ -30,60 +30,76 @@ export function findNearestSafeRoute({
   const { lat: oLat, lon: oLon } = originItem.center;
   const evacFeatures = campusLayers.evacuation.features;
 
+  const normalizeGates = (val) => {
+    if (!val) return [];
+    return Array.isArray(val) ? val.map((v) => String(v).toUpperCase()) : [String(val).toUpperCase()];
+  };
+
   const safePoints = evacFeatures
-    .filter((f) => f.properties?.zone_type === "safe_point" && f.geometry?.type === "Point")
+    .filter(
+      (f) =>
+        f.geometry?.type === "Point" &&
+        (f.properties?.layer_type === "meeting_point" || f.properties?.zone_type === "safe_point")
+    )
     .map((f) => {
       const [lon, lat] = f.geometry.coordinates;
       const straightM = haversineMeters(oLat, oLon, lat, lon);
+      const avoidGates = normalizeGates(f.properties?.avoid_when_gate_affected);
+      const isGateCompromised = avoidGates.some((g) => affectedGates.has(g));
       return {
         feature: f,
         id: f.properties?.id,
-        name: f.properties?.name || "Punto seguro referencial",
+        name: f.properties?.name || "Punto de encuentro referencial",
         rationale:
           f.properties?.rationale ||
           "Zona abierta de cota elevada dentro de la Ciudad Universitaria UNT.",
         lat,
         lon,
         straightM,
+        isGateCompromised,
       };
     });
 
   if (!safePoints.length) return null;
 
   const routes = evacFeatures.filter(
-    (f) => f.properties?.zone_type === "evacuation_route"
+    (f) =>
+      f.properties?.layer_type === "evacuation_route" || f.properties?.zone_type === "evacuation_route"
   );
 
-  // Ordenar puntos seguros por cercanía real
-  safePoints.sort((a, b) => a.straightM - b.straightM);
+  // Priorizar puntos de encuentro sin puertas comprometidas, y luego cercanía real
+  safePoints.sort((a, b) => {
+    if (a.isGateCompromised !== b.isGateCompromised) {
+      return a.isGateCompromised ? 1 : -1;
+    }
+    return a.straightM - b.straightM;
+  });
 
-  // Evaluar si existe una ruta referencial asociada al punto seguro más cercano
-  // evitando rutas que dependan de una puerta comprometida si no son rutas alternas
+  // Evaluar si existe una ruta referencial asociada al punto de encuentro elegido
   let chosenSafe = safePoints[0];
   let chosenRoute = null;
 
   for (const sp of safePoints) {
     const candidateRoutes = routes.filter(
-      (r) => r.properties?.to_safe_point_id === sp.id
+      (r) =>
+        r.properties?.to_meeting_point_id === sp.id || r.properties?.to_safe_point_id === sp.id
     );
     if (!candidateRoutes.length) {
       chosenSafe = sp;
       break;
     }
 
-    // Si hay puertas afectadas, priorizar la ruta marcada como alternativa para esa puerta
-    const altForAffected = candidateRoutes.find(
-      (r) =>
-        r.properties?.avoid_when_gate_affected &&
-        affectedGates.has(r.properties.avoid_when_gate_affected)
-    );
-    if (altForAffected) {
+    // Preferir una ruta que NO cruce puertas comprometidas
+    const safeRouteCandidate = candidateRoutes.find((r) => {
+      const avoid = normalizeGates(r.properties?.avoid_when_gate_affected);
+      return !avoid.some((g) => affectedGates.has(g));
+    });
+    if (safeRouteCandidate) {
       chosenSafe = sp;
-      chosenRoute = altForAffected;
+      chosenRoute = safeRouteCandidate;
       break;
     }
 
-    // Caso normal: usar la primera ruta disponible hacia este punto seguro
     chosenSafe = sp;
     chosenRoute = candidateRoutes[0];
     break;

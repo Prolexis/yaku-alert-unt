@@ -54,6 +54,33 @@ CAMPUS_PATH = DATA_DIR / "campus_unt.geojson"
 DEPTH_CLASS_ORDER = ("leve", "moderada", "alta")
 ELEVATION_MIN_M = -1.0  # cota mínima admitida al cargar el DEM (control de sanidad)
 
+# Escenarios paramétricos hipotéticos de alcantarillado y canaletas nuevas UNT (TRL 3-4)
+DRAINAGE_SCENARIOS: dict[str, dict[str, Any]] = {
+    "obstruido": {
+        "label": "Alcantarillado obstruido (peor caso)",
+        "factor": 0.35,
+        "corridor_bonus_mm_h": 0.0,
+        "inflow_p4_factor": 1.0,
+    },
+    "base": {
+        "label": "Estado base actual (referencia)",
+        "factor": 1.0,
+        "corridor_bonus_mm_h": 0.0,
+        "inflow_p4_factor": 1.0,
+    },
+    "canaletas_nuevas": {
+        "label": "Canaletas nuevas + mantenimiento",
+        "factor": 1.75,
+        "corridor_bonus_mm_h": 6.0,
+        "inflow_p4_factor": 0.85,
+    },
+}
+DRAINAGE_SCENARIO_MAX_MM_H = 35.0
+DRAINAGE_ASSUMPTION_NOTE = (
+    "Simulación paramétrica hipotética (TRL 3–4). Pendiente de calibración con planos as-built "
+    "de alcantarillado y canaletas nuevas de la Oficina de Infraestructura UNT."
+)
+
 
 # ---------------------------------------------------------------------------
 # Geometría de vecindad
@@ -442,22 +469,62 @@ def run_hydro_simulation(
     inflow_p4: str = "medio",
     secondary_inflow: bool = False,
     use_reported_sinks: bool = False,
+    drainage_scenario: str = "base",
     *,
     data_nature: str = "SIMULACION_EXPLORATORIA_SIMPLIFICADA",
     source: str = "serie horaria de lluvia recibida en la petición",
     weather: dict[str, Any] | None = None,
 ) -> HydroRunResponse:
     """Ejecuta el motor para la serie dada y devuelve marcos por hora."""
-    return simulate_core(
+    resp = simulate_core(
         rainfall_mm_h,
         drainage_state=drainage_state,
         inflow_p4=inflow_p4,
         secondary_inflow=secondary_inflow,
         use_reported_sinks=use_reported_sinks,
+        drainage_scenario=drainage_scenario,
         data_nature=data_nature,
         source=source,
         weather=weather,
     )[0]
+    if drainage_scenario != "base" and resp.drainage_impact is not None:
+        base_resp = simulate_core(
+            rainfall_mm_h,
+            drainage_state=drainage_state,
+            inflow_p4=inflow_p4,
+            secondary_inflow=secondary_inflow,
+            use_reported_sinks=use_reported_sinks,
+            drainage_scenario="base",
+            data_nature=data_nature,
+            source=source,
+            weather=weather,
+        )[0]
+        base_depth = float(base_resp.summary.get("max_depth_cm", 0.0))
+        curr_depth = float(resp.summary.get("max_depth_cm", 0.0))
+        base_area = float(base_resp.summary.get("peak_wet_area_m2", 0.0))
+        curr_area = float(resp.summary.get("peak_wet_area_m2", 0.0))
+        base_el = int(base_resp.summary.get("elements_affected", 0))
+        curr_el = int(resp.summary.get("elements_affected", 0))
+        base_persist = max(
+            (int(e.hours_with_water_above_threshold) for e in base_resp.elements),
+            default=0,
+        )
+        curr_persist = max(
+            (int(e.hours_with_water_above_threshold) for e in resp.elements),
+            default=0,
+        )
+        resp.drainage_impact.update({
+            "delta_max_depth_cm": round(curr_depth - base_depth, 1),
+            "delta_affected_area_pct": (
+                round(((curr_area - base_area) / base_area) * 100.0, 1)
+                if base_area > 0.0 else 0.0
+            ),
+            "delta_persistence_hours": curr_persist - base_persist,
+            "delta_affected_elements": curr_el - base_el,
+            "base_max_depth_cm": base_depth,
+            "base_elements_affected": base_el,
+        })
+    return resp
 
 
 def _triangular_hydrograph(
@@ -490,6 +557,7 @@ def simulate_core(
     inflow_p4: str = "medio",
     secondary_inflow: bool = False,
     use_reported_sinks: bool = False,
+    drainage_scenario: str = "base",
     *,
     data_nature: str = "SIMULACION_EXPLORATORIA_SIMPLIFICADA",
     source: str = "serie horaria de lluvia recibida en la petición",
@@ -510,6 +578,12 @@ def simulate_core(
 
     if drainage_state not in params["capacidad_drenaje_mm_h"]:
         raise ValueError(f"Estado de drenaje desconocido: {drainage_state}")
+    if drainage_scenario not in DRAINAGE_SCENARIOS:
+        raise ValueError(f"Escenario de drenaje desconocido: {drainage_scenario}")
+    scenario_cfg = DRAINAGE_SCENARIOS[drainage_scenario]
+    drainage_factor = float(scenario_cfg["factor"])
+    corridor_bonus_mm_h = float(scenario_cfg["corridor_bonus_mm_h"])
+    inflow_p4_factor = float(scenario_cfg["inflow_p4_factor"])
     hydrograph_cfg = params["hidrograma_p4"]
     if inflow_p4 not in hydrograph_cfg["volumen_total_m3"]:
         raise ValueError(f"Nivel de ingreso desconocido: {inflow_p4}")
@@ -538,7 +612,11 @@ def simulate_core(
     edge_frac = float(prop["drenaje_borde_frac_por_subpaso"]["value"])
     visible_m = float(prop["umbral_profundidad_visible_m"]["value"])
 
-    drain_mm_h = float(params["capacidad_drenaje_mm_h"][drainage_state]["value"])
+    base_drain_mm_h = float(params["capacidad_drenaje_mm_h"][drainage_state]["value"])
+    drain_mm_h = min(
+        DRAINAGE_SCENARIO_MAX_MM_H,
+        base_drain_mm_h * drainage_factor + corridor_bonus_mm_h,
+    )
     drain_sub = (drain_mm_h / 1000.0) / n_sub
     missing_storage = [
         name for name in grid.classes
@@ -574,6 +652,10 @@ def simulate_core(
         if name in grid.classes
     }
     drainage_mask = np.isin(grid.class_idx, list(drainage_classes))
+    if drainage_scenario == "canaletas_nuevas":
+        for zone in grid.reported_zones.values():
+            if zone["cells"].size:
+                drainage_mask.reshape(-1)[zone["cells"]] = True
     drainage_mask &= grid.campus_mask & grid.open_mask
 
     # --- sumideros locales reportados (opcionales, apagados por defecto) ------
@@ -620,8 +702,8 @@ def simulate_core(
         sec_cells = np.empty(0, dtype=np.int64)
 
     intercepted = float(params["intercepcion_buzonetas"]["value"])
-    p4_volume_gross = float(
-        hydrograph_cfg["volumen_total_m3"][inflow_p4]["value"]
+    p4_volume_gross = (
+        float(hydrograph_cfg["volumen_total_m3"][inflow_p4]["value"]) * inflow_p4_factor
     )
     rainfall_peak_index = int(np.argmax(series)) if max(series) > 0.0 else 0
     p4_hourly_m3 = _triangular_hydrograph(
@@ -793,7 +875,7 @@ def simulate_core(
     )
     residual = entrada - salida - stored_m3
 
-    run_id = _stable_run_id({
+    run_id_payload = {
         "rainfall_mm_h": series,
         "drainage_state": drainage_state,
         "inflow_p4": inflow_p4,
@@ -802,7 +884,10 @@ def simulate_core(
         "p4_hydrograph_start_hour": rainfall_peak_index + 1,
         "p4_exit_exclusion_cells": exclusion_radius_cells,
         "secondary_inflow": bool(secondary_inflow),
-    })
+    }
+    if drainage_scenario != "base":
+        run_id_payload["drainage_scenario"] = drainage_scenario
+    run_id = _stable_run_id(run_id_payload)
 
     routing_fill = dict(grid.metadata.get("routing_fill", {}))
     assumptions = [
@@ -897,7 +982,9 @@ def simulate_core(
             "rainfall_total_mm": round(sum(series), 2),
             "hours": len(series),
             "drainage_state": drainage_state,
-            "drainage_capacity_mm_h": drain_mm_h,
+            "drainage_scenario": drainage_scenario,
+            "drainage_factor": drainage_factor,
+            "drainage_capacity_mm_h": round(drain_mm_h, 2),
             "inflow_p4": inflow_p4,
             "inflow_p4_m3_h_total": round(p4_peak_m3_h, 2),
             "inflow_p4_cells": int(p4_cells.size),
@@ -967,5 +1054,17 @@ def simulate_core(
         avisos=avisos,
         weather=weather,
         virtual_sensors=virtual_sensors,
+        drainage_impact={
+            "scenario": drainage_scenario,
+            "scenario_label": scenario_cfg["label"],
+            "drainage_factor": drainage_factor,
+            "effective_drain_mm_h": round(drain_mm_h, 2),
+            "is_hypothetical": True,
+            "assumption_note": DRAINAGE_ASSUMPTION_NOTE,
+            "delta_max_depth_cm": 0.0,
+            "delta_affected_area_pct": 0.0,
+            "delta_persistence_hours": 0,
+            "delta_affected_elements": 0,
+        },
     )
     return response, depth

@@ -377,6 +377,67 @@ def test_reported_sinks_add_local_storage_and_conserve_mass():
     assert on.parameters["reported_sinks"]
 
 
+# --- escenarios paramétricos de alcantarillado y canaletas nuevas UNT ---------
+def test_drainage_scenarios_physical_monotonicity_on_yaku_2023():
+    """Para un mismo evento (evento_2023_03_10), obstruido >= base >= canaletas_nuevas."""
+    from app.services.hydro import list_presets
+
+    presets = {p.id: p for p in list_presets().presets}
+    yaku = presets["evento_2023_03_10"]
+
+    res_obs = client.post(
+        "/api/hydro/run",
+        json={
+            "rainfall_mm_h": yaku.rainfall_mm_h,
+            "drainage_state": "normal",
+            "drainage_scenario": "obstruido",
+            "inflow_p4": "alto",
+        },
+    )
+    res_base = client.post(
+        "/api/hydro/run",
+        json={
+            "rainfall_mm_h": yaku.rainfall_mm_h,
+            "drainage_state": "normal",
+            "drainage_scenario": "base",
+            "inflow_p4": "alto",
+        },
+    )
+    res_new = client.post(
+        "/api/hydro/run",
+        json={
+            "rainfall_mm_h": yaku.rainfall_mm_h,
+            "drainage_state": "normal",
+            "drainage_scenario": "canaletas_nuevas",
+            "inflow_p4": "alto",
+        },
+    )
+
+    assert res_obs.status_code == 200
+    assert res_base.status_code == 200
+    assert res_new.status_code == 200
+
+    d_obs = res_obs.json()
+    d_base = res_base.json()
+    d_new = res_new.json()
+
+    # Monotonicidad física en profundidad máxima y área húmeda pico
+    assert d_obs["summary"]["max_depth_cm"] >= d_base["summary"]["max_depth_cm"]
+    assert d_base["summary"]["max_depth_cm"] >= d_new["summary"]["max_depth_cm"]
+    assert d_obs["summary"]["peak_wet_area_m2"] >= d_base["summary"]["peak_wet_area_m2"]
+    assert d_base["summary"]["peak_wet_area_m2"] >= d_new["summary"]["peak_wet_area_m2"]
+
+    # Metadatos y deltas transparentes en drainage_impact
+    for payload in (d_obs, d_base, d_new):
+        imp = payload["drainage_impact"]
+        assert imp["is_hypothetical"] is True
+        assert "as-built" in imp["assumption_note"]
+
+    assert d_obs["drainage_impact"]["delta_max_depth_cm"] >= 0.0
+    assert d_new["drainage_impact"]["delta_max_depth_cm"] <= 0.0
+    assert d_new["drainage_impact"]["delta_affected_area_pct"] <= 0.0
+
+
 # --- frases prohibidas + campos obligatorios en las 3 respuestas ---------------
 def test_hydro_responses_never_use_prohibited_phrases():
 

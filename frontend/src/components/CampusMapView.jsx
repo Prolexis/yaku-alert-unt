@@ -16,6 +16,7 @@ import {
   safeHttpsUrl,
   toggledConditionParams,
 } from "../utils/conditions";
+import { renderEvacuationLayers } from "../utils/evacuationLayers";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -75,6 +76,7 @@ export default function CampusMapView({
   const mapInstanceRef = useRef(null);
   const baseGroupRef = useRef(null);
   const overlayGroupRef = useRef(null);
+  const evacuationGroupRef = useRef(null);
   const sensorsGroupRef = useRef(null);
   const focusLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
@@ -107,6 +109,7 @@ export default function CampusMapView({
   const [visibleLayers, setVisibleLayers] = useState({
     edificios: true,
     accesos: true,
+    areas_seguras: true,
     puntos: true,
     rutas: true,
     peligro: true,
@@ -146,6 +149,7 @@ export default function CampusMapView({
 
     baseGroupRef.current = L.layerGroup().addTo(map);
     overlayGroupRef.current = L.layerGroup().addTo(map);
+    evacuationGroupRef.current = L.layerGroup().addTo(map);
     sensorsGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
@@ -154,6 +158,7 @@ export default function CampusMapView({
       mapInstanceRef.current = null;
       baseGroupRef.current = null;
       overlayGroupRef.current = null;
+      evacuationGroupRef.current = null;
       tileLayerRef.current = null;
     };
   }, []);
@@ -503,60 +508,26 @@ export default function CampusMapView({
       }
     });
 
-    // Capa referencial de evacuación (TRL 3-4): puntos seguros y rutas referenciales
-    const evacFeatures = campusLayers.evacuation?.features || [];
-    const safePointsById = new Map();
-    evacFeatures
-      .filter((f) => f.properties?.zone_type === "safe_point")
-      .forEach((f) => safePointsById.set(f.properties.id, f.properties));
-
-    if (visibleLayers.rutas) {
-      evacFeatures
-        .filter((f) => f.properties?.zone_type === "evacuation_route")
-        .forEach((f) => {
-          const p = f.properties || {};
-          const destName = safePointsById.get(p.to_safe_point_id)?.name || p.to_safe_point_id;
-          L.geoJSON(f, {
-            style: { color: "#15803D", weight: 3.2, dashArray: "7 6", opacity: 0.9 },
-          })
-            .bindPopup(
-              `<div class="space-y-1 max-w-[230px]">
-                <div class="text-[10px] font-bold uppercase text-emerald-700">Ruta referencial (TRL 3–4)</div>
-                <strong>${esc(p.from_zone)} → ${esc(destName)}</strong>
-                <div class="text-[11px]">${esc(p.recommendation || "")}</div>
-                <div class="text-[10px] text-slate-500">Distancia aprox.: ~${esc(p.distance_m_approx)} m · No reemplaza señalización oficial de Defensa Civil UNT.</div>
-              </div>`,
-              { className: "yaku-popup" }
-            )
-            .addTo(group);
-        });
-    }
-
-    if (visibleLayers.puntos) {
-      evacFeatures
-        .filter((f) => f.properties?.zone_type === "safe_point")
-        .forEach((f) => {
-          const p = f.properties || {};
-          const [lon, lat] = f.geometry.coordinates;
-          const icon = L.divIcon({
-            className: "yaku-safe-point-marker",
-            html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:#16A34A;color:#ffffff;font:700 11px/1 system-ui,sans-serif;border:2px solid #ffffff;box-shadow:0 2px 5px rgba(0,0,0,0.3);">S</div>`,
-            iconSize: [22, 22],
-            iconAnchor: [11, 11],
-          });
-          L.marker([lat, lon], { icon, zIndexOffset: 450 })
-            .bindTooltip(`${esc(p.name)} (referencial)`, { direction: "top", offset: [0, -10] })
-            .bindPopup(
-              `<div class="space-y-1 max-w-[230px]">
-                <div class="text-[10px] font-bold uppercase text-emerald-700">Punto seguro referencial (TRL 3–4)</div>
-                <strong>${esc(p.name)}</strong>
-                <div class="text-[11px]">${esc(p.rationale || "")}</div>
-                <div class="text-[10px] text-slate-500">No reemplaza señalización oficial de Defensa Civil UNT ni alertas de SENAMHI/COEN.</div>
-              </div>`,
-              { className: "yaku-popup" }
-            )
-            .addTo(group);
-        });
+    // Capas independientes de evacuación (TRL 3-4): Áreas seguras (#10B981), Puntos de encuentro (#059669) y Rutas
+    const evacGroup = evacuationGroupRef.current;
+    if (evacGroup) {
+      const restrictedGates = new Set();
+      (simResult?.spatial_analysis?.restricted_accesses || []).forEach((a) => {
+        if (!a.inside_hazard_zone) return;
+        const nm = String(a.name || "").toLowerCase();
+        if (nm.includes("puerta 4")) restrictedGates.add("P4");
+        if (nm.includes("puerta 3")) restrictedGates.add("P3");
+        if (nm.includes("puerta 2")) restrictedGates.add("P2");
+        if (nm.includes("puerta 1")) restrictedGates.add("P1");
+      });
+      renderEvacuationLayers({
+        group: evacGroup,
+        evacuationData: campusLayers.evacuation,
+        showSafeAreas: visibleLayers.areas_seguras,
+        showMeetingPoints: visibleLayers.puntos,
+        showRoutes: visibleLayers.rutas,
+        affectedGates: restrictedGates,
+      });
     }
     // Capa referencial de Contexto Trujillo (Ruta del Agua y entorno inmediato UNT) — desactivada por defecto
     if (visibleLayers.contexto_trujillo && campusLayers.surrounding_context?.features?.length) {
@@ -770,9 +741,47 @@ export default function CampusMapView({
               </div>
             )}
 
-            {/* Control flotante translúcido de capas + acceso rápido YAKU SENSE */}
+            {/* Control flotante translúcido — 3 capas independientes + Capas + IoT */}
             <div className="absolute right-3 top-3 z-[400] flex flex-col items-end gap-2">
-              <div className="flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
+              <div className="flex flex-wrap items-center justify-end gap-1.5 rounded-xl border border-slate-200/80 bg-white/92 p-1 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-[#0B2545]/92">
+                <button
+                  type="button"
+                  onClick={() => setVisibleLayers((prev) => ({ ...prev, peligro: !prev.peligro }))}
+                  aria-pressed={visibleLayers.peligro}
+                  className={`rounded-lg px-2 py-1.5 text-xs font-bold transition ${
+                    visibleLayers.peligro
+                      ? "bg-[#E11D48] text-white shadow-sm"
+                      : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                  }`}
+                >
+                  Zonas de riesgo
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVisibleLayers((prev) => ({ ...prev, areas_seguras: !prev.areas_seguras }))
+                  }
+                  aria-pressed={visibleLayers.areas_seguras}
+                  className={`rounded-lg px-2 py-1.5 text-xs font-bold transition ${
+                    visibleLayers.areas_seguras
+                      ? "bg-[#10B981] text-white shadow-sm"
+                      : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                  }`}
+                >
+                  Áreas seguras
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVisibleLayers((prev) => ({ ...prev, puntos: !prev.puntos }))}
+                  aria-pressed={visibleLayers.puntos}
+                  className={`rounded-lg px-2 py-1.5 text-xs font-bold transition ${
+                    visibleLayers.puntos
+                      ? "bg-[#059669] text-white shadow-sm"
+                      : "text-[#0F172A] hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+                  }`}
+                >
+                  Puntos de encuentro
+                </button>
                 <button
                   type="button"
                   onClick={() =>
@@ -786,7 +795,7 @@ export default function CampusMapView({
                   }`}
                 >
                   <Radio className="h-3.5 w-3.5" />
-                  <span>Sensores IoT [SIM]</span>
+                  <span>IoT [SIM]</span>
                 </button>
                 <button
                   type="button"
@@ -828,8 +837,9 @@ export default function CampusMapView({
                       { key: "senderos", label: "Vías y senderos" },
                       { key: "deportes", label: "Áreas verdes" },
                       { key: "accesos", label: "Accesos" },
-                      { key: "puntos", label: "Puntos encuentro ref." },
-                      { key: "rutas", label: "Rutas ref." },
+                      { key: "areas_seguras", label: "Áreas seguras (polígonos DEM)" },
+                      { key: "puntos", label: "Puntos de encuentro ref." },
+                      { key: "rutas", label: "Rutas de evacuación ref." },
                       { key: "sensores_iot", label: "Sensores IoT [SIM]" },
                       { key: "contexto_trujillo", label: "Contexto Trujillo (Ruta del Agua y entorno) — ref." },
                     ].map((layer) => (
@@ -887,7 +897,13 @@ export default function CampusMapView({
                   <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Acceso dentro de la zona
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#14B8A6]" /> Punto encuentro
+                  <span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[#059669] bg-[#10B981]/35" /> Área segura (polígono)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#059669]" /> Punto de encuentro
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-3 border-t-2 border-dashed border-rose-600" /> Ruta evitar paso
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="inline-block w-3 border-t-2 border-dotted border-cyan-600" /> SINTÉTICO

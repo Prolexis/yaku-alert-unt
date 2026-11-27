@@ -29,6 +29,7 @@ from app.db import (
 )
 
 from app.models import (
+    HydroDrainageScenario,
     HydroDrainageState,
     HydroInflowLevel,
     HydroPresetsResponse,
@@ -198,6 +199,7 @@ def hydro_run(payload: HydroRunRequest) -> HydroRunResponse:
                 inflow_p4=payload.inflow_p4,
                 secondary_inflow=payload.secondary_inflow,
                 use_reported_sinks=payload.use_reported_sinks,
+                drainage_scenario=payload.drainage_scenario,
             )
         )
     except ValueError as exc:
@@ -296,6 +298,9 @@ async def hydro_forecast(
     drainage_state: HydroDrainageState = Query(
         default="normal", description="normal | obstruido | pendiente_deficiente"
     ),
+    drainage_scenario: HydroDrainageScenario = Query(
+        default="base", description="obstruido | base | canaletas_nuevas"
+    ),
     inflow_p4: HydroInflowLevel = Query(
         default="medio", description="Nivel de ingreso externo por la Puerta 4"
     ),
@@ -326,6 +331,7 @@ async def hydro_forecast(
             inflow_p4=inflow_p4,
             secondary_inflow=secondary_inflow,
             use_reported_sinks=use_reported_sinks,
+            drainage_scenario=drainage_scenario,
             data_nature=f"SIMULACION_CON_PRONOSTICO_HORARIO_{weather.data_status}",
             source=(
                 f"pronóstico horario de {weather.source_name} "

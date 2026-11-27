@@ -13,6 +13,7 @@ from app.config import (
     DATA_DIR,
     EVACUATION_GEOJSON_PATH,
     HAZARDS_GEOJSON_PATH,
+    TRUJILLO_CONTEXT_GEOJSON_PATH,
 )
 from app.models import (
     ExposedElement,
@@ -69,6 +70,11 @@ def load_hazards_geojson() -> dict[str, Any]:
 
 def load_evacuation_geojson() -> dict[str, Any]:
     with EVACUATION_GEOJSON_PATH.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_trujillo_context_geojson() -> dict[str, Any]:
+    with TRUJILLO_CONTEXT_GEOJSON_PATH.open("r", encoding="utf-8") as f:
         return json.load(f)
 
 

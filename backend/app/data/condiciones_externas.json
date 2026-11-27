@@ -1,11 +1,12 @@
 {
   "metadata": {
-    "version": "0.1",
+    "version": "0.2",
     "nature": "reglas_experimentales_basadas_en_prensa_y_testimonio",
-    "disclaimer": "Las condiciones las declara el usuario (sí/no); no provienen de sensores en calles ni quebradas. Las reglas se escribieron a partir de prensa y testimonios no verificados y de un número muy pequeño de eventos: son una orientación experimental, no una predicción ni un estudio hidrológico.",
+    "disclaimer": "Las condiciones las declara el usuario (sí/no); no provienen de sensores en calles ni quebradas. Las reglas se escribieron a partir de prensa, testimonios y retroalimentación de especialistas locales de gestión de riesgos de Trujillo: son una orientación experimental, no una predicción ni un estudio hidrológico.",
     "notes": [
       "No se activa ninguna condición a partir de la lluvia pronosticada: una condición es una observación declarada.",
-      "El alcance reach_m de las reglas es un parámetro de demostración ajustado con muy pocos puntos de evidencia (ver evidencia_inundacion.json)."
+      "El alcance reach_m de las reglas es un parámetro de demostración ajustado con muy pocos puntos de evidencia (ver evidencia_inundacion.json).",
+      "Se incluyen las 4 quebradas principales de Trujillo (San Ildefonso, San Carlos, León Dormido e Indoamérica) como contexto territorial externo."
     ]
   },
   "conditions": [
@@ -13,7 +14,8 @@
       "id": "av_jesus_nazareth",
       "name": "Av. Jesús de Nazareth inundada",
       "type": "calle",
-      "description": "El frente de la Ciudad Universitaria sobre la Av. Jesús de Nazareth tiene agua acumulada.",
+      "sector": "Frente Norte UNT / Puerta 4",
+      "description": "El frente de la Ciudad Universitaria sobre la Av. Jesús de Nazareth (contiguo a Puerta 4 y CIDUNT) presenta acumulación de agua.",
       "evidence": [
         "https://andina.pe/agencia/noticia-trujillo-soporto-lluvia-intensa-inundo-calles-y-avenidas-1058795.aspx",
         "https://diariocorreo.pe/edicion/la-libertad/trujillo-asi-luce-mural-de-la-unt-fotos-y-video-744816/",
@@ -24,7 +26,8 @@
       "id": "av_juan_pablo_ii",
       "name": "Av. Juan Pablo II inundada",
       "type": "calle",
-      "description": "El frente del campus sobre la Av. Juan Pablo II tiene agua acumulada.",
+      "sector": "Frente Sur UNT / Urb. San Andrés",
+      "description": "El frente del campus sobre la Av. Juan Pablo II (frente a Urb. San Andrés) tiene agua acumulada.",
       "evidence": [
         "https://larepublica.pe/sociedad/2020/03/15/trujillo-se-recuerda-huaico-que-afecto-la-ciudad-lrnd"
       ]
@@ -33,9 +36,44 @@
       "id": "quebrada_san_ildefonso",
       "name": "Quebrada San Ildefonso activada",
       "type": "quebrada",
-      "description": "Aviso de activación o desborde de la quebrada San Ildefonso (contexto externo al campus).",
+      "sector": "El Porvenir / Trujillo",
+      "mitigation_status": "35 diques culminados y derivación (ventana referencial ~45 min)",
+      "description": "Aviso oficial de activación de la quebrada San Ildefonso. Cuenta con 35 diques culminados y obras de derivación; ante activación severa, existe una ventana referencial de ~45 min para activar respuesta preventiva.",
       "evidence": [
         "https://www.infobae.com/peru/2025/03/29/trujillo-en-emergencia-por-lluvias-impactantes-imagenes-y-videos-de-las-inundaciones-que-deja-la-activacion-de-quebradas-en-la-libertad/"
+      ]
+    },
+    {
+      "id": "quebrada_san_carlos",
+      "name": "Quebrada San Carlos activada",
+      "type": "quebrada",
+      "sector": "Sector Laredo",
+      "mitigation_status": "Obras de conducción hacia el río Moche (contexto regional)",
+      "description": "Aviso oficial de activación de la quebrada San Carlos (sector Laredo). Contexto externo regional vinculado a la conducción hacia el río Moche y rutas de traslado desde el este.",
+      "evidence": [
+        "https://www.gob.pe/indeci"
+      ]
+    },
+    {
+      "id": "quebrada_leon_dormido",
+      "name": "Quebrada León Dormido activada",
+      "type": "quebrada",
+      "sector": "El Milagro / Huanchaco",
+      "mitigation_status": "Riesgo residual por residuos y obstrucciones en cauce",
+      "description": "Aviso oficial de activación de la quebrada León Dormido (El Milagro / Huanchaco). Presenta riesgo residual por acumulación de residuos y obstrucciones; afecta desplazamientos desde el sector norte.",
+      "evidence": [
+        "https://www.gob.pe/indeci"
+      ]
+    },
+    {
+      "id": "quebrada_indoamerica",
+      "name": "Quebrada de Indoamérica activada",
+      "type": "quebrada",
+      "sector": "La Esperanza",
+      "mitigation_status": "Sin obras de mitigación ejecutadas",
+      "description": "Aviso oficial de activación de la quebrada de Indoamérica (La Esperanza). Identificada sin obras de mitigación ejecutadas; representa vulnerabilidad prioritaria para la comunidad universitaria proveniente de La Esperanza.",
+      "evidence": [
+        "https://www.gob.pe/indeci"
       ]
     }
   ],
@@ -62,17 +100,47 @@
     },
     {
       "id": "quebrada",
-      "descripcion": "Quebrada San Ildefonso activada: aporte externo de agua (sin zona propia en el campus)",
+      "descripcion": "Quebrada San Ildefonso activada: aporte externo de agua (ventana ref. ~45 min, sin zona propia en el campus)",
       "si": ["quebrada_san_ildefonso"],
       "zonas": [],
       "reach_m": 0,
       "vigilar": [],
       "puntaje": 2,
-      "nota": "Sin evidencia para trazar una zona por sí sola: solo eleva el nivel preventivo."
+      "nota": "Cuenta con 35 diques culminados y derivación; sin evidencia para trazar una zona por sí sola, eleva el nivel preventivo para activar respuesta en ventana referencial (~45 min)."
+    },
+    {
+      "id": "quebrada_san_carlos",
+      "descripcion": "Quebrada San Carlos activada (sector Laredo): alerta de contexto regional externo",
+      "si": ["quebrada_san_carlos"],
+      "zonas": [],
+      "reach_m": 0,
+      "vigilar": [],
+      "puntaje": 2,
+      "nota": "Contexto externo en sector Laredo; eleva el nivel preventivo para desplazamientos y seguimiento de comunicados COER La Libertad / COEN."
+    },
+    {
+      "id": "quebrada_leon_dormido",
+      "descripcion": "Quebrada León Dormido activada (El Milagro / Huanchaco): riesgo residual por residuos/obstrucciones",
+      "si": ["quebrada_leon_dormido"],
+      "zonas": [],
+      "reach_m": 0,
+      "vigilar": [],
+      "puntaje": 2,
+      "nota": "Contexto externo sector norte (El Milagro / Huanchaco); riesgo residual por obstrucciones en cauce. Eleva el nivel preventivo para flexibilidad de asistencia."
+    },
+    {
+      "id": "quebrada_indoamerica",
+      "descripcion": "Quebrada de Indoamérica activada (La Esperanza — sin obras de mitigación ejecutadas)",
+      "si": ["quebrada_indoamerica"],
+      "zonas": [],
+      "reach_m": 0,
+      "vigilar": [],
+      "puntaje": 2,
+      "nota": "Quebrada identificada en La Esperanza sin obras de mitigación ejecutadas. Eleva el nivel preventivo para resguardo y flexibilidad de desplazamientos."
     },
     {
       "id": "jdn_quebrada",
-      "descripcion": "Av. Jesús de Nazareth inundada con quebrada activa: ingreso de agua al interior del campus (patrón de marzo de 2025)",
+      "descripcion": "Av. Jesús de Nazareth inundada con quebrada San Ildefonso activa: ingreso de agua al interior del campus (patrón de marzo de 2025)",
       "si": ["av_jesus_nazareth", "quebrada_san_ildefonso"],
       "zonas": ["rep_av_jesus_nazareth", "rep_puerta4", "rep_estac_cidunt"],
       "reach_m": 120,

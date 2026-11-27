@@ -1,0 +1,107 @@
+{
+  "type": "FeatureCollection",
+  "name": "trujillo_context_reference",
+  "metadata": {
+    "title": "Contexto Trujillo (Ruta del Agua y entorno inmediato UNT)",
+    "data_nature": "capa_referencial_contexto_trujillo",
+    "verified": false,
+    "disclaimer": "Capa cartográfica estrictamente referencial (TRL 3-4) basada en retroalimentación de especialistas de gestión de riesgos de Trujillo y antecedentes locales. No constituye un estudio hidrológico ni reemplaza mapas oficiales de peligro de CENEPRED, INDECI o la Municipalidad Provincial de Trujillo."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ctx_corredor_av_jesus_nazareth",
+        "name": "Corredor Av. Jesús de Nazareth (puntos de aniego contiguos / Puerta 4)",
+        "feature_type": "corredor_aniego",
+        "sector": "Borde Norte UNT — Puerta 4 / CIDUNT",
+        "data_nature": "capa_referencial_contexto_trujillo",
+        "verified": false,
+        "source": "Feedback especialistas gestión de riesgos Trujillo / antecedentes locales",
+        "description": "Corredor vial perimetral norte de la Ciudad Universitaria UNT. Concentra puntos recurrentes de aniego contiguos a Puerta 4 y CIDUNT durante lluvias intensas o desbordes urbanos.",
+        "disclaimer": "Trazo referencial orientativo; no representa cota hidráulica medida."
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.03520, -8.11125],
+          [-79.03599, -8.11155],
+          [-79.03660, -8.11118],
+          [-79.03745, -8.11075],
+          [-79.03845, -8.11022]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ctx_urb_san_andres",
+        "name": "Sector Urb. San Andrés (entorno inundable frente a la UNT)",
+        "feature_type": "entorno_inundable",
+        "sector": "Frente Sur-Este UNT — Av. Juan Pablo II",
+        "data_nature": "capa_referencial_contexto_trujillo",
+        "verified": false,
+        "source": "Feedback especialistas gestión de riesgos Trujillo / antecedentes urbanos",
+        "description": "Sector urbano contiguo a la Av. Juan Pablo II frente a la UNT (Puertas 1, 2 y 3). En episodios intensos presenta anegamientos superficiales que dificultan el acceso y salida peatonal/vehicular del campus.",
+        "disclaimer": "Polígono referencial de contexto urbano; no reemplaza zonificación oficial de peligro."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-79.03540, -8.11395],
+            [-79.03415, -8.11535],
+            [-79.03630, -8.11785],
+            [-79.03885, -8.11805],
+            [-79.03730, -8.11595],
+            [-79.03540, -8.11395]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ctx_ruta_del_agua_principal",
+        "name": "Ruta del Agua (trazo referencial de escorrentía externa NE → SO)",
+        "feature_type": "ruta_del_agua",
+        "sector": "Eje externo El Porvenir / Av. Jesús de Nazareth → UNT → Urb. San Andrés",
+        "data_nature": "capa_referencial_contexto_trujillo",
+        "verified": false,
+        "source": "Feedback especialistas gestión de riesgos Trujillo / pendiente urbana general",
+        "description": "Dirección referencial de escorrentía urbana desde el noreste (eje externo de aporte) hacia el borde norte del campus (Av. Jesús de Nazareth / Puerta 4) y su continuación descendente hacia Av. Juan Pablo II y Urb. San Andrés.",
+        "disclaimer": "Trazo conceptual y referencial para comprensión territorial; no es un modelamiento hidrodinámico 2D."
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-79.03320, -8.10910],
+          [-79.03460, -8.11035],
+          [-79.03599, -8.11160],
+          [-79.03695, -8.11285],
+          [-79.03775, -8.11445],
+          [-79.03855, -8.11655],
+          [-79.03940, -8.11845]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ctx_punto_puerta4_nazareth",
+        "name": "Punto crítico referencial — Puerta 4 (Av. Jesús de Nazareth)",
+        "feature_type": "punto_critico_entorno",
+        "sector": "Puerta 4 UNT",
+        "data_nature": "capa_referencial_contexto_trujillo",
+        "verified": false,
+        "source": "Antecedentes locales UNT (2017 / 2023 / 2025)",
+        "description": "Punto de contacto principal entre el corredor de aniego de la Av. Jesús de Nazareth y el interior del campus universitario (zona CIDUNT / Educación).",
+        "disclaimer": "Punto referencial para orientación preventiva."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-79.03599, -8.11165]
+      }
+    }
+  ]
+}

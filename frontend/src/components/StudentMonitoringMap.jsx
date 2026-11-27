@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { formatLimaTime, normalizeText } from "../utils/formatters";
-import { buildCampusCatalog } from "../utils/campusCatalog";
+import { buildCampusCatalog, getFeatureDisplayName } from "../utils/campusCatalog";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -59,6 +59,7 @@ export default function StudentMonitoringMap({
   const baseGroupRef = useRef(null);
   const attentionGroupRef = useRef(null);
   const evacuationGroupRef = useRef(null);
+  const trujilloContextGroupRef = useRef(null);
   const focusLayerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const tileErrorsRef = useRef(0);
@@ -72,6 +73,7 @@ export default function StudentMonitoringMap({
   const [tilesFailed, setTilesFailed] = useState(false);
   const [showAttentionZones, setShowAttentionZones] = useState(true);
   const [showEvacuation, setShowEvacuation] = useState(true);
+  const [showTrujilloContext, setShowTrujilloContext] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedCard, setSelectedCard] = useState(null);
 
@@ -86,7 +88,11 @@ export default function StudentMonitoringMap({
 
   const filteredCatalog = useMemo(() => {
     const q = normalizeText(query.trim());
-    if (!q) return catalog.filter((c) => c.type === "facultad" || c.type === "comedor" || c.type === "biblioteca").slice(0, 8);
+    if (!q) {
+      return catalog
+        .filter((c) => c.typeId === "facultad" || c.typeId === "comedor_servicios" || c.typeId === "biblioteca_auditorio")
+        .slice(0, 8);
+    }
     return catalog.filter((c) => c.searchText.includes(q)).slice(0, 10);
   }, [catalog, query]);
 
@@ -107,6 +113,7 @@ export default function StudentMonitoringMap({
     baseGroupRef.current = L.layerGroup().addTo(map);
     attentionGroupRef.current = L.layerGroup().addTo(map);
     evacuationGroupRef.current = L.layerGroup().addTo(map);
+    trujilloContextGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
     return () => {
@@ -115,6 +122,7 @@ export default function StudentMonitoringMap({
       baseGroupRef.current = null;
       attentionGroupRef.current = null;
       evacuationGroupRef.current = null;
+      trujilloContextGroupRef.current = null;
       focusLayerRef.current = null;
       tileLayerRef.current = null;
     };
@@ -206,12 +214,12 @@ export default function StudentMonitoringMap({
         }).addTo(group);
       });
 
-    // Edificios reales OSM
+    // Edificios reales OSM (con etiquetas enriquecidas y tooltip al pasar el cursor)
     features
       .filter((f) => f.properties?.category === "edificio")
       .forEach((f) => {
-        const name = f.properties?.name || "Edificio del campus";
-        const isNamed = !/^Edificio sin nombre/.test(name);
+        const name = getFeatureDisplayName(f.properties);
+        const isNamed = !/^Edificio sin nombre/i.test(f.properties?.name || "");
         L.geoJSON(f, {
           style: {
             color: isNamed ? "#1D4ED8" : "#94A3B8",
@@ -220,13 +228,14 @@ export default function StudentMonitoringMap({
             fillOpacity: 0.45,
           },
           onEachFeature: (_feat, lyr) => {
+            lyr.bindTooltip(esc(name), { sticky: true, direction: "top" });
             lyr.on("click", () => {
               onSelectBuilding?.(f.properties?.id || "");
               setSelectedCard({
                 name,
-                infoType: "Sin información suficiente",
+                infoType: f.properties?.verified ? "Instalación verificada" : "Referencia cartográfica",
                 explanation:
-                  "Instalación registrada en OpenStreetMap. Consulta las zonas de atención o la Simulación sencilla (2017 / 2023) para explorar escenarios referenciales.",
+                  "Instalación registrada en la Ciudad Universitaria UNT. Consulta las zonas de atención o la Simulación sencilla (2017 / 2023) para explorar escenarios referenciales.",
               });
             });
           },
@@ -419,6 +428,68 @@ export default function StudentMonitoringMap({
       });
   }, [campusLayers, showEvacuation]);
 
+  // Capa referencial de Contexto Trujillo (Ruta del Agua y entorno) — desactivada por defecto
+  useEffect(() => {
+    const group = trujilloContextGroupRef.current;
+    if (!group || !campusLayers) return;
+    group.clearLayers();
+    if (!showTrujilloContext) return;
+
+    const ctxFeatures = campusLayers.surrounding_context?.features || [];
+    ctxFeatures.forEach((f) => {
+      const p = f.properties || {};
+      const ftype = p.feature_type || "";
+      const popupHtml = `<div class="space-y-1 max-w-[235px]">
+        <div class="text-[10px] font-bold uppercase text-indigo-700">Capa referencial · Contexto Trujillo</div>
+        <div class="font-bold text-slate-900">${esc(p.name)}</div>
+        <div class="text-[11px] text-slate-700">${esc(p.description || "")}</div>
+        <div class="pt-1 border-t border-slate-200 text-[10px] text-slate-500">${esc(p.disclaimer || "Trazo referencial orientativo.")}</div>
+      </div>`;
+
+      if (f.geometry?.type === "Point") {
+        const [lon, lat] = f.geometry.coordinates;
+        L.circleMarker([lat, lon], {
+          radius: 7,
+          color: "#FFFFFF",
+          weight: 2,
+          fillColor: "#4F46E5",
+          fillOpacity: 0.95,
+        })
+          .bindTooltip(`${esc(p.name)} (referencial)`, { direction: "top" })
+          .bindPopup(popupHtml, { className: "yaku-popup" })
+          .on("click", () => {
+            setSelectedCard({
+              name: p.name,
+              infoType: "Contexto Trujillo (referencial)",
+              explanation: p.description || "Punto referencial del entorno inmediato UNT.",
+            });
+          })
+          .addTo(group);
+      } else {
+        const style =
+          ftype === "ruta_del_agua"
+            ? { color: "#0284C7", weight: 4, dashArray: "10 6", opacity: 0.9 }
+            : ftype === "corredor_aniego"
+            ? { color: "#4F46E5", weight: 4.5, dashArray: "4 6", opacity: 0.9 }
+            : { color: "#B45309", weight: 2, dashArray: "5 4", fillColor: "#F59E0B", fillOpacity: 0.18 };
+        L.geoJSON(f, {
+          style,
+          onEachFeature: (_feat, lyr) => {
+            lyr.bindTooltip(`${esc(p.name)} (referencial)`, { sticky: true, direction: "top" });
+            lyr.bindPopup(popupHtml, { className: "yaku-popup" });
+            lyr.on("click", () => {
+              setSelectedCard({
+                name: p.name,
+                infoType: "Contexto Trujillo (referencial)",
+                explanation: p.description || "Sector referencial del entorno inmediato de la UNT.",
+              });
+            });
+          },
+        }).addTo(group);
+      }
+    });
+  }, [campusLayers, showTrujilloContext]);
+
   // Enfocar edificio seleccionado desde Inicio / Asistente YAKU
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -487,8 +558,8 @@ export default function StudentMonitoringMap({
         </button>
       </div>
 
-      {/* Resumen compacto de Open-Meteo (sin datos inventados) */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Resumen compacto de Open-Meteo (probabilístico, sin mensajes deterministas) */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33]">
           <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
             Lluvia prevista (24 h)
@@ -496,13 +567,29 @@ export default function StudentMonitoringMap({
           <div className="mt-0.5 text-xl font-bold text-[#101828] tabular-nums dark:text-white">
             {weather?.summary ? `${weather.summary.accumulated_24h_mm} mm` : "—"}
           </div>
+          <div className="text-[10px] text-[#64748B] dark:text-slate-400">
+            48 h: {weather?.summary ? `${weather.summary.accumulated_48h_mm} mm` : "—"}
+          </div>
         </div>
         <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33]">
           <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
-            Lluvia prevista (48 h)
+            Probabilidad máx. lluvia
           </div>
-          <div className="mt-0.5 text-xl font-bold text-[#101828] tabular-nums dark:text-white">
-            {weather?.summary ? `${weather.summary.accumulated_48h_mm} mm` : "—"}
+          <div className="mt-0.5 text-xl font-bold text-[#2563EB] tabular-nums dark:text-blue-400">
+            {weather?.summary?.max_probability_24h_pct !== null &&
+            weather?.summary?.max_probability_24h_pct !== undefined
+              ? `${weather.summary.max_probability_24h_pct}%`
+              : weather?.summary?.max_probability_pct !== null &&
+                weather?.summary?.max_probability_pct !== undefined
+              ? `${weather.summary.max_probability_pct}%`
+              : "N/D"}
+          </div>
+          <div className="text-[10px] text-[#64748B] dark:text-slate-400">
+            48 h:{" "}
+            {weather?.summary?.max_probability_48h_pct !== null &&
+            weather?.summary?.max_probability_48h_pct !== undefined
+              ? `${weather.summary.max_probability_48h_pct}%`
+              : "—"}
           </div>
         </div>
         <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33]">
@@ -513,7 +600,16 @@ export default function StudentMonitoringMap({
             {weather?.summary ? `${weather.summary.max_intensity_mm_h} mm/h` : "—"}
           </div>
         </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33]">
+        <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3.5 dark:border-blue-900/60 dark:bg-blue-950/30">
+          <div className="text-[11px] font-medium text-blue-900 dark:text-blue-200">
+            Confianza del pronóstico
+          </div>
+          <div className="mt-0.5 text-xs font-bold leading-snug text-[#101828] dark:text-white">
+            {weather?.summary?.forecast_confidence_label ||
+              "Pronóstico probabilístico 48 h — Open-Meteo"}
+          </div>
+        </div>
+        <div className="col-span-2 rounded-xl border border-[#E2E8F0] bg-white p-3.5 dark:border-slate-800 dark:bg-[#0B1F33] sm:col-span-1">
           <div className="text-[11px] font-medium text-[#475467] dark:text-slate-400">
             Actualización (Lima)
           </div>
@@ -577,6 +673,19 @@ export default function StudentMonitoringMap({
             >
               Zonas de atención
             </button>
+            <button
+              type="button"
+              onClick={() => setShowTrujilloContext((v) => !v)}
+              aria-pressed={showTrujilloContext}
+              title="Capa referencial: Ruta del Agua, Av. Jesús de Nazareth y Urb. San Andrés"
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold backdrop-blur transition ${
+                showTrujilloContext
+                  ? "border-indigo-600 bg-indigo-600 text-white"
+                  : "border-[#E2E8F0] bg-white/95 text-[#101828] dark:border-slate-700 dark:bg-[#0B1F33]/95 dark:text-white"
+              }`}
+            >
+              Contexto Trujillo (Ruta del Agua y entorno) · Ref.
+            </button>
             <div
               role="group"
               aria-label="Mapa base"
@@ -615,6 +724,19 @@ export default function StudentMonitoringMap({
             <span className="flex items-center gap-1.5">
               <span className="inline-block w-4 border-t-2 border-dashed border-emerald-700" /> Ruta referencial
             </span>
+            {showTrujilloContext && (
+              <>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-4 border-t-2 border-dashed border-sky-600" /> Ruta del Agua (ref.)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block w-4 border-t-2 border-dotted border-indigo-600" /> Av. J. de Nazareth (ref.)
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm border border-amber-700 bg-amber-400/40" /> Urb. San Andrés (ref.)
+                </span>
+              </>
+            )}
           </div>
         </div>
 

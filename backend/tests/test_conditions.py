@@ -18,6 +18,7 @@ from app.services.spatial import analyze_conditions_exposure, load_campus_geojso
 
 client = TestClient(app)
 JDN, JPII, QUEBRADA = "av_jesus_nazareth", "av_juan_pablo_ii", "quebrada_san_ildefonso"
+Q_SC, Q_LD, Q_IND = "quebrada_san_carlos", "quebrada_leon_dormido", "quebrada_indoamerica"
 
 
 def _simulate(conditions, intensity=0.0, duration=1, **extra):
@@ -91,7 +92,7 @@ def test_jesus_de_nazareth_alone_marks_front_and_puerta4():
     assert data["preventive_evaluation"]["preventive_level"] == "VIGILANCIA_PREVENTIVA"
 
 
-@pytest.mark.parametrize("condition", [JDN, JPII, QUEBRADA])
+@pytest.mark.parametrize("condition", [JDN, JPII, QUEBRADA, Q_SC, Q_LD, Q_IND])
 def test_each_single_condition_raises_at_least_surveillance(condition):
     level = _simulate([condition]).json()["preventive_evaluation"]["preventive_level"]
     assert level in ("VIGILANCIA_PREVENTIVA", "ATENCION_PREVENTIVA")
@@ -160,9 +161,14 @@ def test_default_request_is_unchanged_without_conditions():
 
 def test_conditions_catalog_endpoint():
     data = client.get("/api/conditions").json()
-    assert {c["id"] for c in data["conditions"]} == {JDN, JPII, QUEBRADA}
+    assert {c["id"] for c in data["conditions"]} == {JDN, JPII, QUEBRADA, Q_SC, Q_LD, Q_IND}
     assert data["rules"]
     assert "no provienen de sensores" in data["metadata"]["disclaimer"]
+    by_id = {c["id"]: c for c in data["conditions"]}
+    assert "sin obras de mitigación" in by_id[Q_IND]["description"].lower()
+    assert "35 diques" in by_id[QUEBRADA]["description"].lower()
+    assert "laredo" in by_id[Q_SC]["description"].lower()
+    assert "residuos" in by_id[Q_LD]["description"].lower()
 
 
 def test_live_evaluation_accepts_conditions():

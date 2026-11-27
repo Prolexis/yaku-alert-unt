@@ -29,6 +29,7 @@ from app.services.spatial import (
     load_campus_geojson,
     load_evacuation_geojson,
     load_hazards_geojson,
+    load_trujillo_context_geojson,
 )
 from app.services.weather import fetch_weather_for_unt
 
@@ -91,6 +92,7 @@ def get_campus_layers() -> dict:
         "campus": load_campus_geojson(),
         "hazards": load_hazards_geojson(),
         "evacuation": load_evacuation_geojson(),
+        "surrounding_context": load_trujillo_context_geojson(),
     }
 
 

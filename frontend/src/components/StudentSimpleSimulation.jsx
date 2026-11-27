@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { fetchPublicSimulation } from "../services/api";
+import { getFeatureDisplayName } from "../utils/campusCatalog";
 
 const UNT_CENTER = [-8.11473, -79.03923];
 
@@ -255,7 +256,7 @@ export default function StudentSimpleSimulation({
       .filter((f) => f.properties?.category === "edificio")
       .forEach((f) => {
         const fid = f.properties?.id;
-        const name = f.properties?.name || "Edificio universitario";
+        const name = getFeatureDisplayName(f.properties);
         const impact = byId.get(fid);
         const touched = Boolean(impact && impact.first_hour_affected !== null);
 
@@ -267,6 +268,7 @@ export default function StudentSimpleSimulation({
             fillOpacity: touched ? 0.55 : 0.35,
           },
           onEachFeature: (_feat, lyr) => {
+            lyr.bindTooltip(esc(name), { sticky: true, direction: "top" });
             lyr.on("click", () => {
               setSelectedFacility({
                 name,

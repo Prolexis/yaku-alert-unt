@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { Layers, MapPin, ShieldAlert, Building2, Navigation, ArrowRight, WifiOff, Radio } from "lucide-react";
 import { normalizeText } from "../utils/formatters";
-import { buildCampusCatalog, CAMPUS_CATEGORIES } from "../utils/campusCatalog";
+import { buildCampusCatalog, CAMPUS_CATEGORIES, getFeatureDisplayName } from "../utils/campusCatalog";
 import ExternalConditionsPanel from "./ui/ExternalConditionsPanel";
 import SensorDetailPanel from "./ui/SensorDetailPanel";
 import {
@@ -45,13 +45,8 @@ const LEVELS = {
 };
 const isExposedLevel = (lv) => lv === "parcial" || lv === "alta" || lv === "total";
 
-const isUnnamed = (name) => /^Edificio sin nombre/.test(name || "");
-const displayBuildingName = (building) => {
-  if (!isUnnamed(building.name)) return building.name;
-  const osmId = String(building.osm_id || "");
-  const digits = osmId.match(/\d+$/)?.[0] || "000000";
-  return `Edificio sin nombre (OSM ${digits.slice(-6).padStart(6, "0")})`;
-};
+const isUnnamed = (name) => !name || /^Edificio sin nombre/i.test(name);
+const displayBuildingName = (building) => getFeatureDisplayName(building);
 
 const sourceLine = (props) =>
   `<div class="mt-1 text-[10px] text-slate-500">Fuente: ${esc(props.source || "referencial")} · ${
@@ -121,6 +116,7 @@ export default function CampusMapView({
     influencia_sintetica: true,
     vigilar: true,
     sensores_iot: false,
+    contexto_trujillo: false,
   });
 
   // Si se selecciona un sensor desde Asistente YAKU u otra vista, activa la capa automáticamente.
@@ -417,7 +413,8 @@ export default function CampusMapView({
         const exp = exposureById.get(id);
         const lv = exp?.exposure_level;
         const isExposed = isExposedLevel(lv);
-        const unnamed = isUnnamed(name);
+        const displayName = getFeatureDisplayName(feat.properties);
+        const unnamed = isUnnamed(feat.properties.name);
         const watched = visibleLayers.vigilar ? watchById.get(id) : undefined;
         const baseStyle = isExposed
           ? {
@@ -437,7 +434,7 @@ export default function CampusMapView({
         const layer = L.geoJSON(feat, { style })
           .bindPopup(
             `<div>
-              <strong>${esc(name)}</strong><br/>
+              <strong>${esc(displayName)}</strong><br/>
               <span class="text-[11px]">${
                 isExposed
                   ? `⚠️ Exposición ${LEVELS[lv].label.toLowerCase()} en escenario experimental (${exp.overlap_pct}% de la huella)`
@@ -460,7 +457,7 @@ export default function CampusMapView({
             </div>`,
             { className: "yaku-popup" }
           );
-        if (!unnamed) layer.bindTooltip(esc(name), { sticky: true, direction: "top" });
+        layer.bindTooltip(esc(displayName), { sticky: true, direction: "top" });
         layer.addTo(group);
       } else if (category === "ruta_referencial" && visibleLayers.rutas) {
         L.geoJSON(feat, { style: { color: "#7C3AED", weight: 3, dashArray: "5 6" } })
@@ -560,6 +557,44 @@ export default function CampusMapView({
             )
             .addTo(group);
         });
+    }
+    // Capa referencial de Contexto Trujillo (Ruta del Agua y entorno inmediato UNT) — desactivada por defecto
+    if (visibleLayers.contexto_trujillo && campusLayers.surrounding_context?.features?.length) {
+      campusLayers.surrounding_context.features.forEach((f) => {
+        const p = f.properties || {};
+        const ftype = p.feature_type || "";
+        const popupHtml = `<div class="space-y-1 max-w-[240px]">
+          <div class="text-[10px] font-bold uppercase text-indigo-700">Capa referencial · Contexto Trujillo</div>
+          <strong>${esc(p.name)}</strong>
+          <div class="text-[11px]">${esc(p.description || "")}</div>
+          <div class="text-[10px] text-slate-500">${esc(p.disclaimer || "Trazo referencial orientativo.")}</div>
+        </div>`;
+
+        if (f.geometry?.type === "Point") {
+          const [lon, lat] = f.geometry.coordinates;
+          L.circleMarker([lat, lon], {
+            radius: 7,
+            color: "#FFFFFF",
+            weight: 2,
+            fillColor: "#4F46E5",
+            fillOpacity: 0.95,
+          })
+            .bindTooltip(`${esc(p.name)} (referencial)`, { direction: "top" })
+            .bindPopup(popupHtml, { className: "yaku-popup" })
+            .addTo(group);
+        } else {
+          const style =
+            ftype === "ruta_del_agua"
+              ? { color: "#0284C7", weight: 4, dashArray: "10 6", opacity: 0.9 }
+              : ftype === "corredor_aniego"
+              ? { color: "#4F46E5", weight: 4.5, dashArray: "4 6", opacity: 0.9 }
+              : { color: "#B45309", weight: 2, dashArray: "5 4", fillColor: "#F59E0B", fillOpacity: 0.18 };
+          L.geoJSON(f, { style })
+            .bindTooltip(`${esc(p.name)} (referencial)`, { sticky: true, direction: "top" })
+            .bindPopup(popupHtml, { className: "yaku-popup" })
+            .addTo(group);
+        }
+      });
     }
   }, [campusLayers, simResult, visibleLayers]);
 
@@ -765,7 +800,7 @@ export default function CampusMapView({
               </div>
 
               {layersOpen && (
-                <div className="w-52 rounded-xl border border-[#E2E8F0] bg-white/95 p-3 text-xs backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
+                <div className="w-64 rounded-xl border border-[#E2E8F0] bg-white/95 p-3 text-xs backdrop-blur dark:border-slate-700 dark:bg-[#0B1F33]/95">
                   <div className="mb-2.5 flex gap-1" role="group" aria-label="Mapa base">
                     {Object.entries(BASEMAPS).map(([key, cfg]) => (
                       <button
@@ -796,6 +831,7 @@ export default function CampusMapView({
                       { key: "puntos", label: "Puntos encuentro ref." },
                       { key: "rutas", label: "Rutas ref." },
                       { key: "sensores_iot", label: "Sensores IoT [SIM]" },
+                      { key: "contexto_trujillo", label: "Contexto Trujillo (Ruta del Agua y entorno) — ref." },
                     ].map((layer) => (
                       <label key={layer.key} className="flex cursor-pointer items-center gap-2">
                         <input
@@ -869,6 +905,19 @@ export default function CampusMapView({
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full border border-dashed border-amber-800 bg-amber-500" /> Sensor desconectado [SIM]
+                    </span>
+                  </>
+                )}
+                {visibleLayers.contexto_trujillo && (
+                  <>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block w-3 border-t-2 border-dashed border-sky-600" /> Ruta del Agua (ref.)
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block w-3 border-t-2 border-dotted border-indigo-600" /> Av. J. de Nazareth (ref.)
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm border border-amber-700 bg-amber-400/40" /> Urb. San Andrés (ref.)
                     </span>
                   </>
                 )}

@@ -1,5 +1,15 @@
 import React, { useState } from "react";
-import { WifiOff, RefreshCw, ChevronDown, HelpCircle } from "lucide-react";
+import {
+  WifiOff,
+  RefreshCw,
+  ChevronDown,
+  HelpCircle,
+  Gauge,
+  Wind,
+  Thermometer,
+  Waves,
+  ExternalLink,
+} from "lucide-react";
 import PrecipitationChart from "./ui/PrecipitationChart";
 import SkeletonCard from "./ui/SkeletonCard";
 import { formatLimaTime } from "../utils/formatters";
@@ -122,9 +132,13 @@ export default function MonitoringView({
           tooltip="Suma total de agua prevista en el periodo seleccionado."
         />
         <MetricWithTooltip
-          label="Probabilidad máxima"
-          value={`${summary.max_probability_pct ?? "N/D"}%`}
-          tooltip="Chance de lluvia ≥0.1 mm en 1h. Si el acumulado es 0 mm, indica lluvia muy débil o dispersa; no equivale a probabilidad de huaico."
+          label={`Probabilidad máxima (${windowHours}h)`}
+          value={`${
+            windowHours === 24
+              ? summary.max_probability_24h_pct ?? summary.max_probability_pct ?? "N/D"
+              : summary.max_probability_48h_pct ?? summary.max_probability_pct ?? "N/D"
+          }%`}
+          tooltip="Probabilidad horaria de precipitación ≥0.1 mm (modelo probabilístico Open-Meteo). No equivale a confirmación determinista de lluvia ni de activación de quebradas."
         />
         <MetricWithTooltip
           label="Humedad promedio"
@@ -132,6 +146,131 @@ export default function MonitoringView({
           tooltip={`Horas con lluvia ≥0.1 mm en 24h: ${summary.estimated_event_duration_h} h.`}
         />
       </div>
+
+      {/* 2b. Variables sinópticas locales (referencia de campo anti-falsas alarmas) */}
+      <section
+        aria-label="Variables sinópticas locales"
+        className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]"
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h3 className="text-base font-semibold text-[#101828] dark:text-white">
+              Variables sinópticas locales
+            </h3>
+            <p className="text-xs text-[#475467] dark:text-slate-400">
+              Indicadores complementarios de campo para reducir falsas alarmas ·{" "}
+              {summary.forecast_confidence_label || "Pronóstico probabilístico 48 h — Open-Meteo"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {/* Presión atmosférica */}
+          <div className="rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] p-3.5 dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#475467] dark:text-slate-300">
+              <Gauge className="h-3.5 w-3.5 text-[#2563EB]" />
+              <span>Presión atmosférica</span>
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              <span className="text-xl font-bold text-[#101828] tabular-nums dark:text-white">
+                {summary.current_surface_pressure_hpa !== null &&
+                summary.current_surface_pressure_hpa !== undefined
+                  ? `${summary.current_surface_pressure_hpa} ${units.surface_pressure || "hPa"}`
+                  : "N/D"}
+              </span>
+              {summary.min_surface_pressure_24h_hpa !== null &&
+                summary.min_surface_pressure_24h_hpa !== undefined && (
+                  <span className="text-[11px] text-[#64748B] tabular-nums dark:text-slate-400">
+                    mín. 24h: {summary.min_surface_pressure_24h_hpa} hPa
+                  </span>
+                )}
+            </div>
+            <p className="mt-1.5 text-[11px] leading-snug text-[#475467] dark:text-slate-400">
+              Referencia local: una caída por debajo de{" "}
+              <strong className="text-[#101828] dark:text-slate-200">1000 hPa</strong> con calma de
+              viento se asocia localmente a mayor probabilidad de lluvia.
+            </p>
+          </div>
+
+          {/* Velocidad y dirección del viento */}
+          <div className="rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] p-3.5 dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#475467] dark:text-slate-300">
+              <Wind className="h-3.5 w-3.5 text-[#2563EB]" />
+              <span>Viento (10 m)</span>
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              <span className="text-xl font-bold text-[#101828] tabular-nums dark:text-white">
+                {summary.current_wind_speed_kmh !== null &&
+                summary.current_wind_speed_kmh !== undefined
+                  ? `${summary.current_wind_speed_kmh} ${units.wind_speed_10m || "km/h"}`
+                  : "N/D"}
+              </span>
+              {summary.current_wind_direction_cardinal && (
+                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[11px] font-bold text-blue-900 dark:bg-blue-950 dark:text-blue-200">
+                  {summary.current_wind_direction_cardinal}
+                  {summary.current_wind_direction_deg !== null &&
+                  summary.current_wind_direction_deg !== undefined
+                    ? ` (${summary.current_wind_direction_deg}°)`
+                    : ""}
+                </span>
+              )}
+            </div>
+            <p className="mt-1.5 text-[11px] leading-snug text-[#475467] dark:text-slate-400">
+              Brisa costera habitual del sector S/SO en Trujillo; vientos en calma junto a baja
+              presión requieren mayor vigilancia.
+            </p>
+          </div>
+
+          {/* Sensación térmica */}
+          <div className="rounded-lg border border-[#E2E8F0] bg-[#F7F9FC] p-3.5 dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#475467] dark:text-slate-300">
+              <Thermometer className="h-3.5 w-3.5 text-[#2563EB]" />
+              <span>Sensación térmica</span>
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              <span className="text-xl font-bold text-[#101828] tabular-nums dark:text-white">
+                {summary.current_apparent_temperature_c !== null &&
+                summary.current_apparent_temperature_c !== undefined
+                  ? `${summary.current_apparent_temperature_c} ${units.apparent_temperature || "°C"}`
+                  : "N/D"}
+              </span>
+              {hourly?.[0]?.temperature_2m_c !== null && hourly?.[0]?.temperature_2m_c !== undefined && (
+                <span className="text-[11px] text-[#64748B] tabular-nums dark:text-slate-400">
+                  aire: {hourly[0].temperature_2m_c} °C
+                </span>
+              )}
+            </div>
+            <p className="mt-1.5 text-[11px] leading-snug text-[#475467] dark:text-slate-400">
+              Bochorno combinado con alta humedad relativa suele preceder episodios convectivos
+              costeros durante verano o FEN.
+            </p>
+          </div>
+
+          {/* Tarjeta referencial TSM — ENFEN */}
+          <div className="rounded-lg border border-cyan-200 bg-cyan-50/60 p-3.5 dark:border-cyan-900/60 dark:bg-cyan-950/25">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-900 dark:text-cyan-200">
+              <Waves className="h-3.5 w-3.5 text-cyan-700 dark:text-cyan-400" />
+              <span>TSM — ENFEN (Referencial)</span>
+            </div>
+            <div className="mt-1.5 text-sm font-bold text-[#101828] dark:text-white">
+              Temperatura Superficial del Mar
+            </div>
+            <p className="mt-1 text-[11px] leading-snug text-[#475467] dark:text-slate-300">
+              El calentamiento costero (región Niño 1+2) es monitoreado oficialmente por el ENFEN
+              como indicador clave del Fenómeno El Niño.
+            </p>
+            <a
+              href="https://enfen.imarpe.gob.pe/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-cyan-800 hover:underline dark:text-cyan-300"
+            >
+              <span>Consultar comunicado ENFEN</span>
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
+      </section>
 
       {/* 3. Gráfico */}
       <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 dark:border-slate-800 dark:bg-[#0B1F33]">
@@ -182,15 +321,16 @@ export default function MonitoringView({
                     <th className="px-4 py-2.5 font-semibold">Hora</th>
                     <th className="px-4 py-2.5 font-semibold">Lluvia</th>
                     <th className="px-4 py-2.5 font-semibold">Prob.</th>
+                    <th className="px-4 py-2.5 font-semibold">Presión</th>
                     <th className="px-4 py-2.5 font-semibold">Humedad</th>
                     <th className="px-4 py-2.5 font-semibold">Viento</th>
-                    <th className="px-4 py-2.5 font-semibold">Temp.</th>
+                    <th className="px-4 py-2.5 font-semibold">Temp. / Sens.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-800">
                   {tableRows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-sm text-[#475467]">
+                      <td colSpan={7} className="px-4 py-6 text-center text-sm text-[#475467]">
                         Sin horas con precipitación ≥0.1 mm en este periodo.
                       </td>
                     </tr>
@@ -207,13 +347,22 @@ export default function MonitoringView({
                           {pt.precipitation_probability_pct ?? "N/D"}%
                         </td>
                         <td className="px-4 py-2 text-[#475467] tabular-nums dark:text-slate-300">
+                          {pt.surface_pressure_hpa !== null && pt.surface_pressure_hpa !== undefined
+                            ? `${pt.surface_pressure_hpa} hPa`
+                            : "N/D"}
+                        </td>
+                        <td className="px-4 py-2 text-[#475467] tabular-nums dark:text-slate-300">
                           {pt.relative_humidity_2m_pct ?? "N/D"}%
                         </td>
                         <td className="px-4 py-2 text-[#475467] tabular-nums dark:text-slate-300">
                           {pt.wind_speed_10m_kmh ?? "N/D"} km/h
+                          {pt.wind_direction_cardinal ? ` · ${pt.wind_direction_cardinal}` : ""}
                         </td>
                         <td className="px-4 py-2 text-[#475467] tabular-nums dark:text-slate-300">
                           {pt.temperature_2m_c ?? "N/D"} °C
+                          {pt.apparent_temperature_c !== null && pt.apparent_temperature_c !== undefined
+                            ? ` (${pt.apparent_temperature_c}°)`
+                            : ""}
                         </td>
                       </tr>
                     ))

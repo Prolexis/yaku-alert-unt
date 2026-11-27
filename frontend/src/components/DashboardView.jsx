@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowRight, Map as MapIcon, BookOpen, Sliders, AlertCircle, Info } from "lucide-react";
+import { ArrowRight, Map as MapIcon, BookOpen, Sliders, AlertCircle, Info, ShieldCheck } from "lucide-react";
 import PrecipitationChart from "./ui/PrecipitationChart";
 import SkeletonCard from "./ui/SkeletonCard";
 import FacultyLookupCard from "./ui/FacultyLookupCard";
@@ -9,13 +9,16 @@ function buildWeatherPhrase(summary) {
   if (!summary) return "Consultando condiciones para la Ciudad Universitaria UNT...";
   const acc = summary.accumulated_24h_mm ?? 0;
   const maxI = summary.max_intensity_mm_h ?? 0;
+  const maxP = summary.max_probability_24h_pct ?? summary.max_probability_pct;
+  const probSuffix =
+    maxP !== null && maxP !== undefined ? ` (probabilidad máxima estimada: ${maxP}% en 24 h).` : ".";
   if (acc < 0.5 && maxI < 0.5) {
-    return "No se prevén acumulados significativos en las próximas 24 horas.";
+    return `No se estiman acumulados significativos en las próximas 24 horas${probSuffix}`;
   }
   if (maxI >= 10 || acc >= 20) {
-    return "Se pronostican lluvias moderadas a fuertes en las próximas 24 horas.";
+    return `El modelo probabilístico sugiere posibilidad de lluvias moderadas a fuertes en las próximas 24 horas${probSuffix}`;
   }
-  return "Se prevén lluvias ligeras o intermitentes en las próximas 24 horas.";
+  return `El modelo probabilístico sugiere posibilidad de lluvias ligeras o intermitentes en las próximas 24 horas${probSuffix}`;
 }
 
 export default function DashboardView({
@@ -85,9 +88,16 @@ export default function DashboardView({
         <p className="text-base text-[#475467] dark:text-slate-300">
           {buildWeatherPhrase(summary)}
         </p>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#475467] dark:text-slate-400">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-[#475467] dark:text-slate-400">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-900 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-200">
+            <ShieldCheck className="h-3.5 w-3.5 text-[#2563EB] dark:text-blue-400" />
+            <span>
+              Confianza del pronóstico:{" "}
+              {summary?.forecast_confidence_label || "Pronóstico probabilístico 48 h — Open-Meteo"}
+            </span>
+          </span>
           <span title={utc}>
-            Fuente: Open-Meteo · Pronóstico, no medición local · {local}
+            No es medición de pluviómetro local · {local}
           </span>
           <button
             type="button"
@@ -156,13 +166,23 @@ export default function DashboardView({
               unit={`${units.precipitation}/h`}
             />
             <CompactKpiRow
-              label="Probabilidad de lluvia"
-              value={`${summary.max_probability_pct ?? "N/D"}`}
+              label="Probabilidad máx. de lluvia"
+              value={`${summary.max_probability_24h_pct ?? summary.max_probability_pct ?? "N/D"}`}
               unit="%"
+              note={
+                summary.max_probability_48h_pct !== null && summary.max_probability_48h_pct !== undefined
+                  ? `48 h: ${summary.max_probability_48h_pct}%`
+                  : "Modelo numérico"
+              }
             />
             <div className="py-3">
-              <div className="text-xs font-medium text-[#475467] dark:text-slate-400">
-                Estado informativo
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-xs font-medium text-[#475467] dark:text-slate-400">
+                  Nivel preventivo
+                </span>
+                <span className="text-[11px] font-semibold text-[#2563EB] dark:text-blue-400">
+                  Prob. {summary.max_probability_24h_pct ?? summary.max_probability_pct ?? "N/D"}%
+                </span>
               </div>
               <div className="mt-1 flex items-center gap-2">
                 {liveEvaluation && (
@@ -175,6 +195,9 @@ export default function DashboardView({
                   {statusTitle}
                 </span>
               </div>
+              <p className="mt-0.5 text-[11px] text-[#64748B] dark:text-slate-400">
+                Orientativo (no es alerta oficial ni confirmación determinista de lluvia).
+              </p>
               <button
                 type="button"
                 onClick={() => onNavigate("prevention")}

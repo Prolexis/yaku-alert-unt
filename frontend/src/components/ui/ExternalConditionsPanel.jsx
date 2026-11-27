@@ -1,5 +1,6 @@
 import React from "react";
 import { safeHttpsUrl } from "../../utils/conditions";
+import OfficialChannelsSection from "./OfficialChannelsSection";
 
 const TYPE_LABEL = { calle: "Calle", quebrada: "Quebrada" };
 
@@ -63,6 +64,17 @@ export default function ExternalConditionsPanel({ catalog, active = [], onToggle
                   <span className="mt-0.5 block text-[11px] leading-snug text-[#475467] dark:text-slate-400">
                     {condition.description}
                   </span>
+                  {condition.mitigation_status && (
+                    <span
+                      className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                        condition.id === "quebrada_indoamerica"
+                          ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200"
+                          : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      }`}
+                    >
+                      {condition.mitigation_status}
+                    </span>
+                  )}
                 </span>
               </label>
               {link && (
@@ -72,7 +84,7 @@ export default function ExternalConditionsPanel({ catalog, active = [], onToggle
                   rel="noopener noreferrer"
                   className="ml-6 mt-1 inline-block text-[10px] text-[#2563EB] underline dark:text-blue-400"
                 >
-                  Fuente de referencia (prensa, por confirmar)
+                  Fuente de referencia
                 </a>
               )}
             </div>
@@ -85,6 +97,8 @@ export default function ExternalConditionsPanel({ catalog, active = [], onToggle
           Ninguna condición activa: no se marca ninguna zona.
         </p>
       )}
+
+      <OfficialChannelsSection compact />
     </fieldset>
   );
 }

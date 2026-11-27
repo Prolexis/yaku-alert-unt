@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ChevronDown, AlertTriangle } from "lucide-react";
 import PreventiveMessageCard from "./ui/PreventiveMessageCard";
+import OfficialChannelsSection from "./ui/OfficialChannelsSection";
 
 export default function PreventionView({
   evaluation,
@@ -142,6 +143,9 @@ export default function PreventionView({
               {evaluation.legal_disclaimer}
             </p>
           </section>
+
+          {/* Canales Oficiales de Alerta diferenciados por competencia */}
+          <OfficialChannelsSection />
 
           {/* Reglas técnicas desplegables */}
           <section className="rounded-xl border border-[#E2E8F0] bg-white dark:border-slate-800 dark:bg-[#0B1F33]">

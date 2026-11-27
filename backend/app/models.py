@@ -9,7 +9,11 @@ class HourlyForecastPoint(BaseModel):
     rain_mm: float = Field(default=0.0, ge=0.0)
     relative_humidity_2m_pct: Optional[int] = Field(default=None, ge=0, le=100)
     wind_speed_10m_kmh: Optional[float] = Field(default=None, ge=0.0)
+    wind_direction_10m_deg: Optional[int] = Field(default=None, ge=0, le=360)
+    wind_direction_cardinal: Optional[str] = None
     temperature_2m_c: Optional[float] = None
+    apparent_temperature_c: Optional[float] = None
+    surface_pressure_hpa: Optional[float] = Field(default=None, ge=800.0, le=1100.0)
 
 
 class WeatherSummary(BaseModel):
@@ -18,7 +22,16 @@ class WeatherSummary(BaseModel):
     accumulated_48h_mm: float
     estimated_event_duration_h: int
     max_probability_pct: Optional[int] = None
+    max_probability_24h_pct: Optional[int] = None
+    max_probability_48h_pct: Optional[int] = None
     avg_humidity_pct: Optional[float] = None
+    current_surface_pressure_hpa: Optional[float] = None
+    min_surface_pressure_24h_hpa: Optional[float] = None
+    current_wind_speed_kmh: Optional[float] = None
+    current_wind_direction_deg: Optional[int] = None
+    current_wind_direction_cardinal: Optional[str] = None
+    current_apparent_temperature_c: Optional[float] = None
+    forecast_confidence_label: str = "Pronóstico probabilístico 48 h — Open-Meteo"
 
 
 class WeatherResponse(BaseModel):

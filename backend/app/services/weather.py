@@ -34,6 +34,32 @@ def _safe_int(val: Any) -> int | None:
         return None
 
 
+CARDINAL_DIRECTIONS = ("N", "NE", "E", "SE", "S", "SO", "O", "NO")
+
+
+def degrees_to_cardinal(deg: float | int | None) -> str | None:
+    if deg is None:
+        return None
+    try:
+        num = float(deg)
+        if num != num:
+            return None
+        idx = int((num % 360) / 45.0 + 0.5) % 8
+        return CARDINAL_DIRECTIONS[idx]
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_optional_float(val: Any) -> float | None:
+    if val is None:
+        return None
+    try:
+        num = float(val)
+        return num if num == num else None
+    except (TypeError, ValueError):
+        return None
+
+
 def parse_open_meteo_payload(
     raw: dict[str, Any],
     data_status: str,
@@ -50,7 +76,10 @@ def parse_open_meteo_payload(
     rain = hourly_raw.get("rain", [])
     humidity = hourly_raw.get("relative_humidity_2m", [])
     wind = hourly_raw.get("wind_speed_10m", [])
+    wind_dir = hourly_raw.get("wind_direction_10m", [])
     temp = hourly_raw.get("temperature_2m", [])
+    apparent_temp = hourly_raw.get("apparent_temperature", [])
+    pressure = hourly_raw.get("surface_pressure", [])
 
     points: list[HourlyForecastPoint] = []
     for idx, t in enumerate(times):
@@ -63,7 +92,15 @@ def parse_open_meteo_payload(
         if h_val is not None:
             h_val = max(0, min(100, h_val))
         w_val = _safe_float(wind[idx], 0.0) if idx < len(wind) else None
-        temp_val = float(temp[idx]) if idx < len(temp) and temp[idx] is not None else None
+        wd_val = _safe_int(wind_dir[idx]) if idx < len(wind_dir) else None
+        if wd_val is not None:
+            wd_val = wd_val % 360
+        wd_cardinal = degrees_to_cardinal(wd_val)
+        temp_val = _safe_optional_float(temp[idx]) if idx < len(temp) else None
+        app_val = _safe_optional_float(apparent_temp[idx]) if idx < len(apparent_temp) else None
+        pres_val = _safe_optional_float(pressure[idx]) if idx < len(pressure) else None
+        if pres_val is not None and not (800.0 <= pres_val <= 1100.0):
+            pres_val = None
 
         points.append(
             HourlyForecastPoint(
@@ -73,7 +110,11 @@ def parse_open_meteo_payload(
                 rain_mm=round(r_val, 2),
                 relative_humidity_2m_pct=h_val,
                 wind_speed_10m_kmh=round(w_val, 1) if w_val is not None else None,
+                wind_direction_10m_deg=wd_val,
+                wind_direction_cardinal=wd_cardinal,
                 temperature_2m_c=round(temp_val, 1) if temp_val is not None else None,
+                apparent_temperature_c=round(app_val, 1) if app_val is not None else None,
+                surface_pressure_hpa=round(pres_val, 1) if pres_val is not None else None,
             )
         )
 
@@ -84,11 +125,23 @@ def parse_open_meteo_payload(
     acc_48 = round(sum(pt.precipitation_mm for pt in first_48), 2)
     event_hours = sum(1 for pt in first_24 if pt.precipitation_mm >= 0.1)
 
-    probs = [pt.precipitation_probability_pct for pt in first_24 if pt.precipitation_probability_pct is not None]
-    max_prob = max(probs) if probs else None
+    probs_24 = [pt.precipitation_probability_pct for pt in first_24 if pt.precipitation_probability_pct is not None]
+    probs_48 = [pt.precipitation_probability_pct for pt in first_48 if pt.precipitation_probability_pct is not None]
+    max_prob_24 = max(probs_24) if probs_24 else None
+    max_prob_48 = max(probs_48) if probs_48 else None
 
     hums = [pt.relative_humidity_2m_pct for pt in first_24 if pt.relative_humidity_2m_pct is not None]
     avg_hum = round(sum(hums) / len(hums), 1) if hums else None
+
+    pressures_24 = [pt.surface_pressure_hpa for pt in first_24 if pt.surface_pressure_hpa is not None]
+    current_pressure = pressures_24[0] if pressures_24 else None
+    min_pressure_24 = min(pressures_24) if pressures_24 else None
+
+    first_pt = first_24[0] if first_24 else None
+    current_wind_speed = first_pt.wind_speed_10m_kmh if first_pt else None
+    current_wind_deg = first_pt.wind_direction_10m_deg if first_pt else None
+    current_wind_cardinal = first_pt.wind_direction_cardinal if first_pt else None
+    current_apparent_temp = first_pt.apparent_temperature_c if first_pt else None
 
     units_raw = raw.get("hourly_units", {})
     units = {
@@ -96,13 +149,21 @@ def parse_open_meteo_payload(
         "precipitation_probability": str(units_raw.get("precipitation_probability", "%")),
         "relative_humidity_2m": str(units_raw.get("relative_humidity_2m", "%")),
         "wind_speed_10m": str(units_raw.get("wind_speed_10m", "km/h")),
+        "wind_direction_10m": str(units_raw.get("wind_direction_10m", "°")),
         "temperature_2m": str(units_raw.get("temperature_2m", "°C")),
+        "apparent_temperature": str(units_raw.get("apparent_temperature", "°C")),
+        "surface_pressure": str(units_raw.get("surface_pressure", "hPa")),
     }
 
     data_nature = (
         "DATOS_REALES_API_PRONOSTICO"
         if data_status == "LIVE_API"
         else "RESPALDO_LOCAL_CACHE_PRONOSTICO"
+    )
+    confidence_label = (
+        "Pronóstico probabilístico 48 h — Open-Meteo"
+        if data_status == "LIVE_API"
+        else "Pronóstico probabilístico 48 h — Caché local offline (Open-Meteo)"
     )
 
     return WeatherResponse(
@@ -124,8 +185,17 @@ def parse_open_meteo_payload(
             accumulated_24h_mm=acc_24,
             accumulated_48h_mm=acc_48,
             estimated_event_duration_h=event_hours,
-            max_probability_pct=max_prob,
+            max_probability_pct=max_prob_24,
+            max_probability_24h_pct=max_prob_24,
+            max_probability_48h_pct=max_prob_48,
             avg_humidity_pct=avg_hum,
+            current_surface_pressure_hpa=current_pressure,
+            min_surface_pressure_24h_hpa=min_pressure_24,
+            current_wind_speed_kmh=current_wind_speed,
+            current_wind_direction_deg=current_wind_deg,
+            current_wind_direction_cardinal=current_wind_cardinal,
+            current_apparent_temperature_c=current_apparent_temp,
+            forecast_confidence_label=confidence_label,
         ),
         hourly=points,
         fallback_reason=fallback_reason,
@@ -159,7 +229,10 @@ async def fetch_weather_for_unt(force_offline: bool = False) -> WeatherResponse:
     params = {
         "latitude": UNT_CAMPUS_LAT,
         "longitude": UNT_CAMPUS_LON,
-        "hourly": "precipitation,precipitation_probability,rain,relative_humidity_2m,wind_speed_10m,temperature_2m",
+        "hourly": (
+            "precipitation,precipitation_probability,rain,relative_humidity_2m,"
+            "wind_speed_10m,wind_direction_10m,temperature_2m,apparent_temperature,surface_pressure"
+        ),
         "timezone": UNT_TIMEZONE,
         "forecast_days": 2,
     }

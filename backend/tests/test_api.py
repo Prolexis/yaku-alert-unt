@@ -49,7 +49,43 @@ def test_weather_offline_fallback():
     assert data["data_nature"] == "RESPALDO_LOCAL_CACHE_PRONOSTICO"
     assert len(data["hourly"]) >= 24
     assert "precipitation" in data["units"]
+    assert "surface_pressure" in data["units"]
+    assert "wind_direction_10m" in data["units"]
+    assert "apparent_temperature" in data["units"]
     assert "Open-Meteo" in data["source_name"]
+
+    # Variables sinópticas y probabilidad 24h/48h en modo offline
+    summary = data["summary"]
+    assert summary["max_probability_24h_pct"] is not None
+    assert summary["max_probability_48h_pct"] is not None
+    assert summary["current_surface_pressure_hpa"] is not None
+    assert summary["min_surface_pressure_24h_hpa"] is not None
+    assert summary["current_wind_speed_kmh"] is not None
+    assert summary["current_wind_direction_deg"] is not None
+    assert summary["current_wind_direction_cardinal"] in ("N", "NE", "E", "SE", "S", "SO", "O", "NO")
+    assert summary["current_apparent_temperature_c"] is not None
+    assert "Open-Meteo" in summary["forecast_confidence_label"]
+
+    first = data["hourly"][0]
+    assert first["surface_pressure_hpa"] is not None
+    assert first["wind_direction_10m_deg"] is not None
+    assert first["wind_direction_cardinal"] in ("N", "NE", "E", "SE", "S", "SO", "O", "NO")
+    assert first["apparent_temperature_c"] is not None
+
+
+def test_degrees_to_cardinal_mapping():
+    from app.services.weather import degrees_to_cardinal
+
+    assert degrees_to_cardinal(0) == "N"
+    assert degrees_to_cardinal(45) == "NE"
+    assert degrees_to_cardinal(90) == "E"
+    assert degrees_to_cardinal(135) == "SE"
+    assert degrees_to_cardinal(180) == "S"
+    assert degrees_to_cardinal(225) == "SO"
+    assert degrees_to_cardinal(270) == "O"
+    assert degrees_to_cardinal(315) == "NO"
+    assert degrees_to_cardinal(360) == "N"
+    assert degrees_to_cardinal(None) is None
 
 
 def test_weather_live_api():
@@ -181,6 +217,27 @@ def test_campus_geojson_quality():
     for f in feats:
         assert f["properties"].get("source"), f["properties"]["id"]
         assert f["properties"].get("verified") in (True, False)
+        if f["properties"].get("category") == "edificio":
+            nm = (f["properties"].get("name") or "").strip()
+            assert nm, f"Edificio sin nombre: {f['properties']['id']}"
+            assert "sin nombre" not in nm.lower(), f"Edificio con etiqueta genérica: {nm}"
+
+
+def test_campus_layers_includes_trujillo_surrounding_context():
+    resp = client.get("/api/campus/layers")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "surrounding_context" in data
+    ctx = data["surrounding_context"]
+    assert ctx["type"] == "FeatureCollection"
+    feats = ctx["features"]
+    assert len(feats) >= 3
+    ftypes = {f["properties"].get("feature_type") for f in feats}
+    assert {"corredor_aniego", "entorno_inundable", "ruta_del_agua"} <= ftypes
+    names_joined = " ".join(f["properties"].get("name", "") for f in feats)
+    assert "Jesús de Nazareth" in names_joined
+    assert "San Andrés" in names_joined
+    assert "Ruta del Agua" in names_joined
 
 
 def test_simulation_reproducibility_and_synthetic_labeling():
@@ -230,7 +287,14 @@ def test_protocols_endpoint():
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["preventive_levels"]) == 4
-    assert len(data["trujillo_basins_context"]) == 3
+    assert len(data["trujillo_basins_context"]) == 4
+    basin_names = {b["name"] for b in data["trujillo_basins_context"]}
+    assert {
+        "Quebrada San Ildefonso",
+        "Quebrada San Carlos",
+        "Quebrada León Dormido",
+        "Quebrada de Indoamérica",
+    } == basin_names
 
 
 def test_offline_fallback_declares_reason_and_cache_period():

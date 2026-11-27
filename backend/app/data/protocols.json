@@ -144,19 +144,32 @@
   ],
   "trujillo_basins_context": [
     {
+      "id": "quebrada_san_ildefonso",
       "name": "Quebrada San Ildefonso",
+      "sector": "El Porvenir / Trujillo",
       "role": "Contexto externo al campus (cuenca de aporte hacia El Porvenir / Trujillo)",
-      "note": "Cuenta con obras de prevención (túnel de trasvase y diques bajo gestión de ANIN). El MVP no cuenta con sensores en tiempo real en esta quebrada; solo se muestra contexto informativo."
+      "note": "Cuenta con 35 diques culminados y obras de derivación; ante activación severa ofrece una ventana referencial de ~45 min para activar respuesta preventiva. El prototipo no cuenta con sensores en tiempo real en esta quebrada."
     },
     {
+      "id": "quebrada_san_carlos",
       "name": "Quebrada San Carlos",
-      "role": "Contexto externo al campus (cuenca receptora y conducción hacia río Moche)",
-      "note": "Referencia informativa regional. No se infiere activación de quebrada a partir de probabilidad de lluvia local."
+      "sector": "Sector Laredo",
+      "role": "Contexto externo al campus (sector Laredo — conducción hacia río Moche)",
+      "note": "Referencia informativa regional en el sector Laredo. No se infiere activación de quebrada a partir de probabilidad de lluvia local; seguir reportes oficiales del COER La Libertad / COEN."
     },
     {
-      "name": "Quebrada El León",
-      "role": "Contexto externo al campus (sector norte de Trujillo / Huanchaco)",
-      "note": "Referencia informativa regional para desplazamientos de estudiantes desde zonas norte."
+      "id": "quebrada_leon_dormido",
+      "name": "Quebrada León Dormido",
+      "sector": "El Milagro / Huanchaco",
+      "role": "Contexto externo al campus (El Milagro / Huanchaco)",
+      "note": "Presenta riesgo residual por residuos sólidos y obstrucciones en cauce. Referencia regional clave para desplazamientos de estudiantes desde el sector norte."
+    },
+    {
+      "id": "quebrada_indoamerica",
+      "name": "Quebrada de Indoamérica",
+      "sector": "La Esperanza",
+      "role": "Contexto externo al campus (La Esperanza — sin obras de mitigación ejecutadas)",
+      "note": "Quebrada identificada en La Esperanza sin obras de mitigación ejecutadas. Referencia prioritaria para flexibilidad académica y seguridad en traslados desde la zona norte."
     }
   ]
 }

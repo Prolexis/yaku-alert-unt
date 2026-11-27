@@ -22,6 +22,11 @@ const OFFICIAL_NAME_MAP = {
   "facultad de ciencias fisicas y matematicas": "Facultad de Ciencias Físicas y Matemáticas",
   "rectorado ciencias biologicas": "Facultad de Ciencias Biológicas (Rectorado)",
   "escuela de igenieria mecatronica": "Escuela de Ingeniería Mecatrónica",
+  "auditorio coopernico": "Auditorio Copérnico",
+  "observatorio astronomico": "Observatorio Astronómico",
+  "cafetin cecimost": "Cafetín CECIMOST",
+  "cubiculo de docentes": "Cubículos de Docentes",
+  "colegio narvaez": "C.E.E. Rafael Narváez Cadenillas",
 };
 
 const CATEGORY_KEYWORDS = {
@@ -73,19 +78,34 @@ function classifyFeature(props) {
   return null;
 }
 
+export function getFeatureDisplayName(props = {}) {
+  const raw = String(props?.name || "").trim();
+  const cat = props?.category || "";
+  if (cat === "area_deportiva" && isUnnamedName(raw)) {
+    return "Instalación deportiva — Campus UNT";
+  }
+  if (cat === "estacionamiento" && isUnnamedName(raw)) {
+    return "Estacionamiento — Campus UNT";
+  }
+  if (isUnnamedName(raw)) {
+    return "Pabellón académico — Ciudad Universitaria UNT";
+  }
+  const norm = normalizeText(raw);
+  return OFFICIAL_NAME_MAP[norm] || raw;
+}
+
 function formatDisplayLabel(props, typeId) {
   const raw = props.name || "";
   if (typeId === "deporte" && isUnnamedName(raw)) {
     const idTail = String(props.osm_id || props.id || "").match(/\d+$/)?.[0]?.slice(-4) || "";
-    return idTail ? `Instalación deportiva (OSM ${idTail})` : "Instalación deportiva";
+    return idTail ? `Instalación deportiva — Sector ${idTail}` : "Instalación deportiva — Campus UNT";
   }
   if (typeId === "estacionamiento" && isUnnamedName(raw)) {
     const idTail = String(props.osm_id || props.id || "").match(/\d+$/)?.[0]?.slice(-4) || "";
-    return idTail ? `Estacionamiento (OSM ${idTail})` : "Estacionamiento";
+    return idTail ? `Estacionamiento — Sector ${idTail}` : "Estacionamiento — Campus UNT";
   }
   if (isUnnamedName(raw)) {
-    const digits = String(props.osm_id || props.id || "").match(/\d+$/)?.[0] || "000000";
-    return `Edificio sin nombre (OSM ${digits.slice(-6).padStart(6, "0")})`;
+    return "Pabellón académico — Ciudad Universitaria UNT";
   }
   const norm = normalizeText(raw);
   return OFFICIAL_NAME_MAP[norm] || raw;
@@ -149,6 +169,7 @@ export function buildCampusCatalog(campusLayers, simResult) {
       source: props.source || "OpenStreetMap / capa curada UNT",
       osmId: props.osm_id || null,
       center,
+      geometry: feat.geometry || null,
       exposure: exp,
       searchText: normalizeText(
         `${displayLabel} ${props.name || ""} ${typeLabelMap[typeId] || ""} ${CATEGORY_KEYWORDS[typeId] || ""}`

@@ -34,11 +34,11 @@ LEVEL_TO_CAP_SEVERITY = {
 CAP_SEVERITY_TO_LEVEL = {v: k for k, v in LEVEL_TO_CAP_SEVERITY.items()}
 
 DEMO_ACCOUNTS = [
-    ("estudiante@unt.demo", "Estudiante UNT (Demo)", "estudiante"),
-    ("docente@unt.demo", "Docente UNT (Demo)", "docente"),
-    ("admin.oficina@unt.demo", "Personal Administrativo UNT (Demo)", "administrativo"),
-    ("directivo@unt.demo", "Directivo / Decanato UNT (Demo)", "directivo"),
-    ("operador@unt.demo", "Operador de Gestión de Riesgos (Demo)", "operador_riesgos"),
+    ("estudiante@unt.demo", "Estudiante UNT (Demo)", "estudiante", "51902455346"),
+    ("docente@unt.demo", "Docente UNT (Demo)", "docente", None),
+    ("admin.oficina@unt.demo", "Personal Administrativo UNT (Demo)", "administrativo", None),
+    ("directivo@unt.demo", "Directivo / Decanato UNT (Demo)", "directivo", None),
+    ("operador@unt.demo", "Operador de Gestión de Riesgos (Demo)", "operador_riesgos", None),
 ]
 DEMO_DEFAULT_PASSWORD = "YakuDemo2026!"
 
@@ -79,7 +79,7 @@ def init_db() -> Path:
     with _connect() as conn:
         conn.execute("PRAGMA journal_mode=WAL;")
 
-        # 1. users (5 cuentas sintéticas demo, PBKDF2-SHA256, 0 PII)
+        # 1. users (5 cuentas sintéticas demo, PBKDF2-SHA256)
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -89,10 +89,12 @@ def init_db() -> Path:
                 salt TEXT NOT NULL,
                 display_name TEXT NOT NULL,
                 role TEXT NOT NULL,
+                whatsapp_phone TEXT,
                 created_at TEXT NOT NULL
             )
             """
         )
+        _ensure_columns(conn, "users", {"whatsapp_phone": "TEXT"})
 
         # 2. issued_alerts (Anatomía CAP 1.2 + Validación Humana)
         conn.execute(
@@ -117,6 +119,8 @@ def init_db() -> Path:
                 active INTEGER NOT NULL DEFAULT 1,
                 validated_by_role TEXT,
                 validated_at TEXT,
+                whatsapp_status TEXT NOT NULL DEFAULT 'no_enviado',
+                whatsapp_message_id TEXT,
                 created_at TEXT NOT NULL
             )
             """
@@ -136,6 +140,8 @@ def init_db() -> Path:
                 "status": "TEXT NOT NULL DEFAULT 'emitida'",
                 "validated_by_role": "TEXT",
                 "validated_at": "TEXT",
+                "whatsapp_status": "TEXT NOT NULL DEFAULT 'no_enviado'",
+                "whatsapp_message_id": "TEXT",
             },
         )
 
@@ -224,17 +230,24 @@ def init_db() -> Path:
 
         # Sembrar las 5 cuentas demo sintéticas (idempotente)
         now = _now_iso()
-        for email, display_name, role in DEMO_ACCOUNTS:
-            exists = conn.execute("SELECT 1 FROM users WHERE email = ?", (email,)).fetchone()
-            if not exists:
+        for email, display_name, role, wa_phone in DEMO_ACCOUNTS:
+            row = conn.execute(
+                "SELECT id, whatsapp_phone FROM users WHERE email = ?", (email,)
+            ).fetchone()
+            if not row:
                 salt = secrets.token_hex(16)
                 pw_hash = _hash_password(DEMO_DEFAULT_PASSWORD, salt)
                 conn.execute(
                     """
-                    INSERT INTO users (email, password_hash, salt, display_name, role, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO users (email, password_hash, salt, display_name, role, whatsapp_phone, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (email, pw_hash, salt, display_name, role, now),
+                    (email, pw_hash, salt, display_name, role, wa_phone, now),
+                )
+            elif wa_phone and row["whatsapp_phone"] != wa_phone:
+                conn.execute(
+                    "UPDATE users SET whatsapp_phone = ? WHERE id = ?",
+                    (wa_phone, row["id"]),
                 )
 
         conn.commit()
@@ -244,13 +257,49 @@ def init_db() -> Path:
 # ---------------------------------------------------------------------------
 # 1. Autenticación Demo (5 roles sintéticos — sin PII)
 # ---------------------------------------------------------------------------
+def _mask_phone(phone: str | None) -> str | None:
+    if not phone:
+        return None
+    digits = "".join(ch for ch in str(phone) if ch.isdigit())
+    if len(digits) <= 6:
+        return "***" if not digits else f"{digits[:2]}***"
+    return f"{digits[:3]}****{digits[-3:]}"
+
+
 def list_demo_users() -> list[dict[str, Any]]:
     init_db()
     with _connect() as conn:
         rows = conn.execute(
-            "SELECT id, email, display_name, role, created_at FROM users ORDER BY id ASC"
+            "SELECT id, email, display_name, role, whatsapp_phone, created_at FROM users ORDER BY id ASC"
         ).fetchall()
-    return [dict(r) for r in rows]
+    return [
+        {
+            "id": int(r["id"]),
+            "email": str(r["email"]),
+            "display_name": str(r["display_name"]),
+            "role": str(r["role"]),
+            "whatsapp_phone_masked": _mask_phone(r["whatsapp_phone"]),
+            "created_at": str(r["created_at"]),
+        }
+        for r in rows
+    ]
+
+
+def get_demo_whatsapp_recipients(target_roles: list[str] | None = None) -> list[str]:
+    """Devuelve teléfonos registrados en la tabla users para difusión sandbox."""
+    init_db()
+    with _connect() as conn:
+        if target_roles:
+            placeholders = ",".join("?" for _ in target_roles)
+            rows = conn.execute(
+                f"SELECT whatsapp_phone FROM users WHERE whatsapp_phone IS NOT NULL AND whatsapp_phone != '' AND role IN ({placeholders})",
+                tuple(target_roles),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT whatsapp_phone FROM users WHERE whatsapp_phone IS NOT NULL AND whatsapp_phone != ''"
+            ).fetchall()
+    return [str(r["whatsapp_phone"]).strip() for r in rows if str(r["whatsapp_phone"]).strip()]
 
 
 def authenticate_demo_user(
@@ -358,9 +407,35 @@ def _row_to_alert(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         "active": bool(row["active"]),
         "validated_by_role": str(row["validated_by_role"]) if row["validated_by_role"] else None,
         "validated_at": str(row["validated_at"]) if row["validated_at"] else None,
+        "whatsapp_status": str(row["whatsapp_status"] or "no_enviado"),
+        "whatsapp_message_id": str(row["whatsapp_message_id"]) if row["whatsapp_message_id"] else None,
         "created_at": str(row["created_at"]),
         "confirmations": _get_confirmations_summary(conn, alert_id),
     }
+
+
+def update_alert_whatsapp_status(
+    alert_id: int,
+    whatsapp_status: str,
+    whatsapp_message_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Actualiza el estado de difusión WhatsApp y el wamid en SQLite."""
+    init_db()
+    with _connect() as conn:
+        row = conn.execute("SELECT id FROM issued_alerts WHERE id = ?", (alert_id,)).fetchone()
+        if row is None:
+            return None
+        conn.execute(
+            """
+            UPDATE issued_alerts
+            SET whatsapp_status = ?, whatsapp_message_id = COALESCE(?, whatsapp_message_id)
+            WHERE id = ?
+            """,
+            (whatsapp_status, whatsapp_message_id, alert_id),
+        )
+        conn.commit()
+        updated = conn.execute("SELECT * FROM issued_alerts WHERE id = ?", (alert_id,)).fetchone()
+        return _row_to_alert(conn, updated)
 
 
 def create_alert(

@@ -4,6 +4,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: yaku-alert-backend
+    env_file:
+      - path: ./backend/.env
+        required: false
     ports:
       - "8000:8000"
     healthcheck:

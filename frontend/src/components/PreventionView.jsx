@@ -33,6 +33,8 @@ export default function PreventionView({
   onResolveAlert,
   onValidateAlert,
   onConfirmAlert,
+  onSendWhatsApp,
+  whatsappStatus = null,
   campusReports = [],
   onUpdateReportStatus,
 }) {
@@ -324,6 +326,8 @@ export default function PreventionView({
               onResolveAlert={onResolveAlert}
               onValidateAlert={onValidateAlert}
               onConfirmAlert={onConfirmAlert}
+              onSendWhatsApp={onSendWhatsApp}
+              whatsappStatus={whatsappStatus}
               activeDemoRole={activeDemoRole}
             />
           )}
@@ -336,6 +340,7 @@ export default function PreventionView({
             userRole={userRole}
             activeDemoRole={activeDemoRole}
             onIssueAlert={onIssueAlert}
+            whatsappStatus={whatsappStatus}
           />
 
           <AdminReportsInbox

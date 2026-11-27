@@ -24,6 +24,7 @@ from app.db import (
     record_simulation_run,
     resolve_alert,
     resolve_continuity_decision,
+    update_alert_whatsapp_status,
     update_report_status,
     validate_alert,
 )
@@ -57,6 +58,7 @@ from app.services.spatial import (
     load_trujillo_context_geojson,
 )
 from app.services.weather import fetch_weather_for_unt
+from app.services.whatsapp import get_whatsapp_channel_status, send_cap_alert_whatsapp
 
 app = FastAPI(
     title="YAKU ALERT — UNT API",
@@ -381,10 +383,20 @@ class CreateAlertRequest(BaseModel):
     affected_zones: list[str] = Field(default_factory=list, max_length=12)
     status: Literal["borrador_pendiente_validacion", "emitida"] | None = None
     validated_by_role: Literal["directivo", "operador_riesgos"] | None = None
+    send_whatsapp: bool = False
+    offline: bool = False
 
 
 class ValidateAlertRequest(BaseModel):
     validated_by_role: Literal["directivo", "operador_riesgos"] = "directivo"
+    send_whatsapp: bool = False
+    offline: bool = False
+
+
+class SendWhatsAppAlertRequest(BaseModel):
+    offline: bool = False
+    use_template_fallback: bool = False
+    recipients: list[str] | None = None
 
 
 class ConfirmAlertRequest(BaseModel):
@@ -466,8 +478,16 @@ def get_alerts(
     }
 
 
+def _map_wa_dispatch_status(dispatch_status: str) -> str:
+    if dispatch_status == "sent":
+        return "enviado"
+    if dispatch_status == "simulated":
+        return "simulado"
+    return "error"
+
+
 @app.post("/api/alerts", status_code=201)
-def post_alert(payload: CreateAlertRequest) -> dict:
+async def post_alert(payload: CreateAlertRequest) -> dict:
     if not (payload.title.strip() or (payload.what_happens or "").strip()):
         raise HTTPException(status_code=422, detail="Debe incluir title o what_happens.")
     created = create_alert(
@@ -487,16 +507,70 @@ def post_alert(payload: CreateAlertRequest) -> dict:
         status=payload.status,
         validated_by_role=payload.validated_by_role,
     )
+    if payload.send_whatsapp and created.get("status") == "emitida":
+        dispatch = await send_cap_alert_whatsapp(created, offline=payload.offline)
+        updated = update_alert_whatsapp_status(
+            created["id"],
+            _map_wa_dispatch_status(dispatch["status"]),
+            dispatch.get("first_message_id"),
+        )
+        if updated:
+            created = updated
+        created["whatsapp_dispatch"] = dispatch
     return created
 
 
 @app.patch("/api/alerts/{alert_id}/validate")
-def patch_validate_alert(alert_id: int, payload: ValidateAlertRequest) -> dict:
+async def patch_validate_alert(alert_id: int, payload: ValidateAlertRequest) -> dict:
     """Validación humana obligatoria: convierte borrador en alerta emitida."""
     validated = validate_alert(alert_id, validated_by_role=payload.validated_by_role)
     if validated is None:
         raise HTTPException(status_code=404, detail=f"Alerta #{alert_id} no encontrada.")
+    if payload.send_whatsapp:
+        dispatch = await send_cap_alert_whatsapp(validated, offline=payload.offline)
+        updated = update_alert_whatsapp_status(
+            validated["id"],
+            _map_wa_dispatch_status(dispatch["status"]),
+            dispatch.get("first_message_id"),
+        )
+        if updated:
+            validated = updated
+        validated["whatsapp_dispatch"] = dispatch
     return validated
+
+
+@app.get("/api/whatsapp/status")
+def get_whatsapp_status() -> dict:
+    """Estado del canal WhatsApp Cloud API (sin exponer tokens ni números completos)."""
+    return get_whatsapp_channel_status()
+
+
+@app.post("/api/alerts/{alert_id}/send-whatsapp")
+async def post_send_alert_whatsapp(
+    alert_id: int,
+    payload: SendWhatsAppAlertRequest | None = None,
+) -> dict:
+    """Envía una alerta CAP 1.2 por WhatsApp Cloud API (Sandbox) y guarda wamid en SQLite."""
+    alert = get_alert_by_id(alert_id)
+    if alert is None:
+        raise HTTPException(status_code=404, detail=f"Alerta #{alert_id} no encontrada.")
+    req = payload or SendWhatsAppAlertRequest()
+    dispatch = await send_cap_alert_whatsapp(
+        alert,
+        recipients=req.recipients,
+        offline=req.offline,
+        use_template_fallback=req.use_template_fallback,
+    )
+    db_status = _map_wa_dispatch_status(dispatch["status"])
+    updated = update_alert_whatsapp_status(
+        alert_id,
+        db_status,
+        dispatch.get("first_message_id"),
+    )
+    return {
+        "alert": updated or alert,
+        "whatsapp": dispatch,
+    }
 
 
 @app.patch("/api/alerts/{alert_id}/resolve")

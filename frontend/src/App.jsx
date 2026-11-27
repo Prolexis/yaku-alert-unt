@@ -14,10 +14,12 @@ import {
   fetchReports,
   fetchVirtualSensors,
   fetchWeather,
+  fetchWhatsAppStatus,
   issueAlert,
   resolveAlert,
   resolveContinuityDecision,
   runSimulation,
+  sendAlertWhatsApp,
   updateReportStatus,
   validateAlert,
 } from "./services/api";
@@ -93,6 +95,7 @@ export default function App() {
   const [campusReports, setCampusReports] = useState([]);
   const [continuityDecisions, setContinuityDecisions] = useState([]);
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [whatsappStatus, setWhatsappStatus] = useState(null);
 
   const refreshAlertsAndReports = () => {
     fetchAlerts(false)
@@ -134,10 +137,18 @@ export default function App() {
     try {
       const validated = await validateAlert(
         alertId,
-        activeDemoRole === "operador_riesgos" ? "operador_riesgos" : "directivo"
+        activeDemoRole === "operador_riesgos" ? "operador_riesgos" : "directivo",
+        { send_whatsapp: true, offline: forceOffline || browserOffline }
       );
       setActiveAlerts((prev) => prev.map((a) => (a.id === alertId ? validated : a)));
-      toast.success("Alerta validada y emitida (CAP 1.2)");
+      const wa = validated.whatsapp_dispatch;
+      if (wa?.status === "sent") {
+        toast.success("Alerta validada y enviada por WhatsApp (CAP 1.2)", {
+          description: `${wa.first_message_id || "Enviado"} · ${wa.reason || ""}`,
+        });
+      } else {
+        toast.success("Alerta validada y emitida (CAP 1.2)");
+      }
     } catch (err) {
       toast.error("No se pudo validar la alerta", { description: err.message });
     }
@@ -176,12 +187,65 @@ export default function App() {
   };
 
   const handleIssueAlert = async (payload) => {
-    const created = await issueAlert(payload);
-    setActiveAlerts((prev) => [created, ...prev]);
-    toast.success("Aviso publicado en la vista Estudiante", {
-      description: `${created.title} · Guardado en SQLite.`,
+    const created = await issueAlert({
+      ...payload,
+      offline: forceOffline || browserOffline,
     });
+    setActiveAlerts((prev) => [created, ...prev]);
+    const wa = created.whatsapp_dispatch;
+    if (wa) {
+      if (wa.status === "sent") {
+        toast.success("Alerta CAP emitida y enviada por WhatsApp (wamid registrado)", {
+          description: `${wa.first_message_id || "Enviado"} · ${wa.reason}`,
+        });
+      } else if (wa.status === "simulated") {
+        toast.info("Alerta CAP emitida · WhatsApp en modo simulado", {
+          description: wa.reason,
+        });
+      } else {
+        toast.warning("Alerta CAP emitida · Error en envío WhatsApp", {
+          description: wa.reason,
+        });
+      }
+    } else {
+      toast.success("Aviso publicado en la vista Estudiante", {
+        description: `${created.title} · Guardado en SQLite.`,
+      });
+    }
     return created;
+  };
+
+  const handleSendAlertWhatsApp = async (alertId) => {
+    try {
+      const res = await sendAlertWhatsApp(alertId, {
+        offline: forceOffline || browserOffline,
+      });
+      if (res.alert) {
+        setActiveAlerts((prev) =>
+          prev.map((a) => (a.id === alertId ? res.alert : a))
+        );
+      }
+      const wa = res.whatsapp || {};
+      if (wa.status === "sent") {
+        toast.success("Alerta CAP enviada por WhatsApp (wamid registrado)", {
+          description: `${wa.first_message_id || "OK"} · ${wa.reason || ""}`,
+        });
+      } else if (wa.status === "simulated") {
+        toast.info("WhatsApp Cloud API en modo simulado / offline", {
+          description: wa.reason || "Configura WHATSAPP_ENABLED=true y credenciales sandbox.",
+        });
+      } else {
+        toast.error("No se pudo enviar por WhatsApp", {
+          description: wa.reason || "Revisa ventana de 24 h o credenciales sandbox.",
+        });
+      }
+      return res;
+    } catch (err) {
+      toast.error("Error al conectar con el canal WhatsApp", {
+        description: err.message,
+      });
+      return null;
+    }
   };
 
   const handleResolveAlert = async (alertId) => {
@@ -354,9 +418,13 @@ export default function App() {
     refreshAlertsAndReports();
   }, []);
 
-  // Solo el rol Administrador carga el catálogo técnico de sensores IoT virtuales
+  // Solo el rol Administrador carga el catálogo técnico de sensores IoT virtuales y estado WhatsApp
   useEffect(() => {
-    if (userRole !== "admin" || virtualSensorsCatalog) return;
+    if (userRole !== "admin") return;
+    fetchWhatsAppStatus()
+      .then(setWhatsappStatus)
+      .catch(() => setWhatsappStatus(null));
+    if (virtualSensorsCatalog) return;
     fetchVirtualSensors()
       .then(setVirtualSensorsCatalog)
       .catch((err) => console.warn("Sensores virtuales no disponibles:", err));
@@ -545,6 +613,8 @@ export default function App() {
                     onResolveAlert={handleResolveAlert}
                     onValidateAlert={handleValidateAlert}
                     onConfirmAlert={handleConfirmAlert}
+                    onSendWhatsApp={handleSendAlertWhatsApp}
+                    whatsappStatus={whatsappStatus}
                     campusReports={campusReports}
                     onUpdateReportStatus={handleUpdateReportStatus}
                   />

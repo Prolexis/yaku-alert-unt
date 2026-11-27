@@ -92,19 +92,28 @@ function buildBroadcastDraft({ evaluation, weather, simResult, hydroResult, prof
   const disclaimer =
     "Aviso generado en modo simulación (TRL 3–4). No reemplaza alertas oficiales de SENAMHI, COEN, INDECI ni Defensa Civil UNT.";
 
+  const severityMeta = {
+    INFORMATIVO: { emoji: "🟢", code: "VERDE", label: "Informativo" },
+    VIGILANCIA_PREVENTIVA: { emoji: "🟡", code: "AMARILLO", label: "Vigilancia Preventiva" },
+    ATENCION_PREVENTIVA: { emoji: "🟠", code: "NARANJA", label: "Atención Preventiva" },
+    PREPARACION_CRITICA: { emoji: "🔴", code: "ROJO", label: "Preparación Crítica" },
+  }[levelKey] || { emoji: "🟡", code: "AMARILLO", label: "Vigilancia Preventiva" };
+
   if (channelId === "whatsapp") {
     return [
-      `[YAKU ALERT — UNT | ${levelKey}]`,
-      `Dirigido a: ${profileLabel}`,
-      `Estado: ${title}`,
-      `Referencia: ${local}`,
+      `${severityMeta.emoji} *ALERTA ${severityMeta.code} · YAKU ALERT UNT*`,
+      `\`CAP 1.2\` · _${severityMeta.label} · ${profileLabel}_`,
+      `────────────────────`,
       "",
-      `• Situación: ${evaluation.hazard_assessment}`,
-      `• Reglas activadas: ${rulesText}`,
-      `• Accesos y evacuación ref.: ${evacText}`,
-      `• Continuidad (${profileLabel}): ${continuityText}`,
+      `🌧️ *Qué pasa:* ${evaluation.hazard_assessment}`,
+      `📍 *Dónde:* Ciudad Universitaria UNT (${evacText})`,
+      `🕒 *Cuándo:* Referencia ${local} · Reglas: ${rulesText}`,
       "",
-      `Nota: ${disclaimer}`,
+      `🛡️ *Qué hacer (${profileLabel}):* ${continuityText}`,
+      "",
+      `────────────────────`,
+      `🏛️ *Emite:* Yaku Alert UNT (Validación humana · Prueba sandbox hackathon)`,
+      `_${disclaimer}_`,
     ].join("\n");
   }
 
@@ -166,11 +175,13 @@ export default function PreventiveMessageCard({
   userRole = "student",
   activeDemoRole = "directivo",
   onIssueAlert,
+  whatsappStatus = null,
 }) {
   const [profileId, setProfileId] = useState("estudiantes");
   const [channelId, setChannelId] = useState("whatsapp");
   const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [alsoSendWhatsApp, setAlsoSendWhatsApp] = useState(true);
 
   const draftText = useMemo(() => {
     if (!evaluation || userRole !== "admin") return "";
@@ -248,6 +259,7 @@ export default function PreventiveMessageCard({
         status: "emitida",
         validated_by_role:
           activeDemoRole === "operador_riesgos" ? "operador_riesgos" : "directivo",
+        send_whatsapp: alsoSendWhatsApp,
       });
     } catch (err) {
       toast.error("No se pudo emitir el aviso al campus", {
@@ -343,16 +355,41 @@ export default function PreventiveMessageCard({
         <div className="mt-5 rounded-xl border border-blue-200/80 bg-[#F7F9FC] p-4 dark:border-slate-700 dark:bg-slate-900/60">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2 text-sm font-bold text-[#101828] dark:text-white">
+              <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-[#101828] dark:text-white">
                 <Send className="h-4 w-4 text-[#2563EB]" />
                 <span>Generador de avisos preventivos por perfil y canal</span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                    whatsappStatus?.configured
+                      ? "bg-[#ECFDF5] text-[#059669] ring-1 ring-[#059669]/30 dark:bg-emerald-950/60 dark:text-emerald-300"
+                      : "bg-slate-200/80 text-[#475569] dark:bg-slate-800 dark:text-slate-300"
+                  }`}
+                >
+                  <MessageSquare className="h-3 w-3" />
+                  <span>
+                    {whatsappStatus?.configured
+                      ? `WhatsApp Cloud API: Conectado (Sandbox · ${whatsappStatus.recipients_count} dest.)`
+                      : "WhatsApp Cloud API: Modo Simulado"}
+                  </span>
+                </span>
               </div>
               <p className="mt-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
-                Simulación de difusión (TRL 3–4) — No envía mensajes a sistemas reales ni reemplaza alertas oficiales de SENAMHI/COEN.
+                Envío restringido a números de prueba autorizados del equipo (Sandbox Meta — TRL 3–4). No reemplaza alertas oficiales de SENAMHI/COEN.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {onIssueAlert && (
+                <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-300/80 bg-white px-2.5 text-xs font-semibold text-[#065F46] dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-300">
+                  <input
+                    type="checkbox"
+                    checked={alsoSendWhatsApp}
+                    onChange={(e) => setAlsoSendWhatsApp(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded accent-[#059669]"
+                  />
+                  <span>Difundir también por WhatsApp Sandbox</span>
+                </label>
+              )}
               {onIssueAlert && (
                 <button
                   type="button"

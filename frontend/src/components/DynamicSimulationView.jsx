@@ -744,6 +744,7 @@ export default function DynamicSimulationView({
         affected_zones: zones,
         status: "emitida",
         validated_by_role: activeDemoRole === "operador_riesgos" ? "operador_riesgos" : "directivo",
+        send_whatsapp: true,
       });
     } catch (err) {
       toast.error("No se pudo crear la alerta CAP", { description: err.message });

@@ -121,10 +121,10 @@ export function demoLogin(payload) {
   });
 }
 
-export function validateAlert(alertId, validatedByRole = "directivo") {
+export function validateAlert(alertId, validatedByRole = "directivo", extra = {}) {
   return requestJson(`/alerts/${encodeURIComponent(alertId)}/validate`, {
     method: "PATCH",
-    body: JSON.stringify({ validated_by_role: validatedByRole }),
+    body: JSON.stringify({ validated_by_role: validatedByRole, ...extra }),
   });
 }
 
@@ -165,4 +165,16 @@ export function recordSimulationRun(payload) {
 
 export function fetchSimulationHistory() {
   return requestJson("/simulations/history");
+}
+
+// --- WhatsApp Cloud API (Meta Graph API — Sandbox TRL 3-4) -----------------
+export function fetchWhatsAppStatus() {
+  return requestJson("/whatsapp/status");
+}
+
+export function sendAlertWhatsApp(alertId, payload = {}) {
+  return requestJson(`/alerts/${encodeURIComponent(alertId)}/send-whatsapp`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

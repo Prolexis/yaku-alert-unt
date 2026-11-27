@@ -9,6 +9,8 @@ import {
   FileCode2,
   Users,
   Check,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { formatLimaTime } from "../../utils/formatters";
 
@@ -59,9 +61,12 @@ export default function ActiveAlertsBanner({
   onResolveAlert,
   onValidateAlert,
   onConfirmAlert,
+  onSendWhatsApp,
+  whatsappStatus = null,
   activeDemoRole = "estudiante",
 }) {
   const [confirmedMap, setConfirmedMap] = useState({});
+  const [sendingWaId, setSendingWaId] = useState(null);
 
   if (!alerts.length) return null;
 
@@ -173,6 +178,20 @@ export default function ActiveAlertsBanner({
                         Validado por: {alert.validated_by_role}
                       </span>
                     )}
+                    {alert.whatsapp_status === "enviado" && (
+                      <span
+                        title={alert.whatsapp_message_id ? `wamid: ${alert.whatsapp_message_id}` : "Enviado por WhatsApp Sandbox"}
+                        className="ml-1.5 inline-flex items-center gap-1 rounded bg-[#ECFDF5] px-1.5 py-0.5 font-mono text-[11px] font-bold text-[#059669] ring-1 ring-[#059669]/30 dark:bg-emerald-950 dark:text-emerald-300"
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        Enviado por WhatsApp ✓
+                      </span>
+                    )}
+                    {alert.whatsapp_status === "simulado" && canResolve && (
+                      <span className="ml-1.5 rounded bg-slate-200/80 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[#475569] dark:bg-slate-800 dark:text-slate-300">
+                        WhatsApp: Simulado
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
                     <span className="inline-flex items-center gap-1 font-bold text-[#0B2545] dark:text-white">
@@ -238,6 +257,38 @@ export default function ActiveAlertsBanner({
                     >
                       <ShieldCheck className="h-3.5 w-3.5" />
                       <span>Validar y emitir (Humano)</span>
+                    </button>
+                  )}
+
+                  {canResolve && !isDraft && onSendWhatsApp && (
+                    <button
+                      type="button"
+                      disabled={sendingWaId === alert.id}
+                      onClick={async () => {
+                        setSendingWaId(alert.id);
+                        try {
+                          await onSendWhatsApp(alert.id);
+                        } finally {
+                          setSendingWaId(null);
+                        }
+                      }}
+                      title={
+                        whatsappStatus?.configured
+                          ? "Envío restringido a números de prueba autorizados del equipo (Sandbox Meta — TRL 3–4)."
+                          : "WhatsApp Cloud API en modo simulado (sin credenciales sandbox)."
+                      }
+                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#075E54] px-3 text-xs font-bold text-white shadow-sm transition hover:bg-[#059669] disabled:opacity-60"
+                    >
+                      {sendingWaId === alert.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      )}
+                      <span>
+                        {alert.whatsapp_status === "enviado"
+                          ? "Reenviar WhatsApp (CAP 1.2)"
+                          : "Enviar por WhatsApp (CAP 1.2)"}
+                      </span>
                     </button>
                   )}
 
